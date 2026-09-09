@@ -3,29 +3,34 @@ import {Alert,FlatList,KeyboardAvoidingView,Modal,Platform,Pressable,SafeAreaVie
 import {StatusBar} from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {createApiClient,restoreSession} from './api.mjs';
 
-const API='https://jana-fresh-app.onrender.com';
+const API=process.env.EXPO_PUBLIC_API_BASE||'https://jana-fresh-app.onrender.com';
+const request=createApiClient({base:API,storage:SecureStore});
 const TOKEN_KEY='jana.mobile.token',CART_KEY='jana.mobile.cart';
-const pending=new Map();
 const money=v=>`${(Number(v||0)/100).toFixed(2)} ر.س`;
 const when=v=>new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn',{timeZone:'Asia/Riyadh',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(Number(v)>1e12?Number(v):Number(v)*1000));
-const idem=()=>`${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
-async function request(path,{method='GET',body,token}={}){const mut=!['GET','HEAD'].includes(method),sig=method+' '+path+' '+JSON.stringify(body||{}),key=mut?(pending.get(sig)||idem()):null;if(mut)pending.set(sig,key);const h={accept:'application/json'};if(body!==undefined)h['content-type']='application/json';if(token)h.authorization=`Bearer ${token}`;if(key)h['idempotency-key']=key;let r;try{r=await fetch(API+path,{method,headers:h,body:body===undefined?undefined:JSON.stringify(body)});}catch{throw Error('تعذر الاتصال. أعد المحاولة وسيُستخدم مفتاح منع التكرار نفسه.')}let d={};try{d=await r.json()}catch{throw Error('رد غير متوقع من الخادم')}if(!r.ok){if(mut&&r.status<500)pending.delete(sig);throw Error(d?.error?.message||'تعذر إكمال العملية')}if(mut)pending.delete(sig);return d}
 const Btn=({title,onPress,kind='primary',disabled=false})=><Pressable disabled={disabled} onPress={onPress} style={[s.btn,kind==='outline'&&s.outline,disabled&&{opacity:.45}]}><Text style={[s.btnText,kind==='outline'&&s.outlineText]}>{title}</Text></Pressable>;
 const Input=({label,...p})=><View style={s.field}><Text style={s.label}>{label}</Text><TextInput {...p} textAlign="right" placeholderTextColor="#89928d" style={s.input}/></View>;
 const Card=({children})=><View style={s.card}>{children}</View>;
 
 export default function App(){
  const [token,setToken]=useState(null),[user,setUser]=useState(null),[screen,setScreen]=useState('shop'),[catalog,setCatalog]=useState([]),[cart,setCart]=useState([]),[orders,setOrders]=useState([]),[addresses,setAddresses]=useState([]),[favorites,setFavorites]=useState(new Set()),[notifications,setNotifications]=useState([]),[tickets,setTickets]=useState([]),[loading,setLoading]=useState(true),[modal,setModal]=useState(null),[quote,setQuote]=useState(null);
+ const [cartReady,setCartReady]=useState(false);
  const total=useMemo(()=>cart.reduce((n,x)=>n+x.price_halalas*x.quantity,0),[cart]);
- useEffect(()=>{(async()=>{try{const [t,c]=await Promise.all([SecureStore.getItemAsync(TOKEN_KEY),AsyncStorage.getItem(CART_KEY)]);if(c)setCart(JSON.parse(c));if(t){setToken(t);try{const me=await request('/api/auth/me',{token:t});setUser(me.user);await refreshCustomerData(t);}catch{await SecureStore.deleteItemAsync(TOKEN_KEY)}}const r=await request('/api/catalog?limit=100');setCatalog(r.items||[])}finally{setLoading(false)}})()},[]);
- useEffect(()=>{AsyncStorage.setItem(CART_KEY,JSON.stringify(cart)).catch(()=>{})},[cart]);
+ useEffect(()=>{(async()=>{try{
+  const saved=await AsyncStorage.getItem(CART_KEY);if(saved){const rows=JSON.parse(saved);if(!Array.isArray(rows))throw Error('تعذر قراءة السلة المحفوظة');setCart(rows)}setCartReady(true);
+  const session=await restoreSession({storage:SecureStore,key:TOKEN_KEY,request});setToken(session.token);setUser(session.user);
+  if(session.token)await refreshCustomerData(session.token);
+  const r=await request('/api/catalog?limit=100');setCatalog(r.items||[]);
+ }catch(e){Alert.alert('تعذر تحميل البيانات',e.message)}finally{setLoading(false)}})()},[]);
+ useEffect(()=>{if(cartReady)AsyncStorage.setItem(CART_KEY,JSON.stringify(cart)).catch(()=>Alert.alert('السلة','تعذر حفظ السلة على الجهاز'))},[cart,cartReady]);
  async function refreshCustomerData(t=token){if(!t)return;const [f,a]=await Promise.all([request('/api/favorites',{token:t}),request('/api/addresses',{token:t})]);setFavorites(new Set((f.items||[]).map(x=>x.offering_family_id)));setAddresses(a.items||[])}
  async function authed(fn){if(!token){setModal({type:'auth'});return}return fn()}
  function add(p,d=1){setCart(prev=>{const c=[...prev],i=c.findIndex(x=>x.offering_id===p.id);if(d>0&&p.available_units<1)return c;if(i<0&&d>0)c.push({offering_id:p.id,quantity:1,name:p.name,price_halalas:p.price_halalas,emoji:p.emoji||'🥬'});else if(i>=0){c[i]={...c[i],quantity:c[i].quantity+d};if(c[i].quantity<=0)c.splice(i,1)}return c})}
  async function login(email,password){const r=await request('/api/auth/login',{method:'POST',body:{email,password,mode:'mobile'}});await SecureStore.setItemAsync(TOKEN_KEY,r.access_token);setToken(r.access_token);setUser(r.user);await refreshCustomerData(r.access_token);setModal(null)}
  async function register(name,email,password){await request('/api/auth/register',{method:'POST',body:{name,email,password}});return login(email,password)}
- async function logout(){if(token)await request('/api/auth/logout',{method:'POST',token}).catch(()=>{});await SecureStore.deleteItemAsync(TOKEN_KEY);setToken(null);setUser(null);setFavorites(new Set());setScreen('shop')}
+ async function logout(){if(token)await request('/api/auth/logout',{method:'POST',token});await SecureStore.deleteItemAsync(TOKEN_KEY);setToken(null);setUser(null);setFavorites(new Set());setScreen('shop')}
  async function toggleFavorite(p){return authed(async()=>{const on=favorites.has(p.family_id);await request('/api/favorites'+(on?'/'+p.family_id:''),{method:on?'DELETE':'POST',token,body:on?undefined:{offering_family_id:p.family_id}});setFavorites(prev=>{const n=new Set(prev);on?n.delete(p.family_id):n.add(p.family_id);return n})})}
  async function loadOrders(){return authed(async()=>{const r=await request('/api/orders?limit=50',{token});setOrders(r.items||[]);setScreen('orders')})}
  async function loadNotifications(){return authed(async()=>{const r=await request('/api/notifications',{token});setNotifications(r.items||[]);setScreen('notifications')})}

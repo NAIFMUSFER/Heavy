@@ -6,7 +6,7 @@ export const number = value => new Intl.NumberFormat('ar-SA-u-nu-latn').format(v
 export const money = value => { if (!Number.isSafeInteger(value)) return 'غير مسجل'; const v=Math.abs(value); return `${value<0?'-':''}${number(Math.floor(v/100))}.${String(v%100).padStart(2,'0')} ر.س`; };
 export const parseMoney = text => { const v=String(text).trim(); if(!/^\d+(\.\d{1,2})?$/.test(v)) throw new Error('أدخل مبلغًا صحيحًا بحد أقصى منزلتين عشريتين'); const [a,b='']=v.split('.'); const n=Number(a)*100+Number(b.padEnd(2,'0')); if(!Number.isSafeInteger(n)) throw new Error('المبلغ أكبر من المسموح'); return n; };
 export const moneyInput = value => `${Math.floor(value/100)}.${String(value%100).padStart(2,'0')}`;
-export const date = (stamp, time=true) => new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', {timeZone:'Asia/Riyadh',calendar:'gregory',month:'short',day:'numeric', ...(time?{hour:'2-digit',minute:'2-digit'}:{})}).format(new Date(stamp*1000));
+export const date = (stamp, time=true) => new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', {timeZone:'Asia/Riyadh',calendar:'gregory',month:'short',day:'numeric', ...(time?{hour:'2-digit',minute:'2-digit'}:{})}).format(new Date(Number(stamp)>1e12?Number(stamp):Number(stamp)*1000));
 export const qty = c => c.base_unit==='piece' ? `${number(c.base_qty)} قطعة` : c.base_qty%1000===0 ? `${number(c.base_qty/1000)} كجم` : `${number(c.base_qty)} جرام`;
 export const statusNames = {active:'نشط',completed:'مكتمل',cancelled:'ملغى',queued:'بانتظار التجهيز',picking:'قيد التجهيز',awaiting_customer:'بانتظار موافقتك',ready:'جاهز',unassigned:'لم يُسند',assigned:'أُسند للمندوب',out_for_delivery:'في الطريق',delivered:'تم التسليم',failed:'تعذر التنفيذ',awaiting_collection:'الدفع عند الاستلام',collected:'تم تسجيل التحصيل',partially_refunded:'استرداد جزئي',refunded:'تم الاسترداد',uncollected:'لم يُحصّل',held_by_courier:'عهدة لدى المندوب',settled:'العهدة مسواة',pending:'بانتظار المعالجة',accepted:'مقبول',rejected:'مرفوض',processing:'قيد التنفيذ',requested:'مطلوب',expired:'انتهت المهلة',open:'مفتوحة',closed:'مغلقة',paused:'متوقفة',approved:'معتمد'};
 export const badge = state => `<span class="badge ${['completed','delivered','ready','accepted','settled'].includes(state)?'success':['failed','cancelled','rejected','expired'].includes(state)?'danger':'neutral'}">${esc(statusNames[state]||state)}</span>`;
@@ -53,7 +53,7 @@ export async function request(path, {method='GET',body,key}={}) {
   const headers={};if(body!==undefined)headers['Content-Type']='application/json';
   if(mutate){headers['X-CSRF-Token']=decodeURIComponent(csrf());headers['Idempotency-Key']=idemKey;}
   let response;
-  try { response=await fetch(path,{method,body:body===undefined?undefined:JSON.stringify(body),headers,credentials:'same-origin',cache:'no-store'}); }
+  try { response=await fetch(path,{method,body:body===undefined?undefined:JSON.stringify(body),headers,credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(20000)}); }
   catch {throw new ApiError('انقطع الاتصال. لم نتأكد من النتيجة؛ ستستخدم إعادة المحاولة المفتاح نفسه لمنع التكرار.','NETWORK_UNKNOWN',0,{idempotency_key:idemKey});}
   let data;try{data=await response.json();}catch{throw new ApiError('وصل رد غير متوقع. لم يتم تأكيد نجاح العملية.','INVALID_RESPONSE',response.status);}
   if(!response.ok){if(response.status<500)clearPending();throw new ApiError(data.error?.message||'تعذر إكمال الطلب',data.error?.code,response.status,data.error?.details);}
