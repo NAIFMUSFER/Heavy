@@ -2,7 +2,7 @@ name: JANA Database Integrity
 on:
   push:
     branches: [jana-live, jana-integrity]
-    paths: ['supabase/**', 'tests/database*', 'tests/coupons.py', 'tests/database-history/**', 'scripts/bootstrap-test-database.py', 'tests/concurrency.py', '.github/workflows/jana-database.yml']
+    paths: ['supabase/**', 'tests/database*', 'tests/coupons.py', 'tests/addresses.py', 'tests/database-history/**', 'scripts/bootstrap-test-database.py', 'tests/concurrency.py', '.github/workflows/jana-database.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -39,3 +39,5 @@ jobs:
         run: python3 tests/concurrency.py
       - name: Coupon pricing, lifecycle and concurrent usage limit
         run: python3 tests/coupons.py
+      - name: Structured addresses ownership and concurrent defaults
+        run: python3 tests/addresses.py

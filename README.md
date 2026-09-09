@@ -30,7 +30,7 @@ The server fails startup on missing public assets or invalid project/origin conf
 
 ## Database and Edge source
 
-`supabase/migrations` contains the three repairs already applied to the existing JANA database on 9 September 2026. They are **not a complete empty-database bootstrap**. Their pre-change source guards intentionally prevent blind reapplication. The historical migrations must be recovered and validated in an isolated database before a disaster-recovery claim is possible.
+`supabase/migrations` contains the reviewed repairs already applied to the existing JANA database on 9 September 2026. The original schema history is recovered verbatim under `tests/database-history`, with preview credentials and sample stock seed excluded. GitHub Actions successfully replays that history and the subsequent repairs into an empty PostgreSQL 17/PostGIS database. This verifies schema recovery, not recovery of production data backups. Source guards prevent blind reapplication of earlier repairs.
 
 `supabase/functions` contains the current reviewed Edge source. Custom opaque session authentication is enforced by JANA PostgreSQL RPCs; the deployed functions intentionally keep the existing `verify_jwt=false` because they do not use Supabase Auth JWT sessions. Function grants must remain service-only. Do not enable anonymous table access.
 
@@ -50,4 +50,14 @@ The verification workflow runs syntax and executable tests, then checks the actu
 
 Revert application changes through a new commit on `jana-live`; allow Render to deploy and verify `/version`, `/ready` and smoke. Database rollback requires a reviewed forward corrective migration, never editing applied history. Before commercial launch, establish backup retention, restore into an isolated JANA project, verify constraints and RBAC, and measure recovery time. Rotate Supabase server keys only in JANA Edge configuration and validate all dependencies after rotation. PostGIS grants owned by Supabase administrators remain a documented unresolved security finding.
 
-The full product definition is not complete. Outstanding commercial transactions, provider interfaces, full restore, concurrency and browser/device journeys are listed in the matrix; passing transport tests is not a production-readiness certification.
+The full product definition is not complete. Outstanding commercial transactions, provider interfaces, production-data restore and browser/device journeys are listed in the matrix; passing transport tests is not a production-readiness certification.
+
+## Transaction and release verification
+
+The isolated PostgreSQL CI gate runs 34 regression checks, ten groups of 16-client concurrency checks, and ten coupon lifecycle/pricing groups. Successful database run: 34399292889. The JavaScript suite now has 71 passing tests. See `docs/RELEASE-EVIDENCE.md` for deployment and mobile evidence.
+
+Coupons support fixed amounts and percentage basis points. Their usage is reserved with stock and delivery capacity, released on quote cancellation/expiry, and redeemed once on confirmation. Confirmed-order cancellation does not restore a redeemed usage. Immutable sold coupon terms govern weight adjustments. A coupon may expire sooner than the usual fifteen-minute quote window. VAT configuration remains outstanding.
+
+Coupon entry is gated by the server-side `jana-checkout-coupons` PostHog flag. Configure `JANA_POSTHOG_PROJECT_ID`, `JANA_POSTHOG_PROJECT_KEY`, and `JANA_POSTHOG_HOST` only for a dedicated JANA project in Supabase Edge secrets. Create the flag at 0% and test internally before requesting rollout approval. Missing configuration, flag outages, partial evaluation errors, and quota limits keep this feature disabled; ordinary COD checkout remains available. No production rollout percentage has been changed. Flags use a hashed high-entropy session identifier and never send tokens or customer details. API reference: https://posthog.com/docs/api/flags .
+
+Run the database scripts only with `JANA_TEST_DATABASE=disposable`, `PGHOST=127.0.0.1` and `PGDATABASE=jana_test`. They refuse non-local database targets. The Actions service is destroyed after the job; no preview accounts or inventory are copied into production.
