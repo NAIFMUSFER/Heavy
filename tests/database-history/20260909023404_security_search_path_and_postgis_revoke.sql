@@ -1,0 +1,9 @@
+ALTER FUNCTION public.jana_zone_geometry() SET search_path = public, pg_temp;
+ALTER FUNCTION public.jana_append_only() SET search_path = public, pg_temp;
+ALTER FUNCTION public.jana_original_order_immutable() SET search_path = public, pg_temp;
+ALTER FUNCTION public.jana_offering_immutable() SET search_path = public, pg_temp;
+ALTER FUNCTION public.jana_stock_unit_immutable() SET search_path = public, pg_temp;
+REVOKE ALL ON TABLE public.spatial_ref_sys FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.st_estimatedextent(text,text) FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.st_estimatedextent(text,text,text) FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.st_estimatedextent(text,text,text,boolean) FROM anon, authenticated;

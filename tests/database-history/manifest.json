@@ -1,0 +1,302 @@
+[
+  {
+    "name": "20260908220807_0001_initial.sql",
+    "sha256": "329af33ac57c19640e9190cbeeedfd8a30debc5604f7efec216b321f83eed54b",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260908220816_0002_postgis_and_immutable_ledgers.sql",
+    "sha256": "aeea056e33f8c6d3600bdb8e3bf99dbd161301c81f4db2598bbb2d844178663e",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260908220824_0003_customer_lists.sql",
+    "sha256": "abedf3ebe483e28aad55294f315ae68e901d04e50b40503f58aff06bdfd3a244",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260908220831_0004_address_defaults.sql",
+    "sha256": "dff0f8e9c64cae41a965cc76c497c0ae9e263e62bcc70ff0bdae6797dbe0cc8e",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260908220840_0005_ops_completion.sql",
+    "sha256": "71bec265ffbe4674727fea9ae50b5d8fe3e5aaa6cde8d335a9a28a8814228a68",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260908222154_enable_rls_and_block_client_roles.sql",
+    "sha256": "a1b119a04a228f0155a39f164c01334629a3a356bcd2d75c68cae13aba9b65b3",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260908223617_seed_public_config_only.sql",
+    "sha256": "17ca299b4c924ddb17d163f929ae70f525f5128ecef9369ccfd1848f775ece16",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909023404_security_search_path_and_postgis_revoke.sql",
+    "sha256": "61af757a04e0a306e5550ad1958b279de71f6fa8e8ca1639fb13d4cb47c0f113",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909023416_performance_cover_foreign_keys.sql",
+    "sha256": "8eb681881ff55d8a56199d02ffbb229a30269afe7874a6e6aa447602860e65a2",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909023435_security_revoke_postgis_public_exec.sql",
+    "sha256": "a86cd9970165a74ecbfc6f25d48f066f8002ef9fe3dc23706b02ef9ce417a594",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909025529_jana_preview_catalog_seed.sql",
+    "sha256": "8cf52e40bfee20e80d77338419be82a08081341aa8044aa08765a3678c69edde",
+    "included": false,
+    "reason": "Preview user/stock seed excluded from test bootstrap; no schema definitions"
+  },
+  {
+    "name": "20260909030702_jana_checkout_auth_runtime.sql",
+    "sha256": "f471ce6932dbc24f5457a66099b6352eed3b6b3ccc6e3b752f2d02a2181c56ba",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909030748_edge_rpc_gateway_permissions.sql",
+    "sha256": "9a97900d2b4eccf751d6466676f7a421d524380433b3ce1fe2ab011d30ce08d9",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909030820_public_catalog_rpc.sql",
+    "sha256": "726cefc1fbf98630d6d82f5a80f9893fa220060f7e9459fd98cb02edc6357121",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909030906_quote_and_order_runtime.sql",
+    "sha256": "60e2f8c6bbfda5baa09d0896a591f00229eaf6ba25a3784e35583e16bff76603",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909031107_normalize_operational_epoch_milliseconds.sql",
+    "sha256": "b46faaba196cf34a82ecd555025ab7945303c82353f962e1f6e6cd8de5b82b55",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909031644_expire_quote_reservations.sql",
+    "sha256": "faffdf1e9424e53887eb26c09eb04b25475f4658c241cf9d3c2a4199d86dfe19",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909031820_lock_down_postgis_reference_table.sql",
+    "sha256": "74f214309841769c91a86483b17615ca969a26f1dd6657cdfc4c0113d2ef46bd",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909032803_ops_live_workflow.sql",
+    "sha256": "4892917a53b25b41a98b0a239b12bd41e32b85d100e24aa4863e454b66168279",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909033801_admin_dashboard_staff_and_settlement.sql",
+    "sha256": "4bc297a1638e9768cfd5df7b2ba6216e774cca11592137162ea205e7b6cafb0d",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909044130_actual_weight_and_delivery_code.sql",
+    "sha256": "311eb9005972cf45385f3050a7e9934414050b8e37aa10ee7d109b58a612fa38",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909044154_fix_finalize_allocation_accounting.sql",
+    "sha256": "54240f52e509d83c8dc4e8ff7d469cc214d1ae32a98014e1e9b19e2711d863cb",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909044210_ops_orders_include_snapshot.sql",
+    "sha256": "8e9d2731fc14e95cad37cd0e0df21ee987a0235df91063cd91a5636cdc316e35",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909044447_fix_pgcrypto_search_paths.sql",
+    "sha256": "657dd79ac1dd04a0bb7c2f82ffde50eff4e9e7ade25c5b2992ebbe842d3de4b2",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909044625_safe_substitution_workflow.sql",
+    "sha256": "65a07e5dd15f0cdaed12d84d2460c87e6bad39637df37e785b72ae213723f2a2",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909044908_lock_down_rpc_surface.sql",
+    "sha256": "582286fb3cec5b603b7d19095c2adcdc88c5cfcae5a6c954ed872c0eb906a741",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909045615_customer_notifications_and_substitution_expiry.sql",
+    "sha256": "d60fd5467b2cb1716fe031b13abd7a69b8b891b1aa16a23cfdd3d7402002f3bd",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909045638_courier_tracking_and_refunds.sql",
+    "sha256": "abfcd215e6e58eddf316ad94ffb9aeb30da8644a39de5d4e37aa6cb8b76b4997",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909045657_admin_operational_reports.sql",
+    "sha256": "5ffced3dea95da75685830f135a8ac3426cb50be7413befffb5583b9beceac8a",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909053703_customer_account_support_cancel_reviews.sql",
+    "sha256": "e16e0f37c8d76e3487425e4af155dbe573a47a75ef398fada2d9011f214d31bb",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909053951_auth_rate_limit_password_and_support_ops.sql",
+    "sha256": "9ece070c7f4c5d0f58aef29ba59dd47d209d4ec3f82a23a3d2563c289f7ce169",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909063921_hardening_indexes_and_deep_health.sql",
+    "sha256": "7c48cd01325541a629e4467e32ac8780e882f50a4567bfb253bb6d8a81a21f4d",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909063944_maintenance_cleanup.sql",
+    "sha256": "bd33ac0647bc1295ab0bd80d8f6c299e145e83fa6e83a1c10bf2f8be93934d03",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909064207_restore_gateway_rpc_execution.sql",
+    "sha256": "e978521545f30750f595cc1dde527596f62258f49c785e18baedaf6c25064f75",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909064227_admin_deep_health.sql",
+    "sha256": "bac0dec6cd7671c82af0fc598118ff8c9f3fdcff8055cc82f8c7e076c7631810",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909064248_allow_non_sensitive_deep_health.sql",
+    "sha256": "9585dcd3c0b4ed8465b7eadcd27094d9e0981ff3adb2c1d7bb5519f2c10a3235",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909071603_production_hardening_idempotency_sessions.sql",
+    "sha256": "529b7a4cc4e627727c10d394b06cfa4f2162d820197373c1fccc3bc042e15cab",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909083615_lock_all_rpc_and_remove_duplicate_index.sql",
+    "sha256": "a609e1d9157dbb1c88e4509bd934a75602a20ab55ef98748b49f5c923fa14d46",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909125035_edge_customer_completion.sql",
+    "sha256": "545af486853914fc655856f8b0a91e19d20302a5cf5ba9dd9e75a5c66deeb66a",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909125940_fix_address_identifier_length.sql",
+    "sha256": "49292b48e52f595877225c402a0353c8703c0a0863ac4355d4906ceb57e44a41",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909130026_fix_quote_detail_json_cast.sql",
+    "sha256": "f04a61065cf0c66dd3bb737f3b9df1eae8ef47ae9d2eec9881080310f6db65f9",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909130218_revoke_postgis_estimatedextent_clients.sql",
+    "sha256": "adf18b91e14d3c4bdf6a99893a2d1e78c8e895176d6de69dc7856d0b15540e39",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909153505_separate_delivery_and_cod_collection.sql",
+    "sha256": "f1490f1875a723e816e7163f6df7bcd30503441bb38315c4dd64264766ae27a1",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909155059_idempotent_quote_creation.sql",
+    "sha256": "6f15225aa45b94e8cff84733584162f0c6c49e08c69feca6e8c8d705c3546dcf",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909162539_jana_admin_catalog_inventory_ops.sql",
+    "sha256": "f3835015ba0f876ea7d032c59272b8b3eb578a78b37d1e59bc68617e357e686f",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909163710_jana_admin_create_supplier_coupon_slot.sql",
+    "sha256": "3f1807386994006b1bf099178bcef9583cb4960d5b28559fe881ada08907cfaf",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909170215_jana_inventory_catalog_zone_mutations.sql",
+    "sha256": "344b537b7e9d85b7375e3a268c3d6eb020c9e52f979a464eca5f6531ab0ae0e1",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909170638_jana_restrict_privileged_rpc_execution.sql",
+    "sha256": "598f81b9a1fb9d49117ac22514441a8b606ac94f006c5f36a0ae6f767b5a8004",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909172728_jana_profitability_and_inventory_valuation_v2.sql",
+    "sha256": "87b745358d68259a9e25d6a1ad68a8bdac980f4a0096d8160401788614adda9c",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  },
+  {
+    "name": "20260909172755_jana_canonicalize_offering_components.sql",
+    "sha256": "ac76427c32332e83f1e5756882a722ef02ae322d415782939dcc67e9786a7210",
+    "included": true,
+    "reason": "Unmodified recovered applied migration"
+  }
+]

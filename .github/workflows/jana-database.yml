@@ -1,0 +1,39 @@
+name: JANA Database Integrity
+on:
+  push:
+    branches: [jana-live, jana-integrity]
+    paths: ['supabase/**', 'tests/database*', 'tests/database-history/**', 'scripts/bootstrap-test-database.py', 'tests/concurrency.py', '.github/workflows/jana-database.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_DB: jana_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-ci-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd 'pg_isready -U postgres -d jana_test'
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      JANA_TEST_DATABASE: disposable
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGDATABASE: jana_test
+      PGUSER: postgres
+      PGPASSWORD: disposable-ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replay recovered migrations in disposable PostgreSQL
+        run: python3 scripts/bootstrap-test-database.py
+      - name: Recheck transactional regressions
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f tests/database-critical-writes.sql -c "DO \$gate\$ BEGIN IF EXISTS (SELECT 1 FROM jsonb_array_elements(current_setting('jana.audit_results')::jsonb) t WHERE t->>'pass' IS DISTINCT FROM 'true') THEN RAISE EXCEPTION 'Transactional regression failed'; END IF; END \$gate\$;"
+      - name: Concurrent last-stock and last-slot requests
+        run: python3 tests/concurrency.py

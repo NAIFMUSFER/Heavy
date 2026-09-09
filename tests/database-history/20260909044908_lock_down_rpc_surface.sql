@@ -1,0 +1,4 @@
+DO $$ DECLARE r record; BEGIN FOR r IN SELECT p.oid::regprocedure sig FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname LIKE 'jana_%' LOOP EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated',r.sig); EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role',r.sig); END LOOP; END $$;
+REVOKE EXECUTE ON FUNCTION public.st_estimatedextent(text,text) FROM PUBLIC,anon,authenticated;
+REVOKE EXECUTE ON FUNCTION public.st_estimatedextent(text,text,text) FROM PUBLIC,anon,authenticated;
+REVOKE EXECUTE ON FUNCTION public.st_estimatedextent(text,text,text,boolean) FROM PUBLIC,anon,authenticated;

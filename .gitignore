@@ -8,3 +8,4 @@ mobile/ios/
 mobile/.expo/
 mobile/dist-test/
 evidence/local/
+__pycache__/

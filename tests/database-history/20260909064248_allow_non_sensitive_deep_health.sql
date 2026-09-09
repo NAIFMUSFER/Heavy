@@ -1,0 +1,1 @@
+grant execute on function public.jana_deep_health() to anon;

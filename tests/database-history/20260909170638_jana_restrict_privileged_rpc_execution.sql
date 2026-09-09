@@ -1,0 +1,14 @@
+revoke execute on function public.jana_admin_catalog(text) from public,anon,authenticated;
+revoke execute on function public.jana_admin_create_coupon(text,text,bigint,bigint,integer,bigint) from public,anon,authenticated;
+revoke execute on function public.jana_admin_create_slot(text,text,bigint,bigint,bigint,integer) from public,anon,authenticated;
+revoke execute on function public.jana_admin_create_supplier(text,text,text) from public,anon,authenticated;
+revoke execute on function public.jana_admin_create_zone(text,text,jsonb,bigint,bigint) from public,anon,authenticated;
+revoke execute on function public.jana_admin_new_offering_version(text,text,jsonb) from public,anon,authenticated;
+revoke execute on function public.jana_admin_set_coupon_active(text,text,boolean) from public,anon,authenticated;
+revoke execute on function public.jana_admin_set_offering_active(text,text,boolean) from public,anon,authenticated;
+revoke execute on function public.jana_admin_set_slot_active(text,text,boolean) from public,anon,authenticated;
+revoke execute on function public.jana_inventory_adjust_lot(text,text,bigint,text) from public,anon,authenticated;
+revoke execute on function public.jana_inventory_create_stock(text,text,text) from public,anon,authenticated;
+revoke execute on function public.jana_inventory_inspect_lot(text,text,text,text) from public,anon,authenticated;
+revoke execute on function public.jana_inventory_receive_lot(text,text,text,bigint,bigint,bigint) from public,anon,authenticated;
+grant execute on function public.jana_admin_catalog(text),public.jana_admin_create_coupon(text,text,bigint,bigint,integer,bigint),public.jana_admin_create_slot(text,text,bigint,bigint,bigint,integer),public.jana_admin_create_supplier(text,text,text),public.jana_admin_create_zone(text,text,jsonb,bigint,bigint),public.jana_admin_new_offering_version(text,text,jsonb),public.jana_admin_set_coupon_active(text,text,boolean),public.jana_admin_set_offering_active(text,text,boolean),public.jana_admin_set_slot_active(text,text,boolean),public.jana_inventory_adjust_lot(text,text,bigint,text),public.jana_inventory_create_stock(text,text,text),public.jana_inventory_inspect_lot(text,text,text,text),public.jana_inventory_receive_lot(text,text,text,bigint,bigint,bigint) to service_role;

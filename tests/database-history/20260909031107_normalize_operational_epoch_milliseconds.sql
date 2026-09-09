@@ -1,0 +1,2 @@
+update public.delivery_slots set starts_at=starts_at*1000,ends_at=ends_at*1000,cutoff_at=cutoff_at*1000 where greatest(starts_at,ends_at,cutoff_at)<1000000000000;
+update public.inventory_lots set expires_at=case when expires_at<1000000000000 then expires_at*1000 else expires_at end,created_at=case when created_at<1000000000000 then created_at*1000 else created_at end;
