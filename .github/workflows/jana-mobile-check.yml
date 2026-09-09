@@ -1,0 +1,31 @@
+name: JANA Mobile Check
+
+on:
+  push:
+    branches: [jana-live]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/jana-mobile-check.yml'
+  workflow_dispatch:
+
+jobs:
+  expo-export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: mobile/package.json
+      - name: Install mobile dependencies
+        working-directory: mobile
+        run: npm install --no-audit --no-fund
+      - name: Export Expo web bundle
+        working-directory: mobile
+        env:
+          CI: '1'
+        run: npm run check
+      - name: Verify export
+        run: test -f mobile/dist-test/index.html
