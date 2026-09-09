@@ -19,7 +19,7 @@ jobs:
           POSTGRES_PASSWORD: disposable-ci-only
         ports: ['5432:5432']
         options: >-
-          --health-cmd 'pg_isready -U postgres -d jana_test'
+          --health-cmd "pg_isready -U postgres -d jana_test"
           --health-interval 5s --health-timeout 5s --health-retries 12
     env:
       JANA_TEST_DATABASE: disposable
