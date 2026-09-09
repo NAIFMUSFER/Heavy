@@ -54,10 +54,12 @@ The full product definition is not complete. Outstanding commercial transactions
 
 ## Transaction and release verification
 
-The isolated PostgreSQL CI gate runs 34 regression checks, ten groups of 16-client concurrency checks, and ten coupon lifecycle/pricing groups. Successful database run: 34399292889. The JavaScript suite now has 71 passing tests. See `docs/RELEASE-EVIDENCE.md` for deployment and mobile evidence.
+The isolated PostgreSQL CI gate runs 34 regression checks, ten groups of 16-client concurrency checks, and ten coupon lifecycle/pricing groups. Address ownership/default and actual pg_cron execution tests also pass. Successful database run: 34400862608. The JavaScript suite now has 74 passing tests. See `docs/RELEASE-EVIDENCE.md` for deployment and mobile evidence.
 
 Coupons support fixed amounts and percentage basis points. Their usage is reserved with stock and delivery capacity, released on quote cancellation/expiry, and redeemed once on confirmation. Confirmed-order cancellation does not restore a redeemed usage. Immutable sold coupon terms govern weight adjustments. A coupon may expire sooner than the usual fifteen-minute quote window. VAT configuration remains outstanding.
 
 Coupon entry is gated by the server-side `jana-checkout-coupons` PostHog flag. Configure `JANA_POSTHOG_PROJECT_ID`, `JANA_POSTHOG_PROJECT_KEY`, and `JANA_POSTHOG_HOST` only for a dedicated JANA project in Supabase Edge secrets. Create the flag at 0% and test internally before requesting rollout approval. Missing configuration, flag outages, partial evaluation errors, and quota limits keep this feature disabled; ordinary COD checkout remains available. No production rollout percentage has been changed. Flags use a hashed high-entropy session identifier and never send tokens or customer details. API reference: https://posthog.com/docs/api/flags .
 
 Run the database scripts only with `JANA_TEST_DATABASE=disposable`, `PGHOST=127.0.0.1` and `PGDATABASE=jana_test`. They refuse non-local database targets. The Actions service is destroyed after the job; no preview accounts or inventory are copied into production.
+
+The migration `20260909202730_jana_scheduled_quote_expiry.sql` installs pg_cron and schedules `jana-quote-expiry` every minute. It releases up to 200 expired quote reservations per run without swallowing transaction errors. Inspect `cron.job_run_details` for failures and `worker_runs` for the last successful run. The isolated Docker test uses PostgreSQL 17 Bookworm with genuine PostGIS and pg_cron; it verifies a scheduled release rather than invoking a fake timer. Scheduling reference: https://supabase.com/docs/guides/cron/quickstart .
