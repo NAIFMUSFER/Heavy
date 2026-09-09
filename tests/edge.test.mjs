@@ -105,3 +105,6 @@ for(const [path,method,body,addressId] of [
 ])test(`${method} ${path}: one transactional address RPC owns validation`,async()=>{
  calls=[];response={id:'fixture-address'};const r=await handlers['jana-api'](request('jana-api',path,{method,headers:bearer,body:JSON.stringify(body)}));assert.equal(r.status,method==='POST'?201:200);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_save_address'));assert.equal(calls[0].body.p_address_id,addressId);assert.deepEqual(calls[0].body.p_address,path.endsWith('/default')?{is_default:true}:body);
 });
+test('goods receipt preserves unknown cost and excludes unrelated coupon arguments',async()=>{
+ calls=[];response={id:'fixture-lot'};const r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/lots',{method:'POST',headers:bearer,body:JSON.stringify({stock_id:'fixture-stock',received_base:1000,total_cost_halalas:null,expires_at:4102444800000})}));assert.equal(r.status,201);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_inventory_receive_lot'));assert.equal(calls[0].body.p_total_cost_halalas,null);assert.deepEqual(Object.keys(calls[0].body).sort(),['p_token','p_stock_id','p_supplier_id','p_received_base','p_total_cost_halalas','p_expires_at'].sort());
+});
