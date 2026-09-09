@@ -1,7 +1,7 @@
 name: JANA iOS Native Compile
 on:
   push:
-    branches: [jana-live]
+    branches: [jana-live, jana-integrity]
     paths:
       - 'mobile/**'
       - '.github/workflows/jana-ios-native.yml'

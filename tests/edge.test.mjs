@@ -72,3 +72,29 @@ for(const [name,path,operation,body] of [
 for(const name of Object.keys(handlers))test(`${name}: bearer casing cannot bypass cookie CSRF`,async()=>{
  calls=[];const r=await handlers[name](request(name,'/api/quotes',{method:'POST',headers:{authorization:'bearer fake-value',cookie:'jana_session=fixture; jana_csrf=known','content-type':'application/json'},body:'{}'}));assert.equal(r.status,403);assert.equal(calls.length,0);
 });
+for(const name of ['jana-api','jana-critical']) {
+ test(`${name}: malformed cart is rejected before stock reservation`,async()=>{
+  for(const lines of [null,{},[{offering_id:'test',quantity:0}],[{offering_id:'test',quantity:'1'}]]){
+   calls=[];const r=await handlers[name](request(name,'/api/quotes',{method:'POST',headers:{...bearer,'idempotency-key':'bad-cart-key'},body:JSON.stringify({slot_id:'s',address_id:'a',lines})}));assert.equal(r.status,422);assert.equal(calls.length,0);
+  }
+ });
+ test(`${name}: coupon remains closed without isolated analytics configuration`,async()=>{
+  calls=[];const r=await handlers[name](request(name,'/api/quotes',{method:'POST',headers:{...bearer,'idempotency-key':'flag-closed-key'},body:JSON.stringify({slot_id:'s',address_id:'a',coupon_code:'TEST',lines:[{offering_id:'o',quantity:1}]})}));assert.equal(r.status,409);assert.equal((await r.json()).error.code,'FEATURE_UNAVAILABLE');assert.equal(calls.length,0);
+ });
+ test(`${name}: allowed coupon uses server evaluation and normalized transactional RPC`,async()=>{
+  const oldEnv=Deno.env.get,oldFetch=globalThis.fetch;const token='flag-test-'+name;const seen=[];
+  try {
+   Deno.env.get=k=>({JANA_POSTHOG_PROJECT_KEY:'fixture-project-key',JANA_POSTHOG_PROJECT_ID:'fixture-jana',JANA_POSTHOG_HOST:'https://us.i.posthog.com'}[k]||oldEnv(k));
+   globalThis.fetch=async(url,init)=>{const body=JSON.parse(init.body);seen.push({url:String(url),body});return Response.json(String(url).includes('/flags?')?{errorsWhileComputingFlags:false,flags:{'jana-checkout-coupons':{enabled:true}}}:{id:'fixture-quote',discount_halalas:500})};
+   const r=await handlers[name](request(name,'/api/quotes',{method:'POST',headers:{...bearer,authorization:'Bearer '+token,'idempotency-key':'flag-open-key'},body:JSON.stringify({slot_id:'s',address_id:'a',coupon_code:' test ',lines:[{offering_id:'o',quantity:1}]})}));assert.equal(r.status,201);assert.equal(seen.length,2);assert.ok(seen[1].url.endsWith('/jana_create_quote_with_coupon'));assert.equal(seen[1].body.p_coupon_code,'TEST');assert.ok(!JSON.stringify(seen[0].body).includes(token));assert.match(seen[0].body.distinct_id,/^jana-session-[0-9a-f]{64}$/);
+  } finally {Deno.env.get=oldEnv;globalThis.fetch=oldFetch;}
+ });
+}
+for(const scenario of ['offline','partial-error','quota','off'])test(`coupon flag fails closed on ${scenario}`,async()=>{
+ const {couponFeature}=await import('../supabase/functions/jana-api/http.ts');const oldEnv=Deno.env.get,oldFetch=globalThis.fetch;
+ try {
+  Deno.env.get=k=>({JANA_POSTHOG_PROJECT_KEY:'fixture-project-key',JANA_POSTHOG_PROJECT_ID:'fixture-'+scenario,JANA_POSTHOG_HOST:'https://us.i.posthog.com'}[k]||oldEnv(k));
+  globalThis.fetch=async()=>{if(scenario==='offline')throw Error('test-network');return Response.json({errorsWhileComputingFlags:scenario==='partial-error',quotaLimited:scenario==='quota'?['feature_flags']:[],flags:{'jana-checkout-coupons':{enabled:scenario!=='off'}}})};
+  assert.equal(await couponFeature('fixture-session-'+scenario),false);
+ } finally {Deno.env.get=oldEnv;globalThis.fetch=oldFetch;}
+});

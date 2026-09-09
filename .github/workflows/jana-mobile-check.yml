@@ -2,7 +2,7 @@ name: JANA Mobile Check
 
 on:
   push:
-    branches: [jana-live]
+    branches: [jana-live, jana-integrity]
     paths:
       - 'mobile/**'
       - '.github/workflows/jana-mobile-check.yml'

@@ -54,3 +54,33 @@ export function guard(handler:(req:Request)=>Promise<Response>) {
   }
  };
 }
+
+// Fail closed until a dedicated JANA PostHog project and its 0% flag exist.
+const flagCache=new Map<string,{until:number,value:boolean}>();
+export async function couponFeature(token:string):Promise<boolean> {
+ const key=Deno.env.get('JANA_POSTHOG_PROJECT_KEY');
+ const project=Deno.env.get('JANA_POSTHOG_PROJECT_ID');
+ const host=Deno.env.get('JANA_POSTHOG_HOST')||'https://us.i.posthog.com';
+ if(!token||!key||!project||!['https://us.i.posthog.com','https://eu.i.posthog.com'].includes(host))return false;
+ const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token));
+ const distinct='jana-session-'+Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');
+ const cacheKey=project+':'+distinct;const cached=flagCache.get(cacheKey);if(cached&&cached.until>Date.now())return cached.value;
+ let enabled=false;
+ try {
+  const r=await fetch(host+'/flags?v=2',{method:'POST',headers:{'content-type':'application/json','user-agent':'posthog-node/jana-edge'},body:JSON.stringify({api_key:key,distinct_id:distinct,flag_keys_to_evaluate:['jana-checkout-coupons']}),signal:AbortSignal.timeout(2000),redirect:'error'});
+  if(r.ok){const data=await r.json();enabled=data?.errorsWhileComputingFlags===false&&!data?.quotaLimited?.includes('feature_flags')&&data?.flags?.['jana-checkout-coupons']?.enabled===true;}
+ } catch { console.warn(JSON.stringify({event:'jana_flag_unavailable',flag:'jana-checkout-coupons'})); }
+ if(flagCache.size>=256)flagCache.delete(flagCache.keys().next().value!);
+ flagCache.set(cacheKey,{until:Date.now()+30000,value:enabled});return enabled;
+}
+export function quoteInput(b:any) {
+ if(!b||typeof b!=='object'||!Array.isArray(b.lines)||b.lines.length<1||b.lines.length>40||typeof b.slot_id!=='string'||typeof b.address_id!=='string'||b.lines.some((x:any)=>!x||typeof x.offering_id!=='string'||!Number.isInteger(x.quantity)||x.quantity<1||x.quantity>20)||b.coupon_code!=null&&(typeof b.coupon_code!=='string'||b.coupon_code.length>24))throw Object.assign(new Error('invalid_cart'),{status:422});
+ return {items:b.lines.map((x:any)=>({offering_id:x.offering_id,qty:x.quantity})),coupon:(b.coupon_code||'').trim().toUpperCase()};
+}
+export async function quoteRpcInput(b:any,token:string,key:string) {
+ const {items,coupon}=quoteInput(b);
+ const args:any={p_token:token,p_idem_key:key,p_slot_id:b.slot_id,p_address_id:b.address_id,p_items:items};
+ if(!coupon)return {name:'jana_create_quote_idempotent',args};
+ if(!await couponFeature(token))throw Object.assign(new Error('feature_unavailable'),{status:409});
+ return {name:'jana_create_quote_with_coupon',args:{...args,p_coupon_code:coupon}};
+}
