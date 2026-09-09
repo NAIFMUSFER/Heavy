@@ -1,0 +1,33 @@
+name: JANA iOS Native Compile
+on:
+  push:
+    branches: [jana-live]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/jana-ios-native.yml'
+  workflow_dispatch:
+jobs:
+  ios-simulator:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate iOS native project
+        run: npx expo prebuild --platform ios --non-interactive
+      - name: Install CocoaPods
+        run: cd ios && pod install
+      - name: Compile iOS simulator app
+        run: |
+          set -o pipefail
+          xcodebuild -workspace ios/jana.xcworkspace -scheme jana -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO build | xcpretty
+      - name: Verify simulator app
+        run: test -d ios/build/Build/Products/Debug-iphonesimulator/jana.app
