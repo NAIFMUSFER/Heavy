@@ -2,7 +2,7 @@ name: JANA Database Integrity
 on:
   push:
     branches: [jana-live, jana-integrity]
-    paths: ['supabase/**', 'tests/database*', 'tests/coupons.py', 'tests/addresses.py', 'tests/database-history/**', 'scripts/bootstrap-test-database.py', 'scripts/start-test-database.sh', 'tests/postgres.Dockerfile', 'tests/scheduler.py', 'tests/rpc-contracts.mjs', 'tests/concurrency.py', '.github/workflows/jana-database.yml']
+    paths: ['supabase/**', 'tests/database*', 'tests/coupons.py', 'tests/addresses.py', 'tests/database-history/**', 'scripts/bootstrap-test-database.py', 'scripts/start-test-database.sh', 'tests/postgres.Dockerfile', 'tests/scheduler.py', 'tests/costs.py', 'tests/rpc-contracts.mjs', 'tests/concurrency.py', '.github/workflows/jana-database.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -37,6 +37,8 @@ jobs:
         run: python3 tests/coupons.py
       - name: Structured addresses ownership and concurrent defaults
         run: python3 tests/addresses.py
+      - name: Verify inventory cost and profitability integrity
+        run: python3 tests/costs.py
       - name: Verify scheduled expiration runs
         run: python3 tests/scheduler.py
       - name: Remove disposable database
