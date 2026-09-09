@@ -5,8 +5,13 @@ on:
     branches: [jana-live, jana-integrity]
     paths:
       - 'mobile/**'
+      - '!mobile/**/*.md'
       - '.github/workflows/jana-android-native.yml'
   workflow_dispatch:
+
+concurrency:
+  group: jana-android-native-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   android-debug:

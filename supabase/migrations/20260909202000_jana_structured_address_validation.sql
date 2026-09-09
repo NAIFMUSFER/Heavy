@@ -30,7 +30,7 @@ BEGIN
  FOREACH field_name IN ARRAY ARRAY['label','details','recipient_name','recipient_phone','city','district','street','building','floor','apartment','notes'] LOOP
   IF v ? field_name AND jsonb_typeof(v->field_name) NOT IN ('string','null') THEN RAISE EXCEPTION 'address_validation'; END IF;
   v=jsonb_set(v,ARRAY[field_name],to_jsonb(trim(coalesce(v->>field_name,''))),true);
-  IF length(v->>field_name)>CASE WHEN field_name IN ('details','notes') THEN 500 ELSE 100 END THEN RAISE EXCEPTION 'address_validation'; END IF;
+  IF length(v->>field_name)>(CASE WHEN field_name IN ('details','notes') THEN 500 ELSE 100 END) THEN RAISE EXCEPTION 'address_validation'; END IF;
  END LOOP;
  IF length(v->>'label')<1 OR length(v->>'label')>40 OR length(v->>'details')<3 OR length(v->>'recipient_name')<2 OR length(v->>'recipient_name')>80 OR
   v->>'recipient_phone' !~ '^(05[0-9]{8}|\+9665[0-9]{8})$' THEN RAISE EXCEPTION 'address_validation'; END IF;

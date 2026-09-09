@@ -98,3 +98,10 @@ for(const scenario of ['offline','partial-error','quota','off'])test(`coupon fla
   assert.equal(await couponFeature('fixture-session-'+scenario),false);
  } finally {Deno.env.get=oldEnv;globalThis.fetch=oldFetch;}
 });
+for(const [path,method,body,addressId] of [
+ ['/api/addresses','POST',{label:'fixture',city:'Jazan',latitude:'',longitude:'',recipient_phone:'0500000000'},null],
+ ['/api/addresses/fixture-id','PATCH',{notes:'fixture note'},'fixture-id'],
+ ['/api/addresses/fixture-id/default','PATCH',{},'fixture-id']
+])test(`${method} ${path}: one transactional address RPC owns validation`,async()=>{
+ calls=[];response={id:'fixture-address'};const r=await handlers['jana-api'](request('jana-api',path,{method,headers:bearer,body:JSON.stringify(body)}));assert.equal(r.status,method==='POST'?201:200);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_save_address'));assert.equal(calls[0].body.p_address_id,addressId);assert.deepEqual(calls[0].body.p_address,path.endsWith('/default')?{is_default:true}:body);
+});

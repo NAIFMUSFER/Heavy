@@ -1,7 +1,7 @@
 name: JANA Verification and Live Smoke
 on:
   push:
-    branches: [jana-live]
+    branches: [jana-live, jana-integrity]
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,6 +20,7 @@ jobs:
       - run: npm run check
       - run: npm test
   live-smoke:
+    if: github.ref == 'refs/heads/jana-live'
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 20
