@@ -84,7 +84,7 @@ function createGateway({settings=config(),fetchImpl=fetch,log=entry=>console.log
         const bytes=await readBody(req),r=await fetchImpl(upstream+name+p+u.search,{method:req.method,headers:h,body:bytes,redirect:'manual',signal:AbortSignal.timeout(settings.timeout)});
         if(r.status>=300&&r.status<400)throw error(502,'UNEXPECTED_UPSTREAM_REDIRECT');
         const out=await boundedResponse(r);if(!(r.headers.get('content-type')||'').includes('application/json'))throw error(502,'INVALID_UPSTREAM_RESPONSE');
-        res.statusCode=r.status;const cookies=r.headers.getSetCookie();if(cookies.length)res.setHeader('set-cookie',cookies);
+        res.statusCode=r.status;const cookies=r.headers.getSetCookie().filter(x=>/^jana_(session|csrf)=/.test(x));if(cookies.length)res.setHeader('set-cookie',cookies);
         const retry=r.headers.get('retry-after');if(retry)res.setHeader('retry-after',retry);
         return res.end(req.method==='HEAD'?undefined:out);
       }

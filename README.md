@@ -30,7 +30,7 @@ The server fails startup on missing public assets or invalid project/origin conf
 
 ## Database and Edge source
 
-`supabase/migrations` contains the two repairs already applied to the existing JANA database on 9 September 2026. They are **not a complete empty-database bootstrap**. Their pre-change source guards intentionally prevent blind reapplication. The historical migrations must be recovered and validated in an isolated database before a disaster-recovery claim is possible.
+`supabase/migrations` contains the three repairs already applied to the existing JANA database on 9 September 2026. They are **not a complete empty-database bootstrap**. Their pre-change source guards intentionally prevent blind reapplication. The historical migrations must be recovered and validated in an isolated database before a disaster-recovery claim is possible.
 
 `supabase/functions` contains the current reviewed Edge source. Custom opaque session authentication is enforced by JANA PostgreSQL RPCs; the deployed functions intentionally keep the existing `verify_jwt=false` because they do not use Supabase Auth JWT sessions. Function grants must remain service-only. Do not enable anonymous table access.
 
@@ -41,6 +41,8 @@ The server fails startup on missing public assets or invalid project/origin conf
 `mobile/` is the existing Expo 54 / React Native app. SecureStore stores tokens and uncertain critical-write retry keys; cart preferences use AsyncStorage. Network outages do not delete sessions. GET requests retry once; financial/checkout writes never automatically retry and preserve their idempotency key when the result is uncertain.
 
 Existing GitHub Actions compile Android debug APK and iOS simulator app and export Expo web. EAS development/preview/production profiles exist. Apple/Google distribution requires owner credentials and identifier ownership confirmation. The established code identifier `com.jana.fresh` is preserved.
+
+Critical order confirmation, delivery completion, COD collection and settlement use a persisted PostgreSQL idempotency dispatcher with role checks and transaction-scoped locks. The extended real-database gate contains 34 checks (33 behavior checks and one SQL type diagnostic), with all fixtures rolled back.
 
 The verification workflow runs syntax and executable tests, then checks the actual Render commit before public smoke tests. An older deployment passing health is insufficient. Current native CI results must be reviewed before release.
 
