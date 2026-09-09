@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "جَنى",
+    "slug": "jana-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "jana",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jana.fresh"
+    },
+    "android": {
+      "package": "com.jana.fresh"
+    },
+    "extra": {
+      "apiBase": "https://jana-fresh-app.onrender.com"
+    }
+  }
+}
