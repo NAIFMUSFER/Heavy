@@ -30,7 +30,7 @@ export function guard(handler:(req:Request)=>Promise<Response>) {
    if(req.method==='OPTIONS') return new Response(null,{status:204,headers:origin?{'access-control-allow-origin':origin,'access-control-allow-credentials':'true','access-control-allow-headers':'content-type,authorization,x-csrf-token,idempotency-key','access-control-allow-methods':'GET,POST,PATCH,DELETE,OPTIONS','vary':'Origin'}:{}});
    const cookies=safeCookies(req);
    const mutates=!['GET','HEAD','OPTIONS'].includes(req.method);
-   if(mutates && cookies.jana_session && !/^Bearer\s+\S+$/i.test(req.headers.get('authorization')||'')) {
+   if(mutates && cookies.jana_session && !(req.headers.get('authorization')||'').startsWith('Bearer ')) {
     const csrf=req.headers.get('x-csrf-token');
     if(!csrf || !cookies.jana_csrf || csrf!==cookies.jana_csrf) throw Object.assign(new Error('csrf_required'),{status:403});
    }
