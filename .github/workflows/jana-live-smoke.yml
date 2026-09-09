@@ -1,0 +1,60 @@
+name: JANA Live Smoke
+
+on:
+  push:
+    branches: [jana-live]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax-and-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Server syntax
+        run: node --check server.js
+      - name: Browser bundle syntax
+        run: |
+          cat assets/shop.part*.js > /tmp/shop.mjs
+          cat assets/ops.part*.js > /tmp/ops.mjs
+          cp assets/common.js /tmp/common.mjs
+          node --check /tmp/shop.mjs
+          node --check /tmp/ops.mjs
+          node --check /tmp/common.mjs
+      - name: Static contract
+        run: |
+          test -f index.html
+          test -f admin.html
+          test -f picker.html
+          test -f courier.html
+          test -f manifest.webmanifest
+          test -f sw.js
+          grep -q 'assets/shop.js' index.html
+          grep -q 'assets/ops.js' admin.html
+      - name: Live readiness and public assets
+        env:
+          BASE: https://jana-fresh-app.onrender.com
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 18); do
+            if curl -fsS --max-time 20 "$BASE/health" -o /tmp/health.json \
+              && grep -q '"ok":true' /tmp/health.json \
+              && curl -fsS --max-time 20 "$BASE/" -o /tmp/home.html \
+              && grep -q 'جَنى' /tmp/home.html \
+              && curl -fsS --max-time 20 "$BASE/assets/shop.js" -o /tmp/shop.js \
+              && test -s /tmp/shop.js \
+              && curl -fsS --max-time 20 "$BASE/assets/ops.js" -o /tmp/ops.js \
+              && test -s /tmp/ops.js \
+              && curl -fsS --max-time 20 "$BASE/admin.html" -o /tmp/admin.html \
+              && grep -q 'لوحة التشغيل' /tmp/admin.html \
+              && curl -fsS --max-time 20 "$BASE/api/catalog?limit=2" -o /tmp/catalog.json \
+              && grep -q 'items' /tmp/catalog.json; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo 'Live smoke did not pass within retry window' >&2
+          exit 1
