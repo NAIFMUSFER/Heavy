@@ -2,7 +2,7 @@ name: JANA Database Integrity
 on:
   push:
     branches: [jana-live, jana-integrity]
-    paths: ['supabase/**', 'tests/database*', 'tests/coupons.py', 'tests/addresses.py', 'tests/database-history/**', 'scripts/bootstrap-test-database.py', 'tests/concurrency.py', '.github/workflows/jana-database.yml']
+    paths: ['supabase/**', 'tests/database*', 'tests/coupons.py', 'tests/addresses.py', 'tests/database-history/**', 'scripts/bootstrap-test-database.py', 'scripts/start-test-database.sh', 'tests/postgres.Dockerfile', 'tests/scheduler.py', 'tests/concurrency.py', '.github/workflows/jana-database.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -10,17 +10,6 @@ jobs:
   postgres:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    services:
-      postgres:
-        image: postgis/postgis:17-3.5
-        env:
-          POSTGRES_DB: jana_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: disposable-ci-only
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U postgres -d jana_test"
-          --health-interval 5s --health-timeout 5s --health-retries 12
     env:
       JANA_TEST_DATABASE: disposable
       PGHOST: 127.0.0.1
@@ -30,6 +19,8 @@ jobs:
       PGPASSWORD: disposable-ci-only
     steps:
       - uses: actions/checkout@v4
+      - name: Start disposable PostgreSQL with PostGIS and pg_cron
+        run: bash scripts/start-test-database.sh
       - name: Replay recovered migrations in disposable PostgreSQL
         run: python3 scripts/bootstrap-test-database.py
       - name: Recheck transactional regressions
@@ -41,3 +32,8 @@ jobs:
         run: python3 tests/coupons.py
       - name: Structured addresses ownership and concurrent defaults
         run: python3 tests/addresses.py
+      - name: Verify scheduled expiration runs
+        run: python3 tests/scheduler.py
+      - name: Remove disposable database
+        if: always()
+        run: docker rm -f jana-test-postgres
