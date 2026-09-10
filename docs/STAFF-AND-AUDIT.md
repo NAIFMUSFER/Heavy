@@ -27,3 +27,5 @@ The authorized initialization transaction took the `jana-staff-membership` advis
 For a new isolated environment, register and verify control of the intended customer account first, review its exact id/email, then perform the same guarded, audited initialization through dedicated database administration. Never activate a guessed identity or unknown preview account. Subsequent staff changes belong in the authenticated staff page. The owner must sign in again after initialization; a successful owner browser login is not implied by the database verification.
 
 Disposable PostgreSQL tests cover retry behavior, byte limits, session revocation, safe responses, active assignments, cash, final-admin concurrency, self-claim/deactivation races, support assignments and audit pagination. Production account identities and passwords are never test fixtures. Authenticated operator acceptance remains pending after owner initialization.
+
+A later read on 10 September confirmed a newly created, unexpired owner session after the initialization audit timestamp. This verifies successful sign-in after promotion; it does not certify all operational acceptance scenarios.

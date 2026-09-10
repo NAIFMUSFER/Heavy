@@ -8,13 +8,13 @@ Admin may create or edit a slot's zone, start/end/cutoff, capacity and activatio
 
 Each administration write requires an idempotency key. Editing also requires the previously read revision and a documented reason. A stale revision is rejected. Slot booking-count changes do not themselves advance the administration revision; the save transaction reads the locked current count. Other slot/zone changes do advance it. Audit records retain actor, previous/new settings and reason. Zone and slot deactivation require explicit confirmation in the UI. The old service creation RPC names delegate to the same validated implementation, and client roles cannot execute them directly.
 
-The operations interface adds zone/settings review and slot/capacity review. It does not yet include a visual draw-on-map editor. The current shared inventory pool still needs warehouse segregation and fulfillment routing before operating independent city warehouses.
+The operations interface adds zone/settings review and slot/capacity review. The deployed visual editor adds drawing, vertex editing and interior exclusions. The current shared inventory pool still needs warehouse segregation and fulfillment routing before operating independent city warehouses.
 
 POST `/api/ops/zones` and POST `/api/ops/slots` create settings. PATCH `/api/ops/zones/:id` and PATCH `/api/ops/slots/:id` require `revision` and `reason`. Only explicitly allowed commercial/scheduling fields are forwarded to the database. The generic activation endpoints require actual JSON booleans.
 
 Database coverage includes polygon/type rejection, zone-price snapshot preservation, deactivation, repeated create attempts, stale edits, booking/capacity races, schedule immutability and role/privilege constraints. The extended browser journey adds actual zone/slot creation and editing before customer checkout.
 
-## Visual boundary editor — validation pending
+## Visual boundary editor — deployed and verified
 
 The new operations editor supports pointer drawing, vertex dragging, keyboard panning, zoom/fit, coordinate entry and editing, point insertion/deletion, undo, and multiple excluded interior rings. Existing coordinates and all exclusions round-trip without rounding or flattening when changing only commercial fields. GeoJSON import remains available. An unfinished ring or malformed coordinate cannot be submitted; PostGIS still rejects self-intersections, invalid exclusions and zero-area geometry. Existing revision, idempotency, audit and deactivation confirmation rules are unchanged.
 
@@ -22,4 +22,4 @@ The background is an optional OpenStreetMap street layer loaded only after the a
 
 The community tile service offers no availability guarantee. Before a larger operational rollout, select approved tile capacity or a supported provider; this release does not claim a map SLA. See the [official tile usage policy](https://operations.osmfoundation.org/policies/tiles/). CI draws in the coordinate view and blocks every external request; it never scans the community tile service or represents fixture pixels as real geography.
 
-Local tests now total 170 passing assertions across the JavaScript suites, including coordinate preservation, malformed geometry, ring point limits, Mercator round trips, fit bounds, viewport-only tile selection and restricted map CSP. The actual browser/PostGIS journey and deployment remain pending at this checkpoint.
+Local tests now total 171 passing tests across the JavaScript suites, including coordinate preservation, malformed geometry, ring point limits, Mercator round trips, fit bounds, viewport-only tile selection and restricted map CSP. Source d228324442f7fd35ff0d4fb18b8bf38e3c3dd139 passed Node 34491032253 and browser 34491032171 with 24 journey checks, including real vertex dragging, undo, street-layer failure and server rejection of self-intersection. Render deployment dep-dahc5h6k1f9s73f940a0 became live at 14:46:57 UTC; exact-commit live smoke 34491217550 passed.

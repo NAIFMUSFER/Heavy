@@ -9,3 +9,4 @@ mobile/.expo/
 mobile/dist-test/
 evidence/local/
 __pycache__/
+supabase/.temp/
