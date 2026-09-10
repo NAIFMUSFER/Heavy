@@ -6,7 +6,7 @@ Use the isolated `jana-live` production branch and `jana-integrity` review branc
 
 Apply reviewed forward migrations to the dedicated JANA Supabase project only after database gates pass. Check application RLS, explicit function EXECUTE privileges and invariant counts afterward. Store the exact SQL under the applied Supabase timestamp; rename a predeployment filename if needed without changing its SQL. Deploy the reviewed Edge entrypoint and all local imports, retaining custom authentication. Reconcile deployed sources with the tested commit.
 
-Promote the tested source tree to `jana-live`. Inspect Render deploys before creating another deployment. In this session GitHub API ref updates did not reliably start Render builds, despite auto-deploy being enabled; manually triggering the JANA service was necessary. Do not create duplicate pending deploys. Render's `live` status alone is insufficient: check `/version` equals the intended commit, `/ready` confirms all Edge dependencies and the production smoke job succeeds. The observed financial deployment reported live while public traffic still served an older commit; it remains unverified until the public route catches up or a verified corrective deployment supersedes it.
+Promote the tested source tree to `jana-live`. Inspect Render deploys before creating another deployment. In this session GitHub API ref updates did not reliably start Render builds, despite auto-deploy being enabled; manually triggering the JANA service was necessary. Do not create duplicate pending deploys. Render's `live` status alone is insufficient: check `/version` equals the intended commit, `/ready` confirms all Edge dependencies and the production smoke job succeeds. An earlier financial rollout briefly reported live while public traffic still served an older commit; subsequent verified deployment resolved it. Every new release still requires exact public commit and dependency verification.
 
 The public smoke suite checks current commit, dependencies, public assets, anonymous authentication rejection and invalid login behavior. It never inserts production orders or stock. Deployment polling reads only version/readiness. The complete smoke submits its invalid login once; repeated business writes are never used as health probes.
 
@@ -35,3 +35,7 @@ Rotate secrets only inside JANA-owned configuration. Keep service-role credentia
 ## Configuration still required
 
 Dedicated staging infrastructure; commercial catalog, accepted real receipts and approved geographic/slot settings; merchant tax status and policies; dedicated PostHog project and initial zero-percent flags; verified JANA email domain; SMS/WhatsApp/push/payment credentials; Apple/Google distribution accounts; approved backups and restore evidence. No external message sending or financial-provider charge is enabled by this runbook.
+
+## Commercial admission
+
+Use the administrator storefront settings described in `COMMERCIAL-STOREFRONT.md`. Default production admission is closed until actual merchant data, policies and operations are reviewed. Closing stops fresh quotes; it does not cancel existing valid quotes or interfere with existing order fulfillment. Publish approved policies before opening. Do not choose a tax declaration or complete physical-operation attestations on behalf of the owner.
