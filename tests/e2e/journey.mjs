@@ -137,7 +137,7 @@ try{
 
  phase='picker assignment and actual weight';
  async function assign(role){
-  await admin.locator('[data-action=refresh]').click();await admin.locator('[data-action=assign-order][data-id="'+confirmed.id+'"]').click();
+  await admin.locator('[data-page=orders]').click();await admin.locator('[data-action=assign-order][data-id="'+confirmed.id+'"]').click();
   const form=admin.locator('#assignment-form');const id=sql('SELECT id FROM users WHERE email='+literal(fixture.accounts[role])+';');await form.locator('[name='+role+'_id]').selectOption(id);await form.locator('[name=reason]').fill('إسناد رحلة المتصفح');
   await change(admin,'/api/ops/orders/'+confirmed.id+'/assignment',()=>form.locator('button').click());
  }
