@@ -1,0 +1,9 @@
+# Customer basket composition
+
+The web navigation and mobile storefront expose a basket builder using current, real catalog offerings. Customers choose produce, sellable size and quantity, search or filter categories, review the provisional item total and add the complete selection to their cart. The web editor renders 24 choices per page and retains choices across searches; mobile uses a virtualized list. Quantity controls respect current availability, 20 units per offering and the existing 40-line checkout bound.
+
+The builder uses individual stock components and their configured sellable offerings; fixed multi-component baskets retain their existing product-version workflow. It does not invent arbitrary weight units, prices or a customer-created public catalog SKU. A customer's composition becomes explicit versioned order lines. Existing quote, stock, slot, actual-weight, substitution and cash transactions remain the canonical commerce workflow. The customer can save the selection using the saved-cart or shopping-list interface.
+
+Catalog availability is refreshed before adding the whole selection. Unavailable items or an excessive combined quantity abort addition without partially changing the existing cart. Provisional amounts exclude delivery and are reviewed in the server-created quote. Reading the editor and adding to a local cart do not reserve stock or claim an order succeeded.
+
+Browser acceptance runs the builder before the real quote/order/picking/delivery/finance journey. The same atomic selection-merging rules are exercised on both web and mobile. Native compilation, production release and actual-device acceptance must be reported separately. This source is pending validation; it is not yet published to customers.

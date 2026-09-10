@@ -73,7 +73,7 @@ try{
  await change(customer,'/api/profile',()=>customer.locator('#profile-form button').click(),'PATCH');pass('session restoration and customer profile update');
 
  phase='address coverage quote and confirmation';
- await customer.locator('[data-view=shop]').first().click();await customer.locator('[data-add="'+fixture.offering_id+'"]').first().click();
+ await customer.locator('[data-view=shop]').first().click();await customer.locator('[data-action=custom]').click();await customer.locator('[data-builder-item]').first().fill('1');await customer.locator('[data-builder-item]').first().press('Tab');await customer.locator('#builder-add').click();await customer.locator('#cart-lines').waitFor();assert.equal(await customer.locator('#cart-lines .cart-line').count(),1);await closeModal(customer);pass('custom basket selection reaches the real cart with canonical catalog prices');
  await customer.locator('[data-action=cart]').first().click();await customer.locator('[data-action=cloud-cart]').click();
  const savedCart=await change(customer,'/api/cart',()=>customer.locator('[data-cloud-save]').click(),'PUT');assert.equal(savedCart.revision,1);
  const second=await pageFor('customer_second');await second.locator('[data-view=account]').first().click();await second.locator('[data-login]').click();await second.locator('#auth-form [name=email]').fill(fixture.prefix+'browser@example.invalid');await second.locator('#auth-form [name=password]').fill(password);await change(second,'/api/auth/login',()=>second.locator('#auth-form button[type=submit]').click());await second.locator('[data-action=profile]').waitFor();
