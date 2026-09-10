@@ -1,7 +1,8 @@
 -- External delivery is opt-in. No existing notification is queued or sent.
 CREATE TABLE public.notification_channels(
  channel text PRIMARY KEY CHECK(channel IN ('email','sms','whatsapp','push')),
- enabled boolean NOT NULL DEFAULT false,provider text NOT NULL,
+ enabled boolean NOT NULL DEFAULT false,provider text NOT NULL,provider_scope text,
+ CHECK(NOT enabled OR (provider<>'unconfigured' AND provider_scope IS NOT NULL AND provider_scope~'^[0-9a-f]{64}$')),
  retry_window_ms bigint NOT NULL CHECK(retry_window_ms BETWEEN 60000 AND 82800000),
  max_attempts integer NOT NULL DEFAULT 8 CHECK(max_attempts BETWEEN 1 AND 8)
 );
@@ -14,7 +15,7 @@ CREATE TABLE public.notification_destinations(
 );
 CREATE TABLE public.notification_outbox(
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),notification_id varchar(36) NOT NULL REFERENCES public.notifications(id),
- user_id varchar(36) NOT NULL REFERENCES public.users(id),channel text NOT NULL REFERENCES public.notification_channels(channel),provider text NOT NULL,
+ user_id varchar(36) NOT NULL REFERENCES public.users(id),channel text NOT NULL REFERENCES public.notification_channels(channel),provider text NOT NULL,provider_scope text NOT NULL CHECK(provider_scope~'^[0-9a-f]{64}$'),
  recipient text NOT NULL,title text NOT NULL,body text NOT NULL,created_at bigint NOT NULL,retry_until bigint NOT NULL,
  state text NOT NULL DEFAULT 'queued' CHECK(state IN ('queued','leased','retry','submitted','dead_letter','reconcile','cancelled')),
  attempt_count integer NOT NULL DEFAULT 0 CHECK(attempt_count BETWEEN 0 AND 8),max_attempts integer NOT NULL CHECK(max_attempts BETWEEN 1 AND 8),
@@ -34,14 +35,14 @@ CREATE TABLE public.notification_attempts(
 CREATE TRIGGER jana_notification_attempts_immutable BEFORE UPDATE OR DELETE ON public.notification_attempts FOR EACH ROW EXECUTE FUNCTION public.jana_append_only();
 CREATE FUNCTION public.jana_outbox_payload_immutable() RETURNS trigger LANGUAGE plpgsql SET search_path=public,pg_temp AS $$
 BEGIN
- IF ROW(NEW.notification_id,NEW.user_id,NEW.channel,NEW.provider,NEW.recipient,NEW.title,NEW.body,NEW.created_at,NEW.retry_until,NEW.max_attempts)
- IS DISTINCT FROM ROW(OLD.notification_id,OLD.user_id,OLD.channel,OLD.provider,OLD.recipient,OLD.title,OLD.body,OLD.created_at,OLD.retry_until,OLD.max_attempts) THEN RAISE EXCEPTION 'notification_payload_immutable';END IF;RETURN NEW;
+ IF ROW(NEW.notification_id,NEW.user_id,NEW.channel,NEW.provider,NEW.provider_scope,NEW.recipient,NEW.title,NEW.body,NEW.created_at,NEW.retry_until,NEW.max_attempts)
+ IS DISTINCT FROM ROW(OLD.notification_id,OLD.user_id,OLD.channel,OLD.provider,OLD.provider_scope,OLD.recipient,OLD.title,OLD.body,OLD.created_at,OLD.retry_until,OLD.max_attempts) THEN RAISE EXCEPTION 'notification_payload_immutable';END IF;RETURN NEW;
 END$$;
 CREATE TRIGGER jana_outbox_payload_immutable BEFORE UPDATE ON public.notification_outbox FOR EACH ROW EXECUTE FUNCTION public.jana_outbox_payload_immutable();
 CREATE FUNCTION public.jana_enqueue_notification_channels() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
 BEGIN
- INSERT INTO public.notification_outbox(notification_id,user_id,channel,provider,recipient,title,body,created_at,retry_until,max_attempts,next_attempt_at)
- SELECT NEW.id,NEW.user_id,c.channel,c.provider,d.recipient,NEW.title,NEW.body,NEW.created_at,NEW.created_at+c.retry_window_ms,c.max_attempts,NEW.created_at
+ INSERT INTO public.notification_outbox(notification_id,user_id,channel,provider,provider_scope,recipient,title,body,created_at,retry_until,max_attempts,next_attempt_at)
+ SELECT NEW.id,NEW.user_id,c.channel,c.provider,c.provider_scope,d.recipient,NEW.title,NEW.body,NEW.created_at,NEW.created_at+c.retry_window_ms,c.max_attempts,NEW.created_at
  FROM public.notification_channels c JOIN public.notification_destinations d ON d.channel=c.channel AND d.user_id=NEW.user_id
  JOIN public.users u ON u.id=d.user_id WHERE c.enabled AND c.provider<>'unconfigured' AND d.active AND u.active
  ON CONFLICT(notification_id,channel) DO NOTHING;
@@ -49,13 +50,13 @@ BEGIN
 END$$;
 CREATE TRIGGER jana_enqueue_notification_channels AFTER INSERT ON public.notifications FOR EACH ROW EXECUTE FUNCTION public.jana_enqueue_notification_channels();
 
-CREATE FUNCTION public.jana_notification_claim(p_channel text,p_provider text)
+CREATE FUNCTION public.jana_notification_claim(p_channel text,p_provider text,p_provider_scope text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
 DECLARE c public.notification_channels;j public.notification_outbox;nowms bigint:=(extract(epoch from clock_timestamp())*1000)::bigint;lid uuid;
 BEGIN
  SELECT * INTO c FROM public.notification_channels WHERE channel=p_channel FOR SHARE;
- IF c.channel IS NULL OR NOT c.enabled OR c.provider<>p_provider THEN RETURN NULL;END IF;
- FOR j IN SELECT * FROM public.notification_outbox WHERE channel=p_channel AND provider=p_provider
+ IF c.channel IS NULL OR NOT c.enabled OR c.provider<>p_provider OR c.provider_scope IS DISTINCT FROM p_provider_scope THEN RETURN NULL;END IF;
+ FOR j IN SELECT * FROM public.notification_outbox WHERE channel=p_channel AND provider=p_provider AND provider_scope=p_provider_scope
  AND ((state IN ('queued','retry') AND next_attempt_at<=nowms) OR (state='leased' AND lease_until<=nowms))
  ORDER BY next_attempt_at,created_at,id LIMIT 20 FOR UPDATE SKIP LOCKED LOOP
   IF j.state='leased' THEN
@@ -71,7 +72,7 @@ BEGIN
   lid=gen_random_uuid();
   UPDATE public.notification_outbox SET state='leased',attempt_count=attempt_count+1,lease_id=lid,lease_until=nowms+120000,error_code=NULL WHERE id=j.id RETURNING * INTO j;
   INSERT INTO public.notification_attempts(job_id,lease_id,event,attempt_number,created_at) VALUES(j.id,lid,'claimed',j.attempt_count,nowms);
-  RETURN jsonb_build_object('id',j.id,'lease_id',lid,'channel',j.channel,'provider',j.provider,'recipient',j.recipient,'title',j.title,'body',j.body,'created_at',j.created_at,'retry_until',j.retry_until,'attempt',j.attempt_count,'idempotency_key','jana-notification-'||j.id);
+  RETURN jsonb_build_object('id',j.id,'lease_id',lid,'channel',j.channel,'provider',j.provider,'provider_scope',j.provider_scope,'recipient',j.recipient,'title',j.title,'body',j.body,'created_at',j.created_at,'retry_until',j.retry_until,'attempt',j.attempt_count,'idempotency_key','jana-notification-'||j.id);
  END LOOP;
  RETURN NULL;
 END$$;
@@ -131,6 +132,6 @@ DO $grants$ DECLARE n text; BEGIN
   EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',n);EXECUTE format('REVOKE ALL ON public.%I FROM PUBLIC,anon,authenticated',n);
  END LOOP;
 END$grants$;
-REVOKE ALL ON FUNCTION public.jana_outbox_payload_immutable(),public.jana_enqueue_notification_channels(),public.jana_notification_claim(text,text),public.jana_notification_finish(uuid,uuid,jsonb),public.jana_notification_insert_once(text,text,text,text),public.jana_notification_overview(text) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public.jana_outbox_payload_immutable(),public.jana_enqueue_notification_channels(),public.jana_notification_claim(text,text,text),public.jana_notification_finish(uuid,uuid,jsonb),public.jana_notification_insert_once(text,text,text,text),public.jana_notification_overview(text) FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.jana_outbox_payload_immutable(),public.jana_enqueue_notification_channels() FROM service_role;
-GRANT EXECUTE ON FUNCTION public.jana_notification_claim(text,text),public.jana_notification_finish(uuid,uuid,jsonb),public.jana_notification_insert_once(text,text,text,text),public.jana_notification_overview(text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.jana_notification_claim(text,text,text),public.jana_notification_finish(uuid,uuid,jsonb),public.jana_notification_insert_once(text,text,text,text),public.jana_notification_overview(text) TO service_role;

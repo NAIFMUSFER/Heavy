@@ -12,6 +12,6 @@ export class NotificationRepository{
   try{return await r.json()}catch{throw new ProviderError('NOTIFICATION_DATABASE_RESPONSE_INVALID')}
  }
  insertOnce({eventId,userId,title,body}){return this.#rpc('jana_notification_insert_once',{p_event_id:eventId,p_user_id:userId,p_title:title,p_body:body})}
- claim(channel,provider){return this.#rpc('jana_notification_claim',{p_channel:channel,p_provider:provider})}
+ claim(channel,provider,scope){return this.#rpc('jana_notification_claim',{p_channel:channel,p_provider:provider,p_provider_scope:scope})}
  finish(job,result){return this.#rpc('jana_notification_finish',{p_job_id:job.id,p_lease_id:job.lease_id,p_result:result})}
 }
