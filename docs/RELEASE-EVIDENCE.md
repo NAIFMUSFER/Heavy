@@ -176,3 +176,12 @@ Source 7324cf25cb26b0481f1c877bedf0ef466a5fbf37 passed Node 34503441272 and the 
 The customer-return candidate adds quarantined physical receipt, one quality decision, original-lot cost reversal, server receipt limits and a returned-shipment redispatch guard. SQL was scaffolded with the installed Supabase CLI as draft 20260910164224. The CLI created the file before its ancillary network approval was cancelled; no production operation followed that command. First local syntax validation caught an unescaped slash in the new gateway route expression; corrected before commit/deployment. Subsequent syntax and all 189 JavaScript tests pass. Real PostgreSQL concurrency and the expanded browser journey are pending. No production return fixtures exist.
 
 Source review also found the notification menu key accidentally listed as a staff role; removed it from staff role choices. Backend role validation already rejected it. Canonical roles are unchanged.
+
+
+## 2026-09-10 — Customer-return tests and applied backend
+
+Source 86940a593b0041ab655dc125bfdb738877b78e21 passed Node 34505363265 (189 tests), database 34505363344 (22 return groups plus all existing suites), and browser 34505363317 (33 checks). Production migration 20260910170206_jana_customer_return_inspection is applied with the identical tested SQL, renamed from its draft timestamp. Customer API v25 and operations Edge v20 are ACTIVE. Gateway promotion remains pending.
+
+The postmigration audit found 78 migrations, 48 RLS application tables, zero direct JANA client-role function grants, zero return receipts/inspections and zero business-invariant violations. Exact orders/balances/lots hashes remain d6077d5d61b0f28fd6fd2388cd4d292f / 191d727994f8e1876d9c6e3db394a91c / 40263aedf8cf425f3b8eba51fa82e806. No production stock, commercial order or cash event was created by testing or deployment.
+
+Security advisor remains non-clean only for the unchanged Supabase-owned PostGIS findings: spatial_ref_sys RLS, public extension placement, and three st_estimatedextent overload grants to each API client role. The 48 application RLS/no-policy informational findings are intentional service-only access. No PostGIS object was modified.

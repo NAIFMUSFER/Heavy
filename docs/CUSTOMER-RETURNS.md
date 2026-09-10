@@ -1,6 +1,6 @@
 # Physical customer and courier returns
 
-Status: implemented candidate, NOT APPLIED or DEPLOYED. Local JavaScript checks pass (189 tests); PostgreSQL concurrency and the expanded browser journey are pending. No production return has been fabricated.
+Status: 189 JavaScript tests, 22 PostgreSQL groups and 33 browser checks passed on source 86940a5. Migration 20260910170206 is applied; customer API v25 and operations Edge v20 are active. Gateway promotion is pending. Production receipts and inspections remain zero; existing order, stock and lot fingerprints are unchanged.
 
 Admin/inventory staff look up the exact order number and select an actual shipped stock/lot allocation. Only delivered shipments or failed deliveries after completed picking are eligible. The operator records the quantity physically received, a real receipt reference and the reason. The canonical stock, unit, lot, order and actor are resolved by PostgreSQL; they cannot be selected through arbitrary client names or prices.
 
@@ -21,6 +21,6 @@ API:
 - `POST /api/ops/customer-returns/:id/inspection` — accepted quantity and quality observation; requires Idempotency-Key.
 - `GET /api/ops/customer-returns?before_at=...&before_id=...` — paginated history; role-filtered cost evidence.
 
-Migration: `20260910164224_jana_customer_return_inspection.sql` (unapplied draft). The two new application tables have RLS and no client-role grants. Application RPCs are service-only with server-side JANA session/role checks. The order redispatch trigger helper is not callable by API roles. This migration does not modify PostGIS objects or backfill historical order/inventory values.
+Migration: `20260910170206_jana_customer_return_inspection.sql` (applied; unchanged SQL renamed to the actual migration version). The two new application tables have RLS and no client-role grants. Application RPCs are service-only with server-side JANA session/role checks. The order redispatch trigger helper is not callable by API roles. This migration does not modify PostGIS objects or backfill historical order/inventory values.
 
 Remaining operations: owner-approved quality/food-handling and return policies, actual warehouse acceptance, rejected-stock physical disposal/custody closure, a dedicated canonical warehouse/location model, and supplier financial credits. The return UI does not certify a food safety policy or invent observed quality.
