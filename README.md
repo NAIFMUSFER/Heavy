@@ -52,11 +52,11 @@ Detailed [architecture](docs/ARCHITECTURE.md), [deployment and recovery](docs/OP
 
 Revert application changes through a new commit on `jana-live`; allow Render to deploy and verify `/version`, `/ready` and smoke. Database rollback requires a reviewed forward corrective migration, never editing applied history. Before commercial launch, establish backup retention, restore into an isolated JANA project, verify constraints and RBAC, and measure recovery time. Rotate Supabase server keys only in JANA Edge configuration and validate all dependencies after rotation. PostGIS grants owned by Supabase administrators remain a documented unresolved security finding.
 
-The full product definition is not complete. Outstanding commercial transactions, provider interfaces, production-data restore and browser/device journeys are listed in the matrix; passing transport tests is not a production-readiness certification.
+The full product definition is not complete. Outstanding commercial acceptance, external provider workers/configuration, production-data restore and device journeys are listed in the matrix; passing transport tests is not a production-readiness certification.
 
 ## Transaction and release verification
 
-The isolated PostgreSQL CI gate runs 34 regression checks, ten groups of 16-client concurrency checks, and ten coupon lifecycle/pricing groups. Address ownership/default and actual pg_cron execution tests also pass. Successful database run: 34400862608. The JavaScript suite now has 137 passing tests. See `docs/RELEASE-EVIDENCE.md` for deployment and mobile evidence.
+The isolated PostgreSQL CI gate runs 34 regression checks, ten groups of 16-client concurrency checks, and ten coupon lifecycle/pricing groups. Address ownership/default and actual pg_cron execution tests also pass. Successful database run: 34400862608. The JavaScript suite now has 149 passing tests. See `docs/RELEASE-EVIDENCE.md` for deployment and mobile evidence.
 
 Coupons support fixed amounts and percentage basis points. Their usage is reserved with stock and delivery capacity, released on quote cancellation/expiry, and redeemed once on confirmation. Confirmed-order cancellation does not restore a redeemed usage. Immutable sold coupon terms govern weight adjustments. A coupon may expire sooner than the usual fifteen-minute quote window. VAT configuration remains outstanding.
 
