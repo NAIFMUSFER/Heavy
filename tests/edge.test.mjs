@@ -163,3 +163,13 @@ for(const [method,path,operation,input,expected] of [
 ])test(`${operation}: saved customer writes require a key and retain only allowed fields`,async()=>{
  calls=[];response={id:'saved-a'};const invoke=headers=>handlers['jana-api'](request('jana-api',path,{method,headers,body:JSON.stringify(input)}));let r=await invoke(bearer);assert.equal(r.status,422);assert.equal(calls.length,0);r=await invoke({...bearer,'idempotency-key':'saved-data-fixture'});assert.ok(r.ok);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_customer_saved_write'));assert.equal(calls[0].body.p_operation,operation);assert.deepEqual(calls[0].body.p_payload,expected);
 });
+test('catalog forwards one bounded query to PostgreSQL and preserves the page response',async()=>{
+ calls=[];response={items:[{id:'catalog-fixture',available_units:2}],next_offset:100};
+ const r=await handlers['jana-api'](request('jana-api','/api/catalog?offset=50&limit=50&q=%25_&category=fruit'));
+ assert.equal(r.status,200);assert.deepEqual(await r.json(),response);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_catalog_page'));assert.deepEqual(calls[0].body,{p_offset:50,p_limit:50,p_query:'%_',p_category:'fruit'});
+});
+test('catalog rejects invalid pagination before database work',async()=>{
+ for(const query of ['offset=-1','offset=1.5','offset=Infinity','offset=100001','limit=0','limit=101','limit=1e2','q='+('q'.repeat(201))]){
+  calls=[];const r=await handlers['jana-api'](request('jana-api','/api/catalog?'+query));assert.equal(r.status,422,query);assert.equal((await r.json()).error.code,'CATALOG_PAGE');assert.equal(calls.length,0);
+ }
+});
