@@ -179,3 +179,9 @@ test('saved cart persists only revision canonical selections and the retry key',
 test('saved cart rejects missing key or invalid revision before database mutation',async()=>{
  for(const [revision,key] of [[0,null],[-1,'cart-key-fixture'],[1.2,'cart-key-fixture'],['1','cart-key-fixture']]){calls=[];const r=await handlers['jana-api'](request('jana-api','/api/cart',{method:'PUT',headers:{...bearer,...(key?{'idempotency-key':key}:{})},body:JSON.stringify({revision,items:[]})}));assert.ok([409,422].includes(r.status));assert.equal(calls.length,0)}
 });
+test('optional-email registration forwards no invented address and only customer fields',async()=>{
+ calls=[];response={user:{id:'fixture',email:null,phone:'+966500000002',verified_phone:false,role:'customer'},token:'fixture-created-session'};const r=await handlers['jana-api'](request('jana-api','/api/auth/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({phone:'0500000002',name:'Fixture',password:'Fixture-password-123',role:'admin',verified_phone:true})}));assert.equal(r.status,201);assert.equal(calls[0].body.p_email,null);assert.equal(calls[0].body.p_phone,'0500000002');assert.equal(calls[0].body.role,undefined);assert.equal(calls[0].body.verified_phone,undefined);assert.equal((await r.json()).user.email,null);
+});
+test('phone login uses the canonical password authentication RPC',async()=>{
+ calls=[];response={user:{id:'fixture'},token:'fixture-token',csrf:'fixture-csrf'};const r=await handlers['jana-api'](request('jana-api','/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({identifier:'0500000002',password:'Fixture-password-123'})}));assert.equal(r.status,200);assert.ok(calls[0].url.endsWith('/jana_login'));assert.equal(calls[0].body.p_email,'0500000002');assert.equal(r.headers.getSetCookie().length,2);
+});
