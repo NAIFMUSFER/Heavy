@@ -109,3 +109,12 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$
 REVOKE ALL ON FUNCTION public.jana_delivery_revision(),public.jana_slot_history_guard(),public.jana_save_delivery_zone(text,text,jsonb,bigint,text),public.jana_save_delivery_slot(text,text,jsonb,bigint,text) FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION public.jana_delivery_admin_write(text,text,text,jsonb),public.jana_admin_create_zone(text,text,jsonb,bigint,bigint),public.jana_admin_create_slot(text,text,bigint,bigint,bigint,integer) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.jana_delivery_admin_write(text,text,text,jsonb),public.jana_admin_create_zone(text,text,jsonb,bigint,bigint),public.jana_admin_create_slot(text,text,bigint,bigint,bigint,integer) TO service_role;
+
+-- Editors need the exact polygon and revision, not the previous summary-only zone view.
+CREATE OR REPLACE FUNCTION public.jana_admin_catalog(p_token text) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE r jsonb;BEGIN
+ r=public.jana_admin_catalog_products_base(p_token);
+ RETURN r||jsonb_build_object('stock',public.jana_stock_health(),'zones',coalesce((SELECT jsonb_agg((to_jsonb(z)-'geom') ORDER BY z.name,z.id) FROM public.delivery_zones z),'[]'::jsonb));
+END$$;
+REVOKE ALL ON FUNCTION public.jana_admin_catalog(text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.jana_admin_catalog(text) TO service_role;
