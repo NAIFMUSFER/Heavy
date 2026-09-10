@@ -1,6 +1,6 @@
 # Warehouse receipt, counts and stock policy
 
-Status: migration `20260910035511` applied after fifteen warehouse database groups passed in 34434887966. Operations Edge v13 deployed. UI release remains pending. This document does not certify a completed physical warehouse acceptance test.
+Status: migration `20260910035511` and warehouse UI are deployed. The expanded seventeen-group warehouse suite and actual browser receiving/inspection journey pass; current evidence is in RELEASE-EVIDENCE.md. This document does not certify a completed physical warehouse acceptance test.
 
 Receiving creates a pending lot with its supplier, quantity, optional recorded cost, expiry and receipt reference. Pending and rejected stock never increases usable balances. Receipt and rejection generate explicit zero-quantity movements; accepted inspection adds stock once and recognizes recorded cost. External invoice references are supplied by operators, never fabricated. Unknown costs remain null. Warehouse writes persist idempotency keys to protect network retries.
 

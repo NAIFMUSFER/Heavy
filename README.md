@@ -56,7 +56,7 @@ The full product definition is not complete. Outstanding commercial acceptance, 
 
 ## Transaction and release verification
 
-The isolated PostgreSQL CI gate runs 34 regression checks, ten groups of 16-client concurrency checks, and ten coupon lifecycle/pricing groups. Address ownership/default and actual pg_cron execution tests also pass. Successful database run: 34400862608. The JavaScript suite now has 149 passing tests. See `docs/RELEASE-EVIDENCE.md` for deployment and mobile evidence.
+The isolated PostgreSQL CI gate runs 34 regression checks, ten groups of 16-client concurrency checks, and ten coupon lifecycle/pricing groups. Address ownership/default and actual pg_cron execution tests also pass. Successful database run: 34400862608. The JavaScript suite now has 163 passing tests. See [release evidence](docs/RELEASE-EVIDENCE.md) for current deployment, database, browser and mobile results.
 
 Coupons support fixed amounts and percentage basis points. Their usage is reserved with stock and delivery capacity, released on quote cancellation/expiry, and redeemed once on confirmation. Confirmed-order cancellation does not restore a redeemed usage. Immutable sold coupon terms govern weight adjustments. A coupon may expire sooner than the usual fifteen-minute quote window. VAT configuration remains outstanding.
 
