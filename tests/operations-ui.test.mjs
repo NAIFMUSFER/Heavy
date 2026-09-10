@@ -45,3 +45,10 @@ test('support workspace displays conversation history and closed-ticket access',
  assert.match(root.innerHTML,/رسالة أولى/);assert.match(root.innerHTML,/رد &amp; متابعة/);assert.match(root.innerHTML,/بانتظار العميل/);assert.match(root.innerHTML,/name="assigned_to"/);assert.doesNotMatch(root.innerHTML,/طلب مغلق/);
  await vm.runInContext("state.supportFilter='closed';render()",context);assert.match(root.innerHTML,/طلب مغلق/);
 });
+test('finance operations display remaining liability and distinguish requested from paid refunds',async()=>{
+ const root={innerHTML:''};const context=vm.createContext({...common,document:{body:{dataset:{workspace:'admin'}},addEventListener(){}},$:()=>root,setupConnectivity(){},identity:()=>new Promise(()=>{}),get:async p=>{assert.equal(p,'/api/ops/finance');return {couriers:[{id:'courier-a',name:'المندوب',collected_halalas:2000,settled_halalas:700,courier_refunded_halalas:300,liability_halalas:1000}],refunds:[{id:'pending-a',order_number:'JN-fixture',amount_halalas:100,reason:'مراجعة',state:'requested'},{id:'paid-a',order_number:'JN-fixture',amount_halalas:200,reason:'مبلغ معاد',state:'completed',payment_source:'finance',reference:'receipt & 1'}],cash_entries:[]}}});
+ vm.runInContext(bundle,context);await vm.runInContext("state.user={name:'Finance fixture',role:'finance'};state.page='finance';render()",context);
+ assert.match(root.innerHTML,/10\.00 ر\.س/);assert.match(root.innerHTML,/data-action="complete-refund" data-id="pending-a"/);assert.doesNotMatch(root.innerHTML,/data-action="complete-refund" data-id="paid-a"/);assert.match(root.innerHTML,/أموال الشركة/);assert.match(root.innerHTML,/receipt &amp; 1/);
+ vm.runInContext("root.innerHTML=task({id:'order-a',number:'JN-fixture',status:'completed',fulfillment_state:'ready',delivery_state:'delivered',payment_state:'partially_refunded',cash_state:'with_courier',collected_halalas:2000,refunded_halalas:300,settled_halalas:700,cash_liability_halalas:1000,total_halalas:2000,created_at:1789000000000})",context);
+ assert.match(root.innerHTML,/تسوية عهدة 10\.00 ر\.س/);assert.doesNotMatch(root.innerHTML,/تسوية عهدة 20\.00/);
+});

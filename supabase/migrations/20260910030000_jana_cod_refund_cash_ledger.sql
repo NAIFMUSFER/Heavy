@@ -179,9 +179,9 @@ DECLARE u public.users;
 BEGIN
  u=public.jana_auth_user(p_token);IF u.role NOT IN ('admin','finance') THEN RAISE EXCEPTION 'forbidden';END IF;
  RETURN jsonb_build_object(
- 'couriers',(SELECT coalesce(jsonb_agg(x ORDER BY x.liability_halalas DESC),'[]') FROM (SELECT u.id,u.name,sum(o.collected_halalas) collected_halalas,sum(o.settled_halalas) settled_halalas,sum(o.courier_refunded_halalas) courier_refunded_halalas,sum(o.collected_halalas-o.settled_halalas-o.courier_refunded_halalas) liability_halalas FROM public.orders o JOIN public.users u ON u.id=o.courier_id WHERE o.payment_state IN ('collected','partially_refunded','refunded') GROUP BY u.id,u.name)x),
+ 'couriers',(SELECT coalesce(jsonb_agg(x ORDER BY x.liability_halalas DESC),'[]') FROM (SELECT cu.id,cu.name,sum(o.collected_halalas) collected_halalas,sum(o.settled_halalas) settled_halalas,sum(o.courier_refunded_halalas) courier_refunded_halalas,sum(o.collected_halalas-o.settled_halalas-o.courier_refunded_halalas) liability_halalas FROM public.orders o JOIN public.users cu ON cu.id=o.courier_id WHERE o.payment_state IN ('collected','partially_refunded','refunded') GROUP BY cu.id,cu.name)x),
  'refunds',(SELECT coalesce(jsonb_agg(to_jsonb(r)||jsonb_build_object('order_number',o.number) ORDER BY r.created_at DESC),'[]') FROM public.refunds r JOIN public.orders o ON o.id=r.order_id),
- 'cash_entries',(SELECT coalesce(jsonb_agg(x ORDER BY x.created_at DESC),'[]') FROM (SELECT e.*,o.number order_number,u.name courier_name FROM public.cash_entries e JOIN public.orders o ON o.id=e.order_id JOIN public.users u ON u.id=e.courier_id ORDER BY e.created_at DESC LIMIT 500)x));
+ 'cash_entries',(SELECT coalesce(jsonb_agg(x ORDER BY x.created_at DESC),'[]') FROM (SELECT e.*,o.number order_number,cu.name courier_name FROM public.cash_entries e JOIN public.orders o ON o.id=e.order_id JOIN public.users cu ON cu.id=e.courier_id ORDER BY e.created_at DESC LIMIT 500)x));
 END$$;
 ALTER FUNCTION public.jana_admin_reports(text) RENAME TO jana_admin_reports_cost_base;
 CREATE FUNCTION public.jana_admin_reports(p_token text) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$

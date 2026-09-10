@@ -14,3 +14,5 @@ The next forward migration will enforce:
 - No money is transferred by these COD recordkeeping APIs. Staff must confirm a payment actually occurred before recording it. Online payment and refund adapters remain configuration work.
 
 Production pre-migration evidence, 10 September 2026: one existing order; zero collected orders, zero courier-held cash orders, zero refund records. No historical refund source needs to be invented. This document describes the pending correction, not deployed behavior.
+
+The first disposable PostgreSQL financial run (34431555191) passed sixteen financial groups, then failed on an ambiguous SQL alias in the overview report. The alias is corrected; the migration is still unapplied and the complete gate must pass before release.

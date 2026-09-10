@@ -115,3 +115,9 @@ for(const [path,operation,input,expected] of [
 ])test(`${operation} forwards a persisted key and approved fields only`,async()=>{
  calls=[];response={id:'ticket-a',state:'open'};const r=await handlers['jana-api'](request('jana-api',path,{method:'POST',headers:{...bearer,'idempotency-key':'support-key-123'},body:JSON.stringify(input)}));assert.ok(r.ok);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_ticket_write'));assert.equal(calls[0].body.p_key,'support-key-123');assert.equal(calls[0].body.p_operation,operation);assert.deepEqual(calls[0].body.p_payload,expected);
 });
+test('customer refund request uses durable idempotency and never forwards a paid state',async()=>{
+ calls=[];response={id:'refund-fixture',state:'requested'};const r=await handlers['jana-api'](request('jana-api','/api/orders/order-fixture/refunds',{method:'POST',headers:{...bearer,'idempotency-key':'refund-request-key'},body:JSON.stringify({amount_halalas:100,reason:'Requested refund',state:'completed',payment_source:'courier'})}));assert.equal(r.status,201);assert.equal((await r.json()).state,'requested');assert.equal(calls[0].body.p_operation,'refund.request');assert.deepEqual(calls[0].body.p_payload,{order_id:'order-fixture',component_id:null,amount_halalas:100,reason:'Requested refund'});
+});
+test('partial settlement forwards the explicit amount while legacy full settlement omits it',async()=>{
+ for(const body of [{reference:'Paid receipt',amount_halalas:500},{reference:'Paid receipt'}]){calls=[];response={cash_state:'with_courier'};const r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/orders/order-fixture/settle',{method:'POST',headers:{...bearer,'idempotency-key':'settle-test-key'},body:JSON.stringify(body)}));assert.equal(r.status,200);assert.deepEqual(calls[0].body.p_payload,{order_id:'order-fixture',...body});}
+});
