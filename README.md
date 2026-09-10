@@ -24,13 +24,13 @@ The server fails startup on missing public assets or invalid project/origin conf
 
 ## Configuration
 
-`PORT` defaults to 10000. `JANA_SUPABASE_URL` defaults to the verified JANA project and rejects unrelated projects. `JANA_PUBLIC_ORIGIN` defaults to the verified Render URL and requires an HTTPS origin. `RENDER_GIT_COMMIT` is supplied by Render and exposed at `/version`. `POSTHOG_PROJECT_KEY` enables optional server-side capture; `POSTHOG_HOST` is restricted to the US/EU PostHog ingestion endpoints. Configure only a dedicated approved JANA project. No emails, SMS, online payments or feature rollout changes are enabled by this release.
+`PORT` defaults to 10000. `JANA_SUPABASE_URL` defaults to the verified JANA project and rejects unrelated projects. `JANA_PUBLIC_ORIGIN` defaults to the verified Render URL and requires an HTTPS origin. `RENDER_GIT_COMMIT` is supplied by Render and exposed at `/version`. `JANA_POSTHOG_PROJECT_ID` together with `JANA_POSTHOG_PROJECT_KEY` enables optional server-side capture; generic analytics keys are ignored. `JANA_POSTHOG_HOST` is restricted to the US/EU PostHog ingestion endpoints. Configure only a dedicated approved JANA project. No emails, SMS, online payments or feature rollout changes are enabled by this release.
 
 `/health` is gateway liveness. `/ready` checks all three Edge services including the main API's database invariant health. `/version` reports the deployed commit. Public source access is allowlisted: backend files and mobile source are not web assets.
 
 ## Database and Edge source
 
-`supabase/migrations` contains the reviewed repairs already applied to the existing JANA database on 9 September 2026. The original schema history is recovered verbatim under `tests/database-history`, with preview credentials and sample stock seed excluded. GitHub Actions successfully replays that history and the subsequent repairs into an empty PostgreSQL 17/PostGIS database. This verifies schema recovery, not recovery of production data backups. Source guards prevent blind reapplication of earlier repairs.
+`supabase/migrations` contains the reviewed repairs already applied to the existing JANA database on 9–10 September 2026. The original schema history is recovered verbatim under `tests/database-history`, with preview credentials and sample stock seed excluded. GitHub Actions successfully replays that history and the subsequent repairs into an empty PostgreSQL 17/PostGIS database. This verifies schema recovery, not recovery of production data backups. Source guards prevent blind reapplication of earlier repairs.
 
 `supabase/functions` contains the current reviewed Edge source. Custom opaque session authentication is enforced by JANA PostgreSQL RPCs; the deployed functions intentionally keep the existing `verify_jwt=false` because they do not use Supabase Auth JWT sessions. Function grants must remain service-only. Do not enable anonymous table access.
 
@@ -54,7 +54,7 @@ The full product definition is not complete. Outstanding commercial transactions
 
 ## Transaction and release verification
 
-The isolated PostgreSQL CI gate runs 34 regression checks, ten groups of 16-client concurrency checks, and ten coupon lifecycle/pricing groups. Address ownership/default and actual pg_cron execution tests also pass. Successful database run: 34400862608. The JavaScript suite now has 74 passing tests. See `docs/RELEASE-EVIDENCE.md` for deployment and mobile evidence.
+The isolated PostgreSQL CI gate runs 34 regression checks, ten groups of 16-client concurrency checks, and ten coupon lifecycle/pricing groups. Address ownership/default and actual pg_cron execution tests also pass. Successful database run: 34400862608. The JavaScript suite now has 91 passing tests. See `docs/RELEASE-EVIDENCE.md` for deployment and mobile evidence.
 
 Coupons support fixed amounts and percentage basis points. Their usage is reserved with stock and delivery capacity, released on quote cancellation/expiry, and redeemed once on confirmation. Confirmed-order cancellation does not restore a redeemed usage. Immutable sold coupon terms govern weight adjustments. A coupon may expire sooner than the usual fifteen-minute quote window. VAT configuration remains outstanding.
 
@@ -63,3 +63,5 @@ Coupon entry is gated by the server-side `jana-checkout-coupons` PostHog flag. C
 Run the database scripts only with `JANA_TEST_DATABASE=disposable`, `PGHOST=127.0.0.1` and `PGDATABASE=jana_test`. They refuse non-local database targets. The Actions service is destroyed after the job; no preview accounts or inventory are copied into production.
 
 The migration `20260909202730_jana_scheduled_quote_expiry.sql` installs pg_cron and schedules `jana-quote-expiry` every minute. It releases up to 200 expired quote reservations per run without swallowing transaction errors. Inspect `cron.job_run_details` for failures and `worker_runs` for the last successful run. The isolated Docker test uses PostgreSQL 17 Bookworm with genuine PostGIS and pg_cron; it verifies a scheduled release rather than invoking a fake timer. Scheduling reference: https://supabase.com/docs/guides/cron/quickstart .
+
+Canonical product families now contain immutable versions with multiple sellable sizes. Admin saves a draft and explicitly activates it; original offerings and old order snapshots remain intact. Support conversations include customer/staff replies, assignment, priority, closing and reopening. COD/refund ledger details and the latest release gate are in [financial integrity](docs/FINANCIAL-INTEGRITY.md).

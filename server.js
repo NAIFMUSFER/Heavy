@@ -14,9 +14,9 @@ function config(env=process.env) {
   if(supabase!==JANA_SUPABASE) throw Error('JANA_SUPABASE_URL must identify the dedicated JANA project');
   const origin=env.JANA_PUBLIC_ORIGIN||'https://jana-fresh-app.onrender.com', u=new URL(origin);
   if(u.origin!==origin||u.username||u.password||u.protocol!=='https:') throw Error('Invalid JANA_PUBLIC_ORIGIN');
-  const phHost=(env.POSTHOG_HOST||'https://us.i.posthog.com').replace(/\/$/,'');
-  if(!['https://us.i.posthog.com','https://eu.i.posthog.com'].includes(phHost)) throw Error('Invalid POSTHOG_HOST');
-  return {supabase,origin,phHost,phKey:env.POSTHOG_PROJECT_KEY||'',commit:env.RENDER_GIT_COMMIT||env.JANA_COMMIT||'local',timeout:15000,development:env.NODE_ENV!=='production'&&!env.RENDER};
+  const phHost=(env.JANA_POSTHOG_HOST||'https://us.i.posthog.com').replace(/\/$/,'');
+  if(!['https://us.i.posthog.com','https://eu.i.posthog.com'].includes(phHost)) throw Error('Invalid JANA_POSTHOG_HOST');
+  return {supabase,origin,phHost,phKey:/^\d+$/.test(env.JANA_POSTHOG_PROJECT_ID||'')?(env.JANA_POSTHOG_PROJECT_KEY||''):'',commit:env.RENDER_GIT_COMMIT||env.JANA_COMMIT||'local',timeout:15000,development:env.NODE_ENV!=='production'&&!env.RENDER};
 }
 function error(status,code){return Object.assign(Error(code),{status,code})}
 function headers(res,id){
@@ -47,7 +47,7 @@ function eventName(method,p,status){
   if(method==='POST'&&/^\/api\/substitutions\/.+\/decision$/.test(p))return'jana_substitution_decided';
   if(!['GET','HEAD'].includes(method)&&/^\/api\/ops\//.test(p))return'jana_ops_change';return'jana_api_request';
 }
-function routeLabel(p){return p.replace(/(\/orders|\/quotes|\/addresses|\/coverage|\/tickets|\/substitutions|\/notifications|\/lots|\/families|\/offerings|\/coupons|\/slots|\/favorites)\/[^/]+/g,'$1/:id')}
+function routeLabel(p){return p.replace(/(\/orders|\/quotes|\/addresses|\/coverage|\/tickets|\/substitutions|\/notifications|\/lots|\/families|\/offerings|\/coupons|\/slots|\/favorites|\/refunds|\/product-versions|\/support|\/staff)\/[^/]+/g,'$1/:id')}
 function createGateway({settings=config(),fetchImpl=fetch,log=entry=>console.log(JSON.stringify(entry)),root=__dirname}={}){
   const salt=crypto.randomBytes(32),statics=new Map();let active=0;
   for(const file of PUBLIC_FILES)statics.set('/'+file,fs.readFileSync(path.join(root,file)));
