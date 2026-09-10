@@ -62,7 +62,7 @@ BEGIN
    OR jsonb_typeof(a->'stock_id')<>'string' OR length(a->>'stock_id') NOT BETWEEN 1 AND 36
    OR jsonb_typeof(a->'actual_base')<>'number' OR a->>'actual_base' !~ '^[0-9]{1,11}$'
    OR (a->>'actual_base')::bigint>20000000000
-   OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(target->'components') c WHERE c->>'stock_id'=a->>'stock_id')
+   OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(target->'components') sold_component WHERE sold_component->>'stock_id'=a->>'stock_id')
    OR (SELECT count(*) FROM jsonb_array_elements(p_payload->'items') x WHERE x->>'stock_id'=a->>'stock_id')<>1 THEN RAISE EXCEPTION 'invalid_component_check';END IF;
  END LOOP;
  -- Store in the sold component order, with canonical units and required totals.
