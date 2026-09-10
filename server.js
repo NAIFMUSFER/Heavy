@@ -8,7 +8,7 @@ const MAX_BODY = 65536, MAX_RESPONSE = 4 * 1024 * 1024;
 const PUBLIC_FILES = ['index.html','admin.html','picker.html','courier.html','offline.html','manifest.webmanifest','sw.js','assets/icon.svg','assets/common.js'];
 const BUNDLES = {'/assets/shop.js':['shop',5,'.js'],'/assets/ops.js':['ops',4,'.js'],'/assets/styles.css':['styles',2,'.css']};
 const TYPES = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
-const OPS = /^\/api\/ops\/(catalog|finance|refunds\/[^/]+\/(complete|reject)|products|product-versions\/[^/]+\/activate|suppliers|coupons|slots|stock|lots|zones|lots\/[^/]+\/(inspect|adjust)|families\/[^/]+\/versions|offerings\/[^/]+\/active|coupons\/[^/]+\/active|slots\/[^/]+\/active|orders\/[^/]+\/(collect|settle|refunds))$/;
+const OPS = /^\/api\/ops\/(counts|counts\/[^/]+\/(submit|cancel)|count-lines\/[^/]+\/decision|stock\/[^/]+|suppliers\/[^/]+|catalog|finance|refunds\/[^/]+\/(complete|reject)|products|product-versions\/[^/]+\/activate|suppliers|coupons|slots|stock|lots|zones|lots\/[^/]+\/(inspect|adjust)|families\/[^/]+\/versions|offerings\/[^/]+\/active|coupons\/[^/]+\/active|slots\/[^/]+\/active|orders\/[^/]+\/(collect|settle|refunds))$/;
 function config(env=process.env) {
   const supabase=(env.JANA_SUPABASE_URL||JANA_SUPABASE).replace(/\/$/,'');
   if(supabase!==JANA_SUPABASE) throw Error('JANA_SUPABASE_URL must identify the dedicated JANA project');
@@ -47,7 +47,7 @@ function eventName(method,p,status){
   if(method==='POST'&&/^\/api\/substitutions\/.+\/decision$/.test(p))return'jana_substitution_decided';
   if(!['GET','HEAD'].includes(method)&&/^\/api\/ops\//.test(p))return'jana_ops_change';return'jana_api_request';
 }
-function routeLabel(p){return p.replace(/(\/orders|\/quotes|\/addresses|\/coverage|\/tickets|\/substitutions|\/notifications|\/lots|\/families|\/offerings|\/coupons|\/slots|\/favorites|\/refunds|\/product-versions|\/support|\/staff)\/[^/]+/g,'$1/:id')}
+function routeLabel(p){return p.replace(/(\/orders|\/quotes|\/addresses|\/coverage|\/tickets|\/substitutions|\/notifications|\/lots|\/families|\/offerings|\/coupons|\/slots|\/favorites|\/refunds|\/product-versions|\/support|\/staff|\/stock|\/suppliers|\/counts|\/count-lines)\/[^/]+/g,'$1/:id')}
 function createGateway({settings=config(),fetchImpl=fetch,log=entry=>console.log(JSON.stringify(entry)),root=__dirname}={}){
   const salt=crypto.randomBytes(32),statics=new Map();let active=0;
   for(const file of PUBLIC_FILES)statics.set('/'+file,fs.readFileSync(path.join(root,file)));
