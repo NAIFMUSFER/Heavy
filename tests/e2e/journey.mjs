@@ -26,7 +26,7 @@ async function pageFor(role,path='/'){
 }
 async function change(page,path,action,method='POST'){
  const pending=page.waitForResponse(r=>new URL(r.url()).pathname===path&&r.request().method()===method);
- await action();const response=await pending;
+ const [response]=await Promise.all([pending,action()]);
  assert.ok(response.ok(),path+' returned '+response.status()+': '+(await response.text()).slice(0,600));
  return response.json();
 }
