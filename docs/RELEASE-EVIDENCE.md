@@ -11,8 +11,8 @@ This is an engineering checkpoint, not a commercial launch certification.
 | Address/mobile revision ae46c74 | Database, Expo export, Android APK (34400191895), and iOS simulator (34400191843) all passed |
 | Empty database replay | Recovered schema and all current migrations pass in disposable PostgreSQL 17/PostGIS; run 34400862608 |
 | Database tests | 34 transactional regression checks, ten sixteen-client concurrency groups, ten coupon lifecycle/pricing groups, eight address groups and four scheduled-worker checks passed |
-| JavaScript tests | 122 passed locally, zero failed |
-| Supabase Edge | jana-api v16, jana-critical v5, jana-ops-extra v13 deployed ACTIVE |
+| JavaScript tests | 137 passed locally, zero failed |
+| Supabase Edge | jana-api v18, jana-critical v5, jana-ops-extra v13 deployed ACTIVE |
 | Production invariants | Negative stock, excess reservation, slot overbooking, duplicate quote orders and cash invariant counts all zero |
 | Security grants | Zero anon/authenticated EXECUTE grants on new coupon writes/triggers |
 | Coupon release | Database/API/web/mobile implementation present; server flag disabled without dedicated JANA PostHog configuration |
@@ -47,10 +47,12 @@ Inventory count migration `20260910035511` applied after **34434887966** passed 
 
 Warehouse release **8f5ff5ca99c5afa5bc7202c90423e180c69aca53** is verified live (Render `dep-dah2osp42hec73eherdg`, 04:05:42 UTC). Exact public `/version` and `/ready` succeeded. Live smoke **34435760965** passed; database **34435760925** passed.
 
-Staff backend **e5270fb2** passed database **34436087456**, including fourteen staff groups and forty-one RPC argument contracts. Node verification **34436087463** passed. A subsequent review found the customer anonymization RPC also needed to reject staff; that guard and its regression test are pending the next database gate. Local UI/API suite: **122 passed**, zero failed. The first staff-dialog test failed because its DOM stub did not model a connected button; corrected stub passed. Production preflight found zero active administrators; no account was changed. Staff migration and UI are not yet deployed.
+Staff backend **e5270fb2** passed database **34436087456**, including fourteen staff groups and forty-one RPC argument contracts. Node verification **34436087463** passed. A subsequent review found the customer anonymization RPC also needed to reject staff; that guard and its regression test are pending the next database gate. Local UI/API suite: **137 passed**, zero failed. The first staff-dialog test failed because its DOM stub did not model a connected button; corrected stub passed. Production preflight found zero active administrators; no account was changed. Staff migration and UI are not yet deployed.
 
 Staff migration **20260910041948** applied after **34436636396** passed fifteen staff groups, forty-one RPC contracts and all preceding suites. Verification **34436636401** passed. Staff membership fingerprint `74e152ae242857f6f47c4d978c236fb0` and order assignment/total fingerprint `ae57746dac0dcfb464b76bbe127066dd` match before/after. JANA RPC client execute grants remain zero; the private transition helper is not service-executable. All production business invariants report zero violations. Existing PostGIS owner findings remain unresolved. Main API v17 deployed; exact web release verification pending.
 
 Staff web release **e67c0f476c4b9ac6119c088a2265a5b1f747dd00** is live (Render `dep-dah32r3l550s73dcgo90`, 04:26:47 UTC). Exact-commit live smoke **34437124783** and database **34437124787** succeeded. Owner initialization remains required; no customer or staff account was created during verification.
 
 Saved-list/recurring implementation remains unpublished to production. Database **34437458476** failed at initial list creation; qualified SQL variable names resolved it. Run **34437706014** then passed eleven groups, including list concurrency and calendar month anchors, and identified incorrect SQL string concatenation in the reminder body. That expression is corrected and the complete worker/scheduler gate is being rerun. Neither failed build is a PASS.
+
+Customer saved-data migration **20260910044830** is applied. **34438196238** passed fifteen saved-list/profile/reminder groups, including actual pg_cron execution, fifty RPC argument contracts and all earlier suites. Android **34438196280**, iOS simulator **34438196304**, Expo **34438196312** and Node **34438196251** succeeded on source **32800e29**. Initial management-tool apply returned an internal transport error; read-only probes confirmed no migration/columns/job existed before the successful retry. There remain zero production lists/plans, all business invariants are healthy and JANA client RPC grants are zero. Recurring job is active every minute. API v18 deployed. Existing PostGIS owner findings remain unresolved. Exact web release verification pending.

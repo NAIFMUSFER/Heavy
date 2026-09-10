@@ -27,7 +27,7 @@ The current source was verified byte-for-byte against GitHub `NAIFMUSFER/Heavy`,
 
 Tests run locally here use stub upstream responses solely in tests, never in production flows. Database tests ran previously on the real JANA PostgreSQL with rollback-only fixtures. Multi-client PostgreSQL concurrency and schema replay are now verified in Actions; browser E2E, device testing and complete commercial operation remain unverified.
 
-Current local suite: 122 passed, zero failed. The initial critical transport extension exposed two error-code mapping failures (409 versus 422); these were fixed and the suite rerun. The first live-smoke run 34395724977 failed at an assertion counting all cookies on failed login. The corrected check targets JANA session/CSRF cookies; upstream infrastructure cookies are also excluded by the gateway. The corrected live-smoke suite subsequently passed in runs 34397238501 and 34398693638.
+Current local suite: 137 passed, zero failed. The initial critical transport extension exposed two error-code mapping failures (409 versus 422); these were fixed and the suite rerun. The first live-smoke run 34395724977 failed at an assertion counting all cookies on failed login. The corrected check targets JANA session/CSRF cookies; upstream infrastructure cookies are also excluded by the gateway. The corrected live-smoke suite subsequently passed in runs 34397238501 and 34398693638.
 
 Browser observation of existing live storefront: catalog loaded, search filtered mango, add-to-cart and cart review worked, checkout requested login. No customer account or commercial order was created through the browser.
 
@@ -41,3 +41,5 @@ Substitution checkpoint: immutable proposal terms, explicit customer approval, a
 Combined finance/substitution release fcb7f8f is verified live by exact public commit, readiness and smoke 34434232333. Android 34433806118 and iOS 34433806132 passed. Work now proceeds to physical count sessions, configurable reorder thresholds, supplier metadata and warehouse idempotency.
 
 Warehouse count sessions, threshold configuration and supplier metadata are applied and verified live in 8f5ff5c (smoke 34435760965). Staff membership, assignment and paginated audit implementation is undergoing release validation. Production has no active administrator; owner account initialization and authenticated operator acceptance remain required.
+
+Staff membership/assignment/audit release e67c0f4 is verified live with smoke 34437124783. Saved lists, recurring reminders, customer profile and mobile category/search/detail/favorites are implemented and passed database/native builds on 32800e29. Migration 20260910044830 and API v18 are applied; web release verification pending. Remaining engineering work includes full browser commerce/operations acceptance, optional provider adapters, optional-email onboarding, complete catalog pagination and warehouse/location expansion.

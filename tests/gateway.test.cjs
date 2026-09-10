@@ -29,3 +29,5 @@ test('financial and staff route identifiers are redacted from telemetry',()=>{co
 test('warehouse count routes remain on the fixed operations service with redacted identifiers',async t=>{
  const f=await fixture(t),{routeLabel}=require('../server.js');for(const p of ['/api/ops/counts/count-private/submit','/api/ops/count-lines/line-private/decision','/api/ops/stock/stock-private','/api/ops/suppliers/supplier-private']){const r=await fetch(f.base+p,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});assert.equal(r.status,200);assert.ok(f.calls.at(-1)[0].includes('/jana-ops-extra'+p));assert.ok(!routeLabel(p).includes('private'))}
 });
+
+test('saved list and recurring identifiers are redacted from telemetry',()=>{const {routeLabel}=require('../server.js');for(const p of ['/api/shopping-lists/private-list','/api/recurring/private-plan'])assert.ok(!routeLabel(p).includes('private-'))});
