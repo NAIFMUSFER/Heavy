@@ -15,7 +15,7 @@ const cases=[
  ['GET','/counts'],['POST','/counts',{location:'Fixture shelf',lot_ids:['fixture-lot']}],['POST','/counts/fixture/submit',{counts:[],note:'Fixture count'}],['POST','/counts/fixture/cancel',{reason:'Fixture cancellation'}],['POST','/count-lines/fixture/decision',{approve:true,reason:'Fixture approval'}],['PATCH','/stock/fixture',{reorder_base:500}],['PATCH','/suppliers/fixture',{notes:'Fixture supplier'}],
  ['POST','/products',{title:'Fixture product',offerings:[]}],['POST','/product-versions/11111111-1111-1111-1111-111111111111/activate'],
  ['GET','/finance'],['POST','/orders/fixture/refunds',{amount_halalas:100,reason:'Fixture refund',reference:'Fixture paid',payment_source:'finance'}],['POST','/refunds/fixture/complete',{reference:'Fixture paid',payment_source:'finance'}],['POST','/refunds/fixture/reject',{reason:'Fixture rejected'}],
- ['GET','/catalog'],['POST','/suppliers',{name:'Fixture supplier',phone:''}],
+ ['PATCH','/zones/fixture',{revision:1,reason:'Fixture change',active:false}],['PATCH','/slots/fixture',{revision:1,reason:'Fixture change',capacity:2}],['GET','/catalog'],['POST','/suppliers',{name:'Fixture supplier',phone:''}],
  ['POST','/coupons',{code:'FIXTURE',amount_halalas:500,minimum_halalas:0,max_uses:1,expires_at:4102444800000}],
  ['POST','/slots',{zone_id:'fixture-zone',starts_at:4102444800000,ends_at:4102448400000,cutoff_at:4102441200000,capacity:1}],
  ['POST','/stock',{name:'Fixture stock',base_unit:'gram'}],
