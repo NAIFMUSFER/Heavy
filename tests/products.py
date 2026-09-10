@@ -1,0 +1,36 @@
+from database_support import *
+checks=[]
+def passed(name):checks.append(name);print('PASS '+name,flush=True)
+def fails(query,reason):
+ r=run(query,False);assert not r['ok'] and reason in r['error'],r
+f=fixture()
+def payload():return dict(title='فاكهة الاختبار المعزول',description='Disposable product',category='fruit',kind='sized',emoji='',image_url='',offerings=[dict(sellable_key='half-kg',size_label='500 g',sale_unit='kg',price_halalas=1000,components=[dict(stock_id=f['p']+'st',base_qty=500,name='Untrusted label',base_unit='piece')]),dict(sellable_key='one-kg',size_label='1 kg',sale_unit='kg',price_halalas=1900,components=[dict(stock_id=f['p']+'st',base_qty=1000)])])
+def create(body,family=''):return val(rpc('jana_admin_create_product_version',f['atok'],family,body))
+def activate(v):return val(rpc('jana_admin_activate_product_version',f['atok'],v['id']))
+def offerings(v):return val('SELECT jsonb_agg(to_jsonb(o) ORDER BY o.size_label) FROM product_version_offerings m JOIN offerings o ON o.id=m.offering_id WHERE m.version_id='+literal(v['id'])+';')
+def checkout(v,key):return val('SELECT jana_create_quote_idempotent('+','.join(map(literal,[f['t'],key,f['p']+'s',f['p']+'addr']))+','+literal(json.dumps([{'offering_id':v['offerings'][0]['id'],'qty':1}]))+'::jsonb)::text;')
+v=create(payload());assert v['state']=='draft' and len(v['offerings'])==2 and len(set(o['family_id'] for o in v['offerings']))==2;assert all(not o['active'] for o in offerings(v));passed('new product family has one draft version with two independent sellable offerings')
+comp=v['offerings'][0]['components'][0];canonical=val('SELECT to_jsonb(s) FROM stock_items s WHERE id='+literal(f['p']+'st')+';');assert comp['name']==canonical['name'] and comp['base_unit']==canonical['base_unit'];passed('component names and units resolve from stock master')
+activate(v);catalog=val('SELECT jana_public_catalog();');visible=[o for o in catalog if o.get('product_family_id')==v['family_id']];assert len(visible)==2 and all(o['product_version_id']==v['id'] for o in visible);passed('activation exposes both sizes with canonical family and version identities')
+q=checkout(v,'version-quote');assert q['lines'][0]['product_version_id']==v['id'];assert q['lines'][0]['product_family_id']==v['family_id'];o=val(rpc('jana_critical_write',f['t'],'version-confirm','order.confirm',{'quote_id':q['id']}));original=val('SELECT original_snapshot::jsonb FROM orders WHERE id='+literal(o['id'])+';')
+p=payload();p['title']='إصدار ثان';p['offerings'][0]['price_halalas']=1300;v2=create(p,v['family_id']);assert v2['version']==2;assert {a['family_id'] for a in v['offerings']}=={a['family_id'] for a in v2['offerings']};activate(v2)
+assert all(not x['active'] for x in offerings(v));assert all(x['active'] for x in offerings(v2));assert val('SELECT original_snapshot::jsonb FROM orders WHERE id='+literal(o['id'])+';')==original;assert val('SELECT total_halalas FROM orders WHERE id='+literal(o['id'])+';')==q['total_halalas'];passed('new version preserves sellable lineage and never reprices confirmed orders')
+q2=checkout(v2,'quote-before-activation');copy=create({'copy_version_id':v2['id'],'title':'إصدار منسوخ'},v['family_id']);assert len(copy['offerings'])==2;activate(copy);o2=val(rpc('jana_critical_write',f['t'],'confirm-old-valid-quote','order.confirm',{'quote_id':q2['id']}));assert o2['total_halalas']==q2['total_halalas'];passed('copy retains both sizes and an already reserved quote retains original terms')
+fails(rpc('jana_admin_activate_product_version',f['atok'],v['id']),'invalid_product_version_state');fails(rpc('jana_admin_set_offering_active',f['atok'],v['offerings'][0]['id'],True),'invalid_product_version_state');passed('retired offerings cannot be reactivated outside a new version')
+fails('UPDATE product_versions SET title=\'Changed\' WHERE id='+literal(v['id'])+';','create_a_new_product_version');fails('UPDATE offerings SET price_halalas=1 WHERE id='+literal(v['offerings'][0]['id'])+';','create_a_new_offering_version');fails('DELETE FROM product_version_offerings WHERE version_id='+literal(v['id'])+';','append_only_ledger');passed('version definitions offerings and historical links resist destructive edits')
+for mode in ['missing-stock','duplicate-stock','duplicate-sku','zero-price','zero-quantity']:
+ p=payload()
+ if mode=='missing-stock':p['offerings'][0]['components'][0]['stock_id']='not-a-stock'
+ if mode=='duplicate-stock':p['offerings'][0]['components']*=2
+ if mode=='duplicate-sku':p['offerings'][1]['sellable_key']=p['offerings'][0]['sellable_key']
+ if mode=='zero-price':p['offerings'][0]['price_halalas']=0
+ if mode=='zero-quantity':p['offerings'][0]['components'][0]['base_qty']=0
+ before=val('SELECT count(*) FROM product_families;');r=run(rpc('jana_admin_create_product_version',f['atok'],'',p),False);assert not r['ok'];assert val('SELECT count(*) FROM product_families;')==before
+passed('invalid components duplicate sizes and invalid amounts roll back the whole draft')
+other=create(payload());fails(rpc('jana_admin_create_product_version',f['atok'],v['family_id'],{'copy_version_id':other['id']}),'product_version_not_found');passed('copy source must belong to the selected family')
+created=successful(race([rpc('jana_admin_create_product_version',f['atok'],v['family_id'],{'copy_version_id':copy['id'],'title':'Concurrent version '+str(i)}) for i in range(8)]));assert len(created)==8 and len({x['version'] for x in created})==8;passed('concurrent version creation serializes family version numbers')
+a=created[0];b=created[1];results=successful(race([rpc('jana_admin_activate_product_version',f['atok'],x['id']) for x in [a,b]]));assert len(results)==2;assert val('SELECT count(*) FROM product_versions WHERE state=\'active\' AND family_id='+literal(v['family_id'])+';')==1
+assert val('SELECT count(DISTINCT m.version_id) FROM offerings o JOIN product_version_offerings m ON m.offering_id=o.id JOIN product_versions pv ON pv.id=m.version_id WHERE pv.family_id='+literal(v['family_id'])+' AND o.active;')==1;passed('concurrent activation leaves exactly one coherent active version')
+legacy=val(rpc('jana_admin_new_offering_version',f['atok'],a['offerings'][0]['family_id'],{'name':'Legacy editor version','price_halalas':1400}));assert legacy['price_halalas']==1400;current=val('SELECT jana_admin_catalog('+literal(f['atok'])+');');live=[x for x in current['offerings'] if x.get('product_family_id')==v['family_id'] and x['active']];assert len(live)==2;passed('legacy single-size editor preserves sibling offerings in a new canonical version')
+fails(rpc('jana_admin_create_product_version',f['t'],'',payload()),'forbidden');fails(rpc('jana_admin_activate_product_version',f['t'],other['id']),'forbidden');assert val("SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public' AND p.proname IN ('jana_admin_create_product_version','jana_admin_activate_product_version','jana_create_quote_base','jana_public_catalog_base','jana_admin_catalog_base') AND (has_function_privilege('anon',p.oid,'EXECUTE') OR has_function_privilege('authenticated',p.oid,'EXECUTE')); ")==0;passed('product mutations and internal wrappers remain server-authorized')
+print(json.dumps({'passed':len(checks),'checks':checks}))
