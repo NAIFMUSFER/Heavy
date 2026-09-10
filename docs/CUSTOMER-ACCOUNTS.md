@@ -1,6 +1,6 @@
 # Customer account identifiers
 
-The candidate account migration permits customer registration with an email address, a Saudi mobile number, or both. A real password is mandatory. No synthetic email address is created. Existing email/password accounts remain compatible, and staff continue to use email identifiers.
+Applied account migration `20260910094542` permits customer registration with an email address, a Saudi mobile number, or both. A real password is mandatory. No synthetic email address is created. Existing email/password accounts remain compatible, and staff continue to use email identifiers.
 
 The accepted phone forms are `05xxxxxxxx` and `+9665xxxxxxxx`. A unique normalized phone index prevents separate accounts from claiming those two forms of the same number. Production preflight found zero nonstandard phone rows and zero normalized collisions. Existing contacts are not rewritten by the migration.
 
@@ -10,4 +10,4 @@ Password creation requires at least 12 characters and at most 72 UTF-8 bytes to 
 
 Profile editing cannot remove the only usable login identifier. Normalized uniqueness also applies to profile updates. A formatting-only change to the same phone does not falsely revoke an already recorded verification; changing the actual number resets verification. Self-service addition/change of an email identifier and provider-backed recovery remain separate future work.
 
-New functions remain service-only, and the normalization helper is private. The planned database and browser gates cover optional-email creation, alias login, uniqueness, concurrent registration, durable limits, profile safeguards and inactive/operational-account exclusions. This migration is not yet applied; see RELEASE-EVIDENCE.md for verified deployment state.
+New functions remain service-only, and the normalization helper is private. The planned database and browser gates cover optional-email creation, alias login, uniqueness, concurrent registration, durable limits, profile safeguards and inactive/operational-account exclusions. The database and browser gates passed at d89fb4a, and API v21 is active. Existing user, order and stock fingerprints are unchanged. Web/native promotion remains pending; see RELEASE-EVIDENCE.md.

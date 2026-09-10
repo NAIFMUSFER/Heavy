@@ -42,3 +42,6 @@ test('delivery setting edits reach the operations Edge and redact resource ident
 test('saved cart PUT reaches the fixed API while unrelated PUT methods stay rejected',async t=>{
  const f=await fixture(t);const r=await fetch(f.base+'/api/cart',{method:'PUT',headers:{'content-type':'application/json'},body:'{"revision":0,"items":[]}'});assert.equal(r.status,200);assert.ok(f.calls[0][0].endsWith('/jana-api/api/cart'));assert.equal(f.calls[0][1].method,'PUT');const prior=f.calls.length;assert.equal((await fetch(f.base+'/api/orders',{method:'PUT',headers:{'content-type':'application/json'},body:'{}'})).status,405);assert.equal(f.calls.length,prior);
 });
+test('customer directory contact search and record identifiers stay out of telemetry',async t=>{
+ const f=await fixture(t);await fetch(f.base+'/api/ops/customers/private-customer?q=private-phone');const text=JSON.stringify(f.logs);assert.ok(!text.includes('private-customer'));assert.ok(!text.includes('private-phone'));assert.equal(f.logs[0].route,'/api/ops/customers/:id');
+});
