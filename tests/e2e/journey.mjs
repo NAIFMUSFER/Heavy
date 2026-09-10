@@ -85,6 +85,18 @@ try{
  const revisedSlot=await change(admin,'/api/ops/slots/'+newSlot.id,()=>admin.locator('#slot-form button').click(),'PATCH');assert.equal(revisedSlot.capacity,2);assert.equal(revisedSlot.booked,0);pass('admin creates and revises geographic zones and delivery slot capacity through audited forms');
  await admin.locator('[data-page=orders]').click();
 
+ phase='merchant policies and intake administration';
+ await admin.locator('[data-page=storefront]').click();await admin.locator('#store-draft').waitFor();
+ await admin.locator('#store-draft [name=display_name]').fill('متجر اختبار السياسات');
+ await change(admin,'/api/ops/storefront/draft',()=>admin.locator('#store-draft button[type=submit]').click());
+ await admin.locator('#store-publish-confirm').check();
+ const merchant=await change(admin,'/api/ops/storefront/publish',()=>admin.locator('#store-publish').click());assert.equal(merchant.published.profile.display_name,'متجر اختبار السياسات');
+ await admin.locator('#store-intake [name=accepting_orders]').selectOption('false');await admin.locator('#store-intake [name=message]').fill('توقف استقبال الطلبات لاختبار التشغيل');await admin.locator('#store-intake [name=reason]').fill('اختبار إيقاف استقبال الطلبات');
+ const paused=await change(admin,'/api/ops/storefront/intake',()=>admin.locator('#store-intake button[type=submit]').click());assert.equal(paused.accepting_orders,false);
+ const guest=await pageFor('store-guest');await guest.locator('#announcement').filter({hasText:'توقف استقبال الطلبات'}).waitFor();await guest.locator('[data-action=store-info]').click();await guest.locator('dialog[open]').getByText('متجر اختبار السياسات',{exact:true}).waitFor();await closeModal(guest);
+ await admin.locator('#store-intake [name=accepting_orders]').selectOption('true');await admin.locator('#store-intake [name=message]').fill('المتجر الاختباري يستقبل الطلبات');await admin.locator('#store-intake [name=reason]').fill('اكتمال اختبار تشغيل المتجر');await admin.locator('#store-intake [name=reference]').fill('E2E-OPERATIONS-APPROVAL');for(const k of ['catalog','inventory','coverage','tax','operations'])await admin.locator('#store-intake [name='+k+']').check();
+ const opened=await change(admin,'/api/ops/storefront/intake',()=>admin.locator('#store-intake button[type=submit]').click());assert.equal(opened.accepting_orders,true);pass('admin publishes versioned merchant policies and guest sees intake state before operations reopen');
+
  phase='customer account and saved preferences';
  const customerNetwork={};const customer=await pageFor('customer','/',customerNetwork);await customer.locator('[data-view=account]').first().click();await customer.locator('[data-register]').click();
  const auth=customer.locator('#auth-form');await auth.locator('[name=name]').fill('عميل اختبار المتصفح');await auth.locator('[name=email]').fill(fixture.prefix+'browser@example.invalid');await auth.locator('[name=password]').fill(password);
@@ -117,6 +129,7 @@ try{
  const quote=await change(customer,'/api/quotes',()=>customer.locator('[data-slot="'+fixture.slot_id+'"]').click());
  assert.equal(quote.total_halalas,2000);assert.deepEqual(stock(),{on_hand:10001,reserved:1000});assert.equal(Number(sql('SELECT booked FROM delivery_slots WHERE id='+literal(fixture.slot_id)+';')),1);
  assert.equal(Number(sql('SELECT count(*) FROM orders;')),0);pass('quote reserves stock and zone capacity before any permanent order');
+ assert.equal(quote.store_profile.id,merchant.published.id);await customer.locator('#quote-store-policies').getByText('متجر اختبار السياسات',{exact:true}).waitFor();pass('checkout loads the immutable published merchant policy before enabling confirmation');
  const confirmed=await change(customer,'/api/orders',()=>customer.locator('#confirm-order').click());
  const code=(await customer.locator('.delivery-code').innerText()).trim();assert.match(code,/^\d{6}$/);assert.equal(order().id,confirmed.id);assert.equal(order().total,2000);pass('reviewed COD confirmation creates one immutable commercial order');
  await customer.screenshot({path:output+'/order-confirmed.png',fullPage:true});
@@ -187,11 +200,11 @@ try{
 
  phase='versioned weight policy and picking';
  await closeModal(admin);await admin.locator('[data-page=catalog]').click();await admin.locator('[data-action=new-product]').click();const productForm=admin.locator('#product-version-form');
- await productForm.locator('[name=title]').fill('فاكهة بحدود وزن الاختبار');await productForm.locator('[name=size_label]').fill('1 كجم');await productForm.locator('[name=price]').fill('20');await productForm.locator('[name=stock_id]').selectOption(fixture.stock_id);await productForm.locator('[name=base_qty]').fill('1000');await productForm.locator('[name=weight_under]').fill('20');await productForm.locator('[name=weight_over]').fill('20');
+ await productForm.locator('[name=title]').fill('فاكهة بحدود وزن الاختبار');await productForm.locator('[name=size_label]').fill('1 كجم');await productForm.locator('[name=price]').fill('20');await productForm.locator('[name=image_url]').fill(origin+'/assets/icon.svg');await productForm.locator('[name=stock_id]').selectOption(fixture.stock_id);await productForm.locator('[name=base_qty]').fill('1000');await productForm.locator('[name=weight_under]').fill('20');await productForm.locator('[name=weight_over]').fill('20');
  const weightVersion=await change(admin,'/api/ops/products',()=>productForm.locator('button[type=submit]').click());assert.equal(weightVersion.offerings[0].weight_over_bps,2000);assert.equal(weightVersion.offerings[0].weight_under_bps,2000);
  await admin.locator('details').filter({has:admin.locator('[data-action=activate-product-version][data-id="'+weightVersion.id+'"]')}).locator('summary').click();
  await change(admin,'/api/ops/product-versions/'+weightVersion.id+'/activate',()=>admin.locator('[data-action=activate-product-version][data-id="'+weightVersion.id+'"]').click());pass('administrator creates and activates an immutable sellable weight policy');
- await customer.reload();await customer.locator('[data-add="'+weightVersion.offerings[0].id+'"]').click();await customer.locator('[data-action=cart]').first().click();await customer.locator('#checkout').click();await customer.locator('[data-address]').first().click();
+ await customer.reload();const publishedImage=customer.locator('[data-product="'+weightVersion.offerings[0].id+'"] img');await publishedImage.waitFor();await publishedImage.scrollIntoViewIfNeeded();await publishedImage.evaluate(img=>img.decode());assert.ok(await publishedImage.evaluate(img=>img.naturalWidth>0));pass('configured product image is rendered and decoded on the real storefront');await customer.locator('[data-add="'+weightVersion.offerings[0].id+'"]').click();await customer.locator('[data-action=cart]').first().click();await customer.locator('#checkout').click();await customer.locator('[data-address]').first().click();
  const weightQuote=await change(customer,'/api/quotes',()=>customer.locator('[data-slot="'+fixture.slot_id+'"]').click());assert.equal(weightQuote.lines[0].weight_policy.max_base,1200);await customer.getByText(/الزيادة المسموحة مجانًا/).waitFor();
  const weightOrder=await change(customer,'/api/orders',()=>customer.locator('#confirm-order').click());assert.deepEqual(stock(),{on_hand:9101,reserved:1000});
  await admin.locator('[data-page=orders]').click();await change(admin,'/api/ops/orders/'+weightOrder.id+'/start',()=>admin.locator('[data-action=start][data-id="'+weightOrder.id+'"]').click());await admin.locator('[data-action=open-pick][data-id="'+weightOrder.id+'"]').click();

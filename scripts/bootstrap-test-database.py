@@ -15,6 +15,9 @@ for p in sorted(pathlib.Path('tests/database-history').glob('*.sql'))+sorted(pat
  print('Applying',p.name,flush=True)
  sql('SET search_path=public,extensions;\n'+p.read_text())
 print('Recovered migrations replayed successfully')
+sys.path.insert(0,'tests')
+from storefront_fixture import bootstrap_store
+bootstrap_store()
 # Contract metadata comes from this restored PostgreSQL schema, never handwritten stubs.
 contracts=subprocess.check_output(['psql','-X','-qAt','-v','ON_ERROR_STOP=1','-c',"SELECT jsonb_agg(jsonb_build_object('name',p.proname,'args',coalesce(p.proargnames,ARRAY[]::text[]),'required',coalesce(p.proargnames[1:p.pronargs-p.pronargdefaults],ARRAY[]::text[]))) FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND p.proname LIKE 'jana_%';"],text=True)
 contract_file=pathlib.Path('evidence/local/rpc-schema.json');contract_file.parent.mkdir(parents=True,exist_ok=True);contract_file.write_text(contracts)

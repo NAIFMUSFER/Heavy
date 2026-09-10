@@ -247,3 +247,16 @@ test('custody business conflicts surface as actionable HTTP errors',async()=>{
   const r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/customer-returns/11111111-1111-1111-1111-111111111111/dispositions',{method:'POST',headers:{...bearer,'idempotency-key':'custody-error-fixture'},body:'{}'}));assert.equal(r.status,status);assert.match((await r.json()).error.code,/RETURN_DISPOSITION/);
  }
 });
+
+for(const [route,operation]of [['draft','draft.save'],['publish','profile.publish'],['intake','intake.set']])test(`store ${operation} requires idempotency and forwards the canonical operation`,async()=>{
+ calls=[];response={revision:1};const path='/api/ops/storefront/'+route,body={revision:0,profile:{}};
+ let r=await handlers['jana-api'](request('jana-api',path,{method:'POST',headers:bearer,body:JSON.stringify(body)}));assert.equal(r.status,422);assert.equal(calls.length,0);
+ r=await handlers['jana-api'](request('jana-api',path,{method:'POST',headers:{...bearer,'idempotency-key':'store-write-fixture'},body:JSON.stringify(body)}));assert.equal(r.status,200);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_storefront_write'));assert.equal(calls[0].body.p_operation,operation);assert.deepEqual(calls[0].body.p_payload,body);
+});
+test('public store version lookup validates IDs and uses only the public RPC',async()=>{
+ calls=[];let r=await handlers['jana-api'](request('jana-api','/api/storefront?version=invalid'));assert.equal(r.status,404);assert.equal(calls.length,0);
+ response={published:null,accepting_orders:false};r=await handlers['jana-api'](request('jana-api','/api/storefront'));assert.equal(r.status,200);assert.deepEqual(calls[0].body,{p_version_id:null});assert.ok(calls[0].url.endsWith('/jana_public_storefront'));
+});
+for(const name of ['jana-api','jana-critical'])test(`${name} reports closed store without pretending stock failed`,async()=>{
+ response={_error:'storefront_closed',status:409};const r=await handlers[name](request(name,'/api/quotes',{method:'POST',headers:{...bearer,'idempotency-key':'closed-quote-fixture'},body:JSON.stringify({address_id:'fixture',slot_id:'fixture',lines:[{offering_id:'fixture',quantity:1}]})}));assert.equal(r.status,409);assert.equal((await r.json()).error.code,'STORE_CLOSED');
+});

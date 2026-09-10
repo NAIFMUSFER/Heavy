@@ -1,5 +1,9 @@
 // Publish a complete catalog only after every page succeeds. Never return a
 // partial list as though unavailable later-page products no longer exist.
+export function productImageUrl(value){
+ if(typeof value!=='string'||value.length>300)return '';
+ try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password?u.href:''}catch{return ''}
+}
 export async function loadCatalog(call){
  const items=[],seen=new Set();let offset=0;
  for(let page=0;page<100;page++){

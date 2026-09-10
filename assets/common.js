@@ -1,4 +1,13 @@
 export const esc = (s='') => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export function productImageUrl(value){
+ if(typeof value!=='string'||value.length>300)return '';
+ try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password?u.href:''}catch{return ''}
+}
+export function productImage(product){
+ const url=productImageUrl(product.image_url);
+ return `<span class="product-emoji" aria-hidden="true">${esc(product.emoji||'🥬')}</span>${url?`<img data-product-image class="product-photo" src="${esc(url)}" alt="${esc(product.name)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" width="400" height="320">`:''}`;
+}
+export function productImageFailed(event){if(event.target?.matches?.('img[data-product-image]'))event.target.remove()}
 export const id = () => globalThis.crypto.randomUUID ? crypto.randomUUID() : [...crypto.getRandomValues(new Uint8Array(24))].map(x => x.toString(16).padStart(2,'0')).join('');
 export const $ = (s, root=document) => root.querySelector(s);
 export const $$ = (s, root=document) => [...root.querySelectorAll(s)];
@@ -73,6 +82,7 @@ export function loginDialog(onSuccess, startRegister=false){
   };draw(startRegister);
 }
 export function setupConnectivity(){
+  document.addEventListener('error',productImageFailed,true);
   const refresh=()=>{document.documentElement.classList.toggle('is-offline',!navigator.onLine);let banner=$('#offline-banner');if(!banner){banner=document.createElement('div');banner.id='offline-banner';banner.className='offline-banner';banner.setAttribute('role','alert');document.body.prepend(banner);}banner.hidden=navigator.onLine;banner.textContent='أنت غير متصل. تبقى الصفحة المفتوحة فقط؛ تحديث الأسعار وتأكيد الطلب والتسليم يحتاجان اتصالًا.';};
   addEventListener('online',refresh);addEventListener('offline',refresh);refresh();
   if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});

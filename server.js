@@ -90,6 +90,7 @@ function createGateway({settings=config(),fetchImpl=fetch,log=entry=>console.log
       }
       if(!['GET','HEAD'].includes(req.method))throw error(405,'METHOD_NOT_ALLOWED');
       if(p==='/robots.txt'){res.setHeader('content-type','text/plain; charset=utf-8');return res.end('User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin.html\nDisallow: /picker.html\nDisallow: /courier.html\n')}
+      if(p==='/'||p==='/index.html')res.setHeader('content-security-policy',res.getHeader('content-security-policy').replace("img-src 'self' data:;","img-src 'self' data: https:;"));
       if(p==='/admin.html')res.setHeader('content-security-policy',res.getHeader('content-security-policy').replace("img-src 'self' data:;","img-src 'self' data: https://tile.openstreetmap.org;"));
       if(p==='/')p='/index.html';const bytes=statics.get(p);if(!bytes)throw error(404,'NOT_FOUND');
       res.setHeader('content-type',TYPES[path.extname(p)]||'application/octet-stream');res.setHeader('cache-control',p==='/sw.js'?'no-cache':'no-cache, must-revalidate');res.setHeader('content-length',bytes.length);res.end(req.method==='HEAD'?undefined:bytes);
