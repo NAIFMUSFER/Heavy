@@ -12,6 +12,7 @@ globalThis.fetch=async(url,init)=>{
  calls++;return Response.json({id:'fixture-response'});
 };
 const cases=[
+ ['GET','/customer-returns'],['GET','/customer-returns/context?number=JANA-fixture'],['POST','/customer-returns',{source_movement_id:'fixture-movement',quantity_base:10,reference:'Fixture document',reason:'Fixture actual return'}],['POST','/customer-returns/11111111-1111-1111-1111-111111111111/inspection',{accepted_base:5,note:'Fixture inspected'}],
  ['GET','/notification-jobs'],['GET','/movements?reason=waste'],['GET','/disposals'],['GET','/lots/fixture/disposal'],['POST','/lots/fixture/disposal',{kind:'waste',quantity_base:1,revision:0,reason:'Fixture disposal',reference:'Fixture document'}],
  ['GET','/counts'],['POST','/counts',{location:'Fixture shelf',lot_ids:['fixture-lot']}],['POST','/counts/fixture/submit',{counts:[],note:'Fixture count'}],['POST','/counts/fixture/cancel',{reason:'Fixture cancellation'}],['POST','/count-lines/fixture/decision',{approve:true,reason:'Fixture approval'}],['PATCH','/stock/fixture',{reorder_base:500}],['PATCH','/suppliers/fixture',{notes:'Fixture supplier'}],
  ['POST','/products',{title:'Fixture product',offerings:[]}],['POST','/product-versions/11111111-1111-1111-1111-111111111111/activate'],

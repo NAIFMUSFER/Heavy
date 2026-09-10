@@ -73,3 +73,5 @@ The isolated browser journey is defined in `.github/workflows/jana-browser-e2e.y
 [API overview](docs/API-OVERVIEW.md) documents the canonical client contract. [Delivery status report](docs/DELIVERY-REPORT.md) records current application, native artifact, security and owner-configuration status without claiming full commercial readiness.
 
 Warehouse operations: [disposals](docs/INVENTORY-DISPOSALS.md), [movement ledger](docs/STOCK-MOVEMENTS.md), and [optional notification outbox](docs/NOTIFICATION-OUTBOX.md). The current implementation/release matrix is [AUDIT-MATRIX](docs/AUDIT-MATRIX.md); unresolved engineering and account requirements remain explicit.
+
+Customer-return inspection candidate: [workflow and safeguards](docs/CUSTOMER-RETURNS.md). See the audit matrix for its current deployment state.

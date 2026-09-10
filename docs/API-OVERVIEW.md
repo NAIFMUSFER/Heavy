@@ -57,3 +57,5 @@ Warehouse outbound events: `GET /api/ops/lots/:id/disposal` returns current cano
 `GET /api/ops/movements` provides signed stock/reservation/cost history with 50-row keyset pages and exact stock/lot/type/reference plus time filters. See STOCK-MOVEMENTS.md.
 
 Optional notification monitoring: `GET /api/ops/notification-jobs` is authenticated admin/support only and returns redacted channel states, state counts and the last 50 jobs. It cannot enable channels or send messages. See NOTIFICATION-OUTBOX.md.
+
+Customer-return candidate (not yet deployed): exact shipment lookup, physical quarantined receipt, one quality decision and role-filtered history under `/api/ops/customer-returns`. See CUSTOMER-RETURNS.md for methods, invariants and limitations.

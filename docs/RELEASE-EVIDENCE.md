@@ -167,3 +167,12 @@ The repeated browser run 34502809082 FAILED at account/profile navigation after 
 The correction preserves the selected view, displays session-loading state before exposing account actions, deduplicates startup retries and prevents a late orders response replacing another selected page. The browser regression deliberately holds the actual disposable-database favorites response while selecting Account, then releases it and verifies the profile stays accessible without premature login UI. Local syntax and 186 JavaScript tests pass; the revised browser gate is pending.
 
 A read-only PostHog project listing still exposes only Default project 601768, not a dedicated JANA project. No project data was queried, no flags were changed and no events were sent to it.
+
+
+## 2026-09-10 — Verified startup fix and customer-return candidate
+
+Source 7324cf25cb26b0481f1c877bedf0ef466a5fbf37 passed Node 34503441272 and the expanded 30-check browser run 34503441214. After promotion, Render dep-dahdrgjl550s73ftf8i0 became LIVE at 16:42:17 UTC; exact-commit smoke 34503631787 and browser repeat 34503631733 passed. Database/Edge source did not change for this fix; database 34502809121 remains its latest full replay. The earlier browser failure remains recorded above.
+
+The customer-return candidate adds quarantined physical receipt, one quality decision, original-lot cost reversal, server receipt limits and a returned-shipment redispatch guard. SQL was scaffolded with the installed Supabase CLI as draft 20260910164224. The CLI created the file before its ancillary network approval was cancelled; no production operation followed that command. First local syntax validation caught an unescaped slash in the new gateway route expression; corrected before commit/deployment. Subsequent syntax and all 189 JavaScript tests pass. Real PostgreSQL concurrency and the expanded browser journey are pending. No production return fixtures exist.
+
+Source review also found the notification menu key accidentally listed as a staff role; removed it from staff role choices. Backend role validation already rejected it. Canonical roles are unchanged.

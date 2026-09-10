@@ -198,3 +198,16 @@ test('movement pagination validates ranges and filters before canonical RPC',asy
  for(const q of ['before_at=123','from_at=20&to_at=10','from_at=abc','secret=x','lot_id='+('x'.repeat(37))]){calls=[];const r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/movements?'+q,{headers:bearer}));assert.equal(r.status,422);assert.equal(calls.length,0)}
  calls=[];response={items:[],next:null};const r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/movements?reason=waste&reference=DOC%25&before_at=123&before_id=mov-fixture',{headers:bearer}));assert.equal(r.status,200);assert.deepEqual(calls[0].body,{p_token:bearer.authorization.slice(7),p_filters:{reason:'waste',reference:'DOC%'},p_before_at:123,p_before_id:'mov-fixture'});
 });
+
+test('warehouse returns require idempotency and derive actor cost and order from the canonical shipment',async()=>{
+ calls=[];response={id:'return-fixture'};
+ const body={source_movement_id:'shipped-movement',quantity_base:10,reference:'Warehouse receipt',reason:'Physical return fixture',actor_id:'untrusted',stock_id:'untrusted',order_id:'untrusted',restored_cost_halalas:10000};
+ let r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/customer-returns',{method:'POST',headers:bearer,body:JSON.stringify(body)}));assert.equal(r.status,422);assert.equal(calls.length,0);
+ r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/customer-returns',{method:'POST',headers:{...bearer,'idempotency-key':'return-fixture-key'},body:JSON.stringify(body)}));assert.equal(r.status,201);assert.deepEqual(calls[0].body.p_payload,{source_movement_id:body.source_movement_id,quantity_base:10,reference:body.reference,reason:body.reason});
+});
+test('return inspection accepts only the observed quality decision and cannot set a price or financial outcome',async()=>{
+ calls=[];response={accepted_base:5};const r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/customer-returns/11111111-1111-1111-1111-111111111111/inspection',{method:'POST',headers:{...bearer,'idempotency-key':'quality-fixture-key'},body:JSON.stringify({accepted_base:5,note:'Physical inspection',refund:500,cost_basis:'recorded'})}));assert.equal(r.status,201);assert.deepEqual(calls[0].body.p_payload,{return_id:'11111111-1111-1111-1111-111111111111',accepted_base:5,note:'Physical inspection'});
+});
+test('malformed return history or order lookup is rejected before database access',async()=>{
+ for(const path of ['/api/ops/customer-returns?before_at=1','/api/ops/customer-returns/context','/api/ops/customer-returns?before_at=x&before_id=bad']){calls=[];const r=await handlers['jana-ops-extra'](request('jana-ops-extra',path,{headers:bearer}));assert.equal(r.status,422);assert.equal(calls.length,0)}
+});
