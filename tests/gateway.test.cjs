@@ -8,7 +8,7 @@ async function fixture(t,upstream=async()=>Response.json({ok:true}),overrides={}
  return {base:'http://127.0.0.1:'+server.address().port,calls,logs};
 }
 test('only approved public files can be served',async t=>{const f=await fixture(t);for(const p of ['/server.js','/.env','/.git/config','/mobile/App.js','/supabase/functions/jana-api/index.ts','/tests/gateway.test.cjs','/assets/shop.part01.js'])assert.equal((await fetch(f.base+p)).status,404,p);assert.equal(f.calls.length,0)});
-test('customer and operations bundles remain valid and protected',async t=>{const f=await fixture(t);for(const p of ['/','/admin.html','/picker.html','/courier.html','/assets/shop.js','/assets/ops.js','/assets/styles.css','/assets/common.js']){const r=await fetch(f.base+p);assert.equal(r.status,200);assert.ok((await r.text()).length>100);assert.match(r.headers.get('content-security-policy'),/script-src 'self';/);assert.equal(r.headers.get('x-frame-options'),'DENY')}});
+test('customer and operations bundles remain valid and protected',async t=>{const f=await fixture(t);for(const p of ['/','/admin.html','/picker.html','/courier.html','/assets/shop.js','/assets/ops.js','/assets/styles.css','/assets/common.js','/assets/zone-map.js']){const r=await fetch(f.base+p);assert.equal(r.status,200);assert.ok((await r.text()).length>100);assert.match(r.headers.get('content-security-policy'),/script-src 'self';/);assert.equal(r.headers.get('x-frame-options'),'DENY')}});
 test('health and version do not depend on database',async t=>{const f=await fixture(t,async()=>{throw Error('offline')},{commit:'test-commit'});assert.equal((await fetch(f.base+'/health')).status,200);assert.equal((await(await fetch(f.base+'/version')).json()).commit,'test-commit');assert.equal(f.calls.length,0);assert.equal((await fetch(f.base+'/ready')).status,503)});
 test('readiness checks all three canonical Edge dependencies',async t=>{const f=await fixture(t);const r=await(await fetch(f.base+'/ready')).json();assert.equal(r.ok,true);assert.equal(r.dependencies.length,3);assert.ok(f.calls.every(([u])=>u.startsWith('https://jjdsajiwoqanefmnikls.supabase.co/functions/v1/')))});
 test('failed dependency makes readiness fail even with HTTP 200',async t=>{const f=await fixture(t,async u=>Response.json({ok:!u.includes('jana-critical')}));assert.equal((await fetch(f.base+'/ready')).status,503)});
@@ -44,4 +44,10 @@ test('saved cart PUT reaches the fixed API while unrelated PUT methods stay reje
 });
 test('customer directory contact search and record identifiers stay out of telemetry',async t=>{
  const f=await fixture(t);await fetch(f.base+'/api/ops/customers/private-customer?q=private-phone');const text=JSON.stringify(f.logs);assert.ok(!text.includes('private-customer'));assert.ok(!text.includes('private-phone'));assert.equal(f.logs[0].route,'/api/ops/customers/:id');
+});
+test('map images are allowed only on the operations document without expanding script or connection origins',async t=>{
+ const f=await fixture(t);const admin=await fetch(f.base+'/admin.html'),shop=await fetch(f.base+'/');
+ assert.match(admin.headers.get('content-security-policy'),/img-src 'self' data: https:\/\/tile.openstreetmap.org;/);
+ assert.match(admin.headers.get('content-security-policy'),/connect-src 'self';/);assert.match(admin.headers.get('content-security-policy'),/script-src 'self';/);
+ assert.ok(!shop.headers.get('content-security-policy').includes('tile.openstreetmap.org'));assert.equal(admin.headers.get('referrer-policy'),'same-origin');
 });

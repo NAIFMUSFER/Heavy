@@ -5,7 +5,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const JANA_SUPABASE = 'https://jjdsajiwoqanefmnikls.supabase.co';
 const MAX_BODY = 65536, MAX_RESPONSE = 4 * 1024 * 1024;
-const PUBLIC_FILES = ['index.html','admin.html','picker.html','courier.html','offline.html','manifest.webmanifest','sw.js','assets/icon.svg','assets/common.js'];
+const PUBLIC_FILES = ['index.html','admin.html','picker.html','courier.html','offline.html','manifest.webmanifest','sw.js','assets/icon.svg','assets/common.js','assets/zone-map.js'];
 const BUNDLES = {'/assets/shop.js':['shop',5,'.js'],'/assets/ops.js':['ops',4,'.js'],'/assets/styles.css':['styles',2,'.css']};
 const TYPES = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
 const OPS = /^\/api\/ops\/(counts|counts\/[^/]+\/(submit|cancel)|count-lines\/[^/]+\/decision|stock\/[^/]+|suppliers\/[^/]+|zones\/[^/]+|slots\/[^/]+|catalog|finance|refunds\/[^/]+\/(complete|reject)|products|product-versions\/[^/]+\/activate|suppliers|coupons|slots|stock|lots|zones|lots\/[^/]+\/(inspect|adjust)|families\/[^/]+\/versions|offerings\/[^/]+\/active|coupons\/[^/]+\/active|slots\/[^/]+\/active|orders\/[^/]+\/(collect|settle|refunds))$/;
@@ -90,6 +90,7 @@ function createGateway({settings=config(),fetchImpl=fetch,log=entry=>console.log
       }
       if(!['GET','HEAD'].includes(req.method))throw error(405,'METHOD_NOT_ALLOWED');
       if(p==='/robots.txt'){res.setHeader('content-type','text/plain; charset=utf-8');return res.end('User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin.html\nDisallow: /picker.html\nDisallow: /courier.html\n')}
+      if(p==='/admin.html')res.setHeader('content-security-policy',res.getHeader('content-security-policy').replace("img-src 'self' data:;","img-src 'self' data: https://tile.openstreetmap.org;"));
       if(p==='/')p='/index.html';const bytes=statics.get(p);if(!bytes)throw error(404,'NOT_FOUND');
       res.setHeader('content-type',TYPES[path.extname(p)]||'application/octet-stream');res.setHeader('cache-control',p==='/sw.js'?'no-cache':'no-cache, must-revalidate');res.setHeader('content-length',bytes.length);res.end(req.method==='HEAD'?undefined:bytes);
     }catch(e){

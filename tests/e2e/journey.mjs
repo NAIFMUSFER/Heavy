@@ -52,10 +52,24 @@ try{
 
  phase='delivery administration';
  const admin=await login('admin');await admin.locator('[data-page=logistics]').click();await admin.locator('[data-action=new-zone]').click();
- const zoneForm=admin.locator('#zone-form');await zoneForm.locator('[name=name]').fill('منطقة اختبار التوسع');await zoneForm.locator('[name=city]').fill('الرياض');await zoneForm.locator('[name=fee]').fill('12');await zoneForm.locator('[name=minimum]').fill('20');await zoneForm.locator('[name=polygon]').fill(JSON.stringify({type:'Polygon',coordinates:[[[45,24],[46,24],[46,25],[45,25],[45,24]]]}));await zoneForm.locator('[name=reason]').fill('إنشاء تغطية اختبار مستقلة');
- const newZone=await change(admin,'/api/ops/zones',()=>zoneForm.locator('button').click());assert.equal(newZone.revision,1);
+ const zoneForm=admin.locator('#zone-form');await zoneForm.locator('[name=name]').fill('منطقة اختبار التوسع');await zoneForm.locator('[name=city]').fill('الرياض');await zoneForm.locator('[name=fee]').fill('12');await zoneForm.locator('[name=minimum]').fill('20');await zoneForm.locator('[name=reason]').fill('إنشاء تغطية اختبار مستقلة');
+ const canvas=zoneForm.locator('.zone-canvas');const bounds=await canvas.boundingBox();assert.ok(bounds);
+ for(const [x,y]of [[.25,.25],[.75,.25],[.75,.75],[.25,.75]])await canvas.click({position:{x:bounds.width*x,y:bounds.height*y}});
+ await zoneForm.locator('[data-map=hole]').click();
+ for(const [x,y]of [[.45,.45],[.55,.45],[.55,.55],[.45,.55]])await canvas.click({position:{x:bounds.width*x,y:bounds.height*y}});
+ const drawn=JSON.parse(await zoneForm.locator('[name=polygon]').inputValue());assert.equal(drawn.coordinates.length,2);
+ // Browser network interception blocks all third-party requests. No tile service is scanned in CI.
+ assert.equal(await zoneForm.locator('.zone-tiles img').count(),0);
+ const newZone=await change(admin,'/api/ops/zones',()=>zoneForm.locator('button[type=submit]').click());assert.equal(newZone.revision,1);
+ const storedPolygon=value('SELECT polygon FROM delivery_zones WHERE id='+literal(newZone.id)+';');assert.deepEqual(storedPolygon,drawn);
+ pass('visual map clicks persist exact geographic boundaries and an exclusion ring through PostGIS');
  await admin.locator('[data-action=edit-zone][data-id="'+newZone.id+'"]').click();await admin.locator('#zone-form [name=fee]').fill('15');await admin.locator('#zone-form [name=reason]').fill('تحديث الرسوم للاختبار');
- const revisedZone=await change(admin,'/api/ops/zones/'+newZone.id,()=>admin.locator('#zone-form button').click(),'PATCH');assert.equal(revisedZone.fee_halalas,1500);assert.equal(revisedZone.revision,2);
+ assert.deepEqual(JSON.parse(await admin.locator('#zone-form [name=polygon]').inputValue()),drawn);
+ await admin.locator('#zone-form [data-map-ring]').selectOption('0');await admin.locator('#zone-form [data-map-point]').selectOption('0');
+ const originalLongitude=await admin.locator('#zone-form [data-map-lng]').inputValue();await admin.locator('#zone-form [data-map-lng]').fill(String(Number(originalLongitude)+.001));await admin.locator('#zone-form [data-map=update-point]').click();
+ assert.notDeepEqual(JSON.parse(await admin.locator('#zone-form [name=polygon]').inputValue()),drawn);await admin.locator('#zone-form [data-map=undo]').click();assert.deepEqual(JSON.parse(await admin.locator('#zone-form [name=polygon]').inputValue()),drawn);
+ pass('existing exclusions survive coordinate editing undo and a commercial-only zone revision');
+ const revisedZone=await change(admin,'/api/ops/zones/'+newZone.id,()=>admin.locator('#zone-form button[type=submit]').click(),'PATCH');assert.equal(revisedZone.fee_halalas,1500);assert.equal(revisedZone.revision,2);
  await admin.locator('[data-action=new-slot]').click();const slotForm=admin.locator('#slot-form');await slotForm.locator('[name=zone_id]').selectOption(newZone.id);
  const stamp=hours=>new Date(Date.now()+(hours+3)*3600000).toISOString().slice(0,16);await slotForm.locator('[name=starts_at]').fill(stamp(48));await slotForm.locator('[name=ends_at]').fill(stamp(50));await slotForm.locator('[name=cutoff_at]').fill(stamp(46));await slotForm.locator('[name=capacity]').fill('3');await slotForm.locator('[name=reason]').fill('فتح نافذة اختبار');
  const newSlot=await change(admin,'/api/ops/slots',()=>slotForm.locator('button').click());assert.equal(newSlot.capacity,3);

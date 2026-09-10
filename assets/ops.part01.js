@@ -1,4 +1,4 @@
-import {substitutionReview,qty,$,$$,esc,money,number,parseMoney,date,badge,empty,get,getAll,post,patch,modal,closeModal,toast,busy,formData,identity,loginDialog,setupConnectivity,field,selectField,ticketCategories,ticketThread} from './common.js';
+import {substitutionReview,qty,$,$$,esc,money,number,parseMoney,date,badge,empty,get,getAll,post,patch,modal,closeModal,toast,busy,formData,identity,loginDialog,setupConnectivity,field,selectField,ticketCategories,ticketThread} from './common.js'; import {zoneMapMarkup,mountZoneMap} from './zone-map.js';
 const root=$('#ops-app'),workspace=document.body.dataset.workspace;const state={user:null,page:'orders',orders:[],reports:null,staff:[],catalog:null};
 const staffRoles=[['admin','مدير'],['inventory','المستودع'],['picker','التجهيز'],['courier','التوصيل'],['support','الدعم'],['finance','المالية']];
 const staffRoleName=role=>staffRoles.find(x=>x[0]===role)?.[1]||role;
