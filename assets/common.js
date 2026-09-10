@@ -78,7 +78,7 @@ export function setupConnectivity(){
   if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
 }
 export const field = (name,label,options={}) => `<label>${esc(label)}<input name="${esc(name)}" ${options.type?`type="${esc(options.type)}"`:''} ${options.value!==undefined?`value="${esc(options.value)}"`:''} ${options.required===false?'':'required'} ${options.placeholder?`placeholder="${esc(options.placeholder)}"`:''} ${options.min!==undefined?`min="${options.min}"`:''} ${options.max!==undefined?`max="${esc(options.max)}"`:''} ${options.step?`step="${options.step}"`:''} ${options.readonly?'readonly':''}></label>`;
-export const selectField=(name,label,options,value='')=>`<label>${esc(label)}<select name="${esc(name)}" required>${options.map(([v,t])=>`<option value="${esc(v)}" ${String(v)===String(value)?'selected':''}>${esc(t)}</option>`).join('')}</select></label>`;
+export const selectField=(name,label,options,value='',{required=true}={})=>`<label>${esc(label)}<select name="${esc(name)}" ${required?'required':''}>${options.map(([v,t])=>`<option value="${esc(v)}" ${String(v)===String(value)?'selected':''}>${esc(t)}</option>`).join('')}</select></label>`;
 export function downloadJSON(name,data){const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
 
 export const ticketCategories=[['order','طلب'],['product','منتج'],['delivery','توصيل'],['refund','استرداد'],['account','حساب'],['other','أخرى']];
