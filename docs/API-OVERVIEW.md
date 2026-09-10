@@ -55,3 +55,5 @@ Money uses integer halalas, quantities integer canonical grams/pieces and timest
 Warehouse outbound events: `GET /api/ops/lots/:id/disposal` returns current canonical context; `POST` records explicitly confirmed waste/damage/supplier return with `Idempotency-Key`. `GET /api/ops/disposals` provides paired keyset pagination for admin/inventory/finance. See INVENTORY-DISPOSALS.md.
 
 `GET /api/ops/movements` provides signed stock/reservation/cost history with 50-row keyset pages and exact stock/lot/type/reference plus time filters. See STOCK-MOVEMENTS.md.
+
+Optional notification monitoring: `GET /api/ops/notification-jobs` is authenticated admin/support only and returns redacted channel states, state counts and the last 50 jobs. It cannot enable channels or send messages. See NOTIFICATION-OUTBOX.md.

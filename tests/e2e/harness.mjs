@@ -15,9 +15,9 @@ export async function startHarness(){
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  return{base:'http://127.0.0.1:'+server.address().port,failures,close:async()=>{await new Promise(resolve=>{server.close(resolve);server.closeAllConnections()});globalThis.fetch=nativeFetch}};
 }
-export async function attachBrowser(context,base){
+export async function attachBrowser(context,base,control={}){
  // Every browser request is fulfilled by the real local gateway/Edge/PostgreSQL.
  // Retain the canonical browser origin to exercise Secure cookies, CSRF and CSP.
  // There is no route.continue fallback, so this cannot reach production.
- await context.route('**/*',async route=>{const u=new URL(route.request().url());if(u.origin!=='https://jana-fresh-app.onrender.com')return route.abort('blockedbyclient');const response=await route.fetch({url:base+u.pathname+u.search,maxRedirects:0,timeout:20000});await route.fulfill({response})});
+ await context.route('**/*',async route=>{const u=new URL(route.request().url());if(u.origin!=='https://jana-fresh-app.onrender.com')return route.abort('blockedbyclient');const response=await route.fetch({url:base+u.pathname+u.search,maxRedirects:0,timeout:20000});await control.beforeResponse?.(u);await route.fulfill({response})});
 }

@@ -17,9 +17,9 @@ function value(query){return JSON.parse(sql(query))}
 function pass(name){checks.push(name);console.log('PASS '+name)}
 const order=()=>value('SELECT jsonb_build_object(\'id\',id,\'total\',total_halalas,\'delivery\',delivery_state,\'collected\',collected_halalas,\'settled\',settled_halalas,\'refunded\',refunded_halalas,\'courier_refunded\',courier_refunded_halalas,\'fulfillment\',fulfillment_state) FROM orders WHERE user_id=(SELECT id FROM users WHERE email='+literal(fixture.prefix+'browser@example.invalid')+');');
 const stock=()=>value('SELECT jsonb_build_object(\'on_hand\',on_hand_base,\'reserved\',reserved_base) FROM stock_balances WHERE stock_id='+literal(fixture.stock_id)+';');
-async function pageFor(role,path='/'){
+async function pageFor(role,path='/',networkControl={}){
  const context=await browser.newContext({locale:'ar-SA',timezoneId:'Asia/Riyadh',viewport:{width:1365,height:1000},serviceWorkers:'block'});
- await attachBrowser(context,harness.base);const page=await context.newPage();pages[role]=page;page.setDefaultTimeout(15000);
+ await attachBrowser(context,harness.base,networkControl);const page=await context.newPage();pages[role]=page;page.setDefaultTimeout(15000);
  page.on('pageerror',e=>errors.push({role,message:e.message}));
  page.on('dialog',d=>d.accept(d.type()==='prompt'?'تم التحقق في اختبار المستودع':undefined));
  await page.goto(origin+path);return page;
@@ -86,11 +86,21 @@ try{
  await admin.locator('[data-page=orders]').click();
 
  phase='customer account and saved preferences';
- const customer=await pageFor('customer');await customer.locator('[data-view=account]').first().click();await customer.locator('[data-register]').click();
+ const customerNetwork={};const customer=await pageFor('customer','/',customerNetwork);await customer.locator('[data-view=account]').first().click();await customer.locator('[data-register]').click();
  const auth=customer.locator('#auth-form');await auth.locator('[name=name]').fill('عميل اختبار المتصفح');await auth.locator('[name=email]').fill(fixture.prefix+'browser@example.invalid');await auth.locator('[name=password]').fill(password);
  await change(customer,'/api/auth/login',()=>auth.locator('button[type=submit]').click());await customer.locator('[data-action=profile]').waitFor();
  const cookies=await customer.context().cookies(origin);assert.ok(cookies.some(c=>c.httpOnly&&c.secure&&c.sameSite==='Strict'));pass('customer registration and secure cookie login through real gateway');
- await customer.reload();await customer.locator('[data-view=account]').first().click();await customer.locator('[data-action=profile]').click();
+ // Delay the actual database-backed favorites response; navigation must survive session restoration.
+ let releaseFavorites,seenFavorites;
+ const favoritesHeld=new Promise(resolve=>{releaseFavorites=resolve});const favoritesStarted=new Promise(resolve=>{seenFavorites=resolve});
+ customerNetwork.beforeResponse=async u=>{if(u.pathname==='/api/favorites'){seenFavorites();await favoritesHeld}};
+ await customer.reload();await favoritesStarted;
+ await customer.locator('[data-view=account]').first().click();await customer.locator('#app [role=status]').waitFor();
+ assert.equal(await customer.locator('[data-login]').count(),0,'Restoring a session must not show a premature signed-out account');
+ releaseFavorites();await customer.locator('[data-action=profile]').waitFor();delete customerNetwork.beforeResponse;
+ assert.equal(await customer.locator('#catalog-section').count(),0,'A delayed startup must preserve the chosen account view');
+ pass('account navigation survives deliberately delayed session startup without a false signed-out state');
+ await customer.locator('[data-action=profile]').click();
  await customer.locator('#profile-form [name=name]').fill('عميل رحلة جنى');
  await change(customer,'/api/profile',()=>customer.locator('#profile-form button').click(),'PATCH');pass('session restoration and customer profile update');
 

@@ -21,7 +21,7 @@ Required email variables, supplied only to the trusted notification worker:
 - `JANA_EMAIL_DOMAIN` exactly matches that domain, including any sending subdomain.
 - `JANA_EMAIL_FROM` is a plain sender email at that domain.
 
-External delivery now uses a durable PostgreSQL outbox after canonical in-app insertion, with immutable sender/recipient/content terms, unique event/channel keys, attempt evidence, leases, bounded retries and redacted admin/support monitoring. See NOTIFICATION-OUTBOX.md. Its schema and operations RPC are applied; gateway promotion is pending. The sending worker remains disabled until verified JANA provider/domain/destination/consent configuration exists. Provider tests inject fixture transports only; no real external sending is claimed.
+External delivery now uses a durable PostgreSQL outbox after canonical in-app insertion, with immutable sender/recipient/content terms, unique event/channel keys, attempt evidence, leases, bounded retries and redacted admin/support monitoring. See NOTIFICATION-OUTBOX.md. Its schema and operations RPC are applied; gateway is live at 1c77929. The sending worker remains disabled until verified JANA provider/domain/destination/consent configuration exists. Provider tests inject fixture transports only; no real external sending is claimed.
 
 Use the same provider idempotency key for retries. Resend retains it for 24 hours; this adapter refuses jobs aged 23 hours or more, requiring operator reconciliation instead of blind resend after an uncertain outcome. Persist the result before completing a job. Webhook delivery/bounce processing and unsubscribe/marketing-consent enforcement are required before any broader notification rollout. Marketing notifications are not enabled by these contracts.
 

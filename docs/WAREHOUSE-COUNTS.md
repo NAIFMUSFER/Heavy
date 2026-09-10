@@ -16,4 +16,4 @@ Supplier email, phone, notes and active state are validated and audited. Deactiv
 
 Remaining: modeled warehouse/location ownership and multi-city stock pools, purchase orders, barcode workflows, quarantine and customer/rejected-receipt return interfaces and authorized physical operator acceptance. A free-text count-location description does not implement multi-warehouse stock segregation.
 
-Typed waste, damage and accepted-stock supplier returns are deployed with immutable movements, cost recognition and guarded idempotency; see INVENTORY-DISPOSALS.md. General paginated movement history is under validation.
+Typed waste, damage and accepted-stock supplier returns are deployed with immutable movements, cost recognition and guarded idempotency; see INVENTORY-DISPOSALS.md. General paginated movement history is live (see STOCK-MOVEMENTS.md).
