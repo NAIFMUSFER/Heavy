@@ -71,3 +71,5 @@ Canonical product families now contain immutable versions with multiple sellable
 The isolated browser journey is defined in `.github/workflows/jana-browser-e2e.yml`. It uses pinned Playwright dependencies in `tests/e2e`, actual gateway/Edge code, and a fresh migrated local database. There is no production-network fallback. Its current run status and gaps are recorded in the audit matrix.
 
 [API overview](docs/API-OVERVIEW.md) documents the canonical client contract. [Delivery status report](docs/DELIVERY-REPORT.md) records current application, native artifact, security and owner-configuration status without claiming full commercial readiness.
+
+Warehouse operations: [disposals](docs/INVENTORY-DISPOSALS.md), [movement ledger](docs/STOCK-MOVEMENTS.md), and [optional notification outbox](docs/NOTIFICATION-OUTBOX.md). The current implementation/release matrix is [AUDIT-MATRIX](docs/AUDIT-MATRIX.md); unresolved engineering and account requirements remain explicit.
