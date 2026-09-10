@@ -56,3 +56,22 @@ test('disposal history and lot disposal routes use the trusted operations Edge',
 });
 
 test('stock movement reads use the canonical operations Edge',async t=>{const f=await fixture(t);const r=await fetch(f.base+'/api/ops/movements?reason=waste');assert.equal(r.status,200);assert.ok(f.calls.at(-1)[0].includes('/jana-ops-extra/api/ops/movements?reason=waste'))});
+
+test('customer return routes preserve operations requests while omitting document identifiers from logs',async t=>{
+ const f=await fixture(t);
+ for(const [path,method]of [
+  ['/api/ops/customer-returns?before_at=1789050000000&before_id=private-cursor','GET'],
+  ['/api/ops/customer-returns/context?number=private-order','GET'],
+  ['/api/ops/customer-returns','POST'],
+  ['/api/ops/customer-returns/private-return/inspection','POST']
+ ]){
+  const body=JSON.stringify({reference:'private-document'});
+  const response=await fetch(f.base+path,{method,...(method==='POST'?{headers:{'content-type':'application/json','idempotency-key':'return-fixture-key'},body}:{})});
+  assert.equal(response.status,200);
+  const [url,init]=f.calls.at(-1);
+  assert.equal(url,config({}).supabase+'/functions/v1/jana-ops-extra'+path);
+  if(method==='POST'){assert.equal(init.body.toString(),body);assert.equal(init.headers['idempotency-key'],'return-fixture-key')}
+ }
+ assert.ok(!JSON.stringify(f.logs).includes('private-'));
+ assert.equal(f.logs.at(-1).route,'/api/ops/customer-returns/:id/inspection');
+});
