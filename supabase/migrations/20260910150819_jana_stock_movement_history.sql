@@ -10,7 +10,7 @@ BEGIN
  IF jsonb_typeof(p_filters) IS DISTINCT FROM 'object' THEN RAISE EXCEPTION 'movement_filters_invalid';END IF;
  FOR k IN SELECT jsonb_object_keys(p_filters) LOOP
   IF k NOT IN ('stock_id','lot_id','reason','reference','from_at','to_at') OR jsonb_typeof(p_filters->k) IS DISTINCT FROM 'string' THEN RAISE EXCEPTION 'movement_filters_invalid';END IF;
-  IF length(p_filters->>k) NOT BETWEEN 1 AND CASE WHEN k IN ('stock_id','lot_id') THEN 36 WHEN k IN ('from_at','to_at') THEN 15 ELSE 180 END THEN RAISE EXCEPTION 'movement_filters_invalid';END IF;
+  IF length(p_filters->>k) NOT BETWEEN 1 AND (CASE WHEN k IN ('stock_id','lot_id') THEN 36 WHEN k IN ('from_at','to_at') THEN 15 ELSE 180 END) THEN RAISE EXCEPTION 'movement_filters_invalid';END IF;
  END LOOP;
  IF (p_before_at IS NULL)<>(p_before_id IS NULL) OR p_before_at<0 OR length(p_before_id) NOT BETWEEN 1 AND 36 THEN RAISE EXCEPTION 'movement_filters_invalid';END IF;
  IF (p_filters ? 'from_at' AND p_filters->>'from_at'!~'^[0-9]{1,15}$') OR (p_filters ? 'to_at' AND p_filters->>'to_at'!~'^[0-9]{1,15}$') THEN RAISE EXCEPTION 'movement_filters_invalid';END IF;
