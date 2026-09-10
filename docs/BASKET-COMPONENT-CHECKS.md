@@ -13,3 +13,5 @@ The revision triggers and component predicate have no public or service-role exe
 Disposable PostgreSQL tests exercise strict types, complete component sets, zero/short/excess quantities, actual consumption and costs, duplicate retries, competing measurements, finishing races, assignment changes and customer-approved replacements. The browser journey uses the real catalog editor, quote/order transaction, picking form and database to record and correct a shortage. Production test inventory/orders are not created.
 
 Release state and actual test results are recorded in RELEASE-EVIDENCE.md. This source change concerns the warehouse web interface and backend; native device acceptance and commercial launch approval remain outstanding.
+
+Migration `20260910191908_jana_basket_component_checks` is applied and `jana-api` v26 is active. The migration filename was aligned to its actual application version without changing tested SQL bytes. Candidate `d576bfc` passed 204 JavaScript tests, all 12 basket database groups plus the existing business suites, and the 39-check browser journey. Public gateway verification is tracked separately.
