@@ -1,6 +1,6 @@
 # Delivery zones and slot administration
 
-New delivery-administration transactions are under validation. Do not apply the draft migration until the database/browser gates pass. They add revisions and operational metadata to zones and revisions to slots; no historical quote/order monetary data is rewritten.
+Delivery administration migration `20260910090725` is applied after the database and 15-check browser gates passed. Operations Edge v15 is active. Revisions and operational metadata were added to zones, and revisions to slots; existing order and stock fingerprints remain unchanged. Gateway promotion and exact public release verification follow this checkpoint.
 
 Admin may create or edit a zone's name, polygon, fee, minimum spend, active state and small operational metadata object. GeoJSON is validated as a nonempty valid two-dimensional Polygon with legal coordinate bounds, positive area and at most 2,000 points. Existing application PostGIS triggers still enforce geometry; extension-owned objects are not modified. The city metadata is descriptive and does not grant coverage. Existing reserved quote terms remain fixed when prices change. Deactivation blocks new quotes; existing quotes and orders are preserved.
 
