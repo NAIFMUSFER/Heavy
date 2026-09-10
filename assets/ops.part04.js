@@ -1,26 +1,4 @@
-// JANA live admin extensions: profitability dashboard + canonical product component editor.
-dashboard=async function(){
-  const [orders,reports]=await Promise.all([loadOrders(),get('/api/ops/reports')]);state.reports=reports;
-  const margin=(Number(reports.gross_margin_bps||0)/100).toFixed(1)+'%';
-  const daily=(reports.daily||[]).map(x=>`<tr><td>${esc(x.report_day)}</td><td>${Number(x.order_count||0)}</td><td>${money(Number(x.sales_halalas||0))}</td></tr>`).join('');
-  const low=(reports.low_stock||[]).map(x=>`<tr><td>${esc(x.name)}</td><td>${Number(x.available_base||0)}</td></tr>`).join('');
-  const exp=(reports.expiring_7d||[]).map(x=>`<tr><td>${esc(x.name)}</td><td>${Number(x.on_hand_base||0)}</td><td>${date(x.expires_at,false)}</td></tr>`).join('');
-  const top=(reports.top_items||[]).map(x=>`<tr><td>${esc(x.item_name||x.name||'')}</td><td>${Number(x.qty||0)}</td></tr>`).join('');
-  shell(`<div class="stat-grid">
-    <div class="stat-card"><span>مبيعات مكتملة 7 أيام</span><strong class="stat-value">${money(Number(reports.sales_7d_halalas||0))}</strong></div>
-    <div class="stat-card"><span>الربح الإجمالي التقديري</span><strong class="stat-value">${money(Number(reports.gross_profit_7d_halalas||0))}</strong></div>
-    <div class="stat-card"><span>هامش الربح</span><strong class="stat-value">${margin}</strong></div>
-    <div class="stat-card"><span>متوسط الطلب المكتمل</span><strong class="stat-value">${money(Number(reports.avg_completed_order_halalas||0))}</strong></div>
-    <div class="stat-card"><span>قيمة المخزون الحالية</span><strong class="stat-value">${money(Number(reports.inventory_value_halalas||0))}</strong></div>
-    <div class="stat-card"><span>نقد لدى المندوبين</span><strong class="stat-value">${money(Number(reports.cash_unsettled_halalas||0))}</strong></div>
-  </div>
-  <div class="ops-section"><div class="panel"><h2>المبيعات اليومية — آخر 7 أيام</h2><div class="table-wrap"><table class="data-table"><thead><tr><th>اليوم</th><th>الطلبات</th><th>المبيعات المكتملة</th></tr></thead><tbody>${daily||'<tr><td colspan="3">لا توجد بيانات مكتملة بعد.</td></tr>'}</tbody></table></div></div></div>
-  <div class="ops-section"><div class="panel"><h2>أكثر المنتجات طلبًا</h2><div class="table-wrap"><table class="data-table"><thead><tr><th>المنتج</th><th>الكمية</th></tr></thead><tbody>${top||'<tr><td colspan="2">لا توجد بيانات.</td></tr>'}</tbody></table></div></div></div>
-  <div class="ops-section"><div class="panel"><h2>أقل المخزون المتاح</h2><div class="table-wrap"><table class="data-table"><thead><tr><th>الصنف</th><th>المتاح</th></tr></thead><tbody>${low||'<tr><td colspan="2">لا توجد بيانات.</td></tr>'}</tbody></table></div></div></div>
-  <div class="ops-section"><div class="panel"><h2>دفعات تنتهي خلال 7 أيام</h2><div class="table-wrap"><table class="data-table"><thead><tr><th>الصنف</th><th>الكمية</th><th>الانتهاء</th></tr></thead><tbody>${exp||'<tr><td colspan="3">لا توجد دفعات قريبة الانتهاء.</td></tr>'}</tbody></table></div></div></div>
-  <p class="notice">الربح الإجمالي = المبيعات المكتملة ناقص التكاليف المسجلة والاستردادات المكتملة. لا يُعامل كتقرير محاسبي نهائي قبل إدخال جميع التكاليف.</p>`);
-};
-
+// Canonical product component editor. Dashboard is defined in ops.part02.js.
 newVersion=function(b){
   const c=state.catalog||{offerings:[],stock:[]};
   const current=(c.offerings||[]).filter(x=>x.family_id===b.dataset.family).sort((a,z)=>Number(z.version)-Number(a.version))[0];
