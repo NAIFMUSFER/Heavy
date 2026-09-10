@@ -46,7 +46,7 @@ Critical order confirmation, delivery completion, COD collection and settlement 
 
 The verification workflow runs syntax and executable tests, then checks the actual Render commit before public smoke tests. An older deployment passing health is insufficient. Current native CI results must be reviewed before release.
 
-Detailed [architecture](docs/ARCHITECTURE.md), [deployment and recovery](docs/OPERATIONS-RUNBOOK.md), [financial integrity](docs/FINANCIAL-INTEGRITY.md), and [picking/substitution](docs/PICKING-SUBSTITUTIONS.md) documents describe current behavior and explicit gaps.
+Detailed [architecture](docs/ARCHITECTURE.md), [deployment and recovery](docs/OPERATIONS-RUNBOOK.md), [financial integrity](docs/FINANCIAL-INTEGRITY.md), [picking/substitution](docs/PICKING-SUBSTITUTIONS.md), and [warehouse counts](docs/WAREHOUSE-COUNTS.md) documents describe current behavior and explicit gaps.
 
 ## Recovery and limitations
 
@@ -56,7 +56,7 @@ The full product definition is not complete. Outstanding commercial transactions
 
 ## Transaction and release verification
 
-The isolated PostgreSQL CI gate runs 34 regression checks, ten groups of 16-client concurrency checks, and ten coupon lifecycle/pricing groups. Address ownership/default and actual pg_cron execution tests also pass. Successful database run: 34400862608. The JavaScript suite now has 104 passing tests. See `docs/RELEASE-EVIDENCE.md` for deployment and mobile evidence.
+The isolated PostgreSQL CI gate runs 34 regression checks, ten groups of 16-client concurrency checks, and ten coupon lifecycle/pricing groups. Address ownership/default and actual pg_cron execution tests also pass. Successful database run: 34400862608. The JavaScript suite now has 114 passing tests. See `docs/RELEASE-EVIDENCE.md` for deployment and mobile evidence.
 
 Coupons support fixed amounts and percentage basis points. Their usage is reserved with stock and delivery capacity, released on quote cancellation/expiry, and redeemed once on confirmation. Confirmed-order cancellation does not restore a redeemed usage. Immutable sold coupon terms govern weight adjustments. A coupon may expire sooner than the usual fifteen-minute quote window. VAT configuration remains outstanding.
 

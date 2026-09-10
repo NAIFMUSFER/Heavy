@@ -26,3 +26,6 @@ test('upstream infrastructure cookies are not forwarded to JANA clients',async t
 
 test('generic analytics keys cannot enable capture without dedicated JANA configuration',()=>{assert.equal(config({POSTHOG_PROJECT_KEY:'unrelated-fixture-key'}).phKey,'');assert.equal(config({JANA_POSTHOG_PROJECT_KEY:'fixture-key'}).phKey,'');assert.equal(config({JANA_POSTHOG_PROJECT_ID:'12345',JANA_POSTHOG_PROJECT_KEY:'fixture-key'}).phKey,'fixture-key')});
 test('financial and staff route identifiers are redacted from telemetry',()=>{const {routeLabel}=require('../server.js');for(const p of ['/api/ops/refunds/private-id/complete','/api/ops/support/private-id','/api/ops/product-versions/private-id/activate','/api/ops/staff/private-id'])assert.ok(!routeLabel(p).includes('private-id'))});
+test('warehouse count routes remain on the fixed operations service with redacted identifiers',async t=>{
+ const f=await fixture(t),{routeLabel}=require('../server.js');for(const p of ['/api/ops/counts/count-private/submit','/api/ops/count-lines/line-private/decision','/api/ops/stock/stock-private','/api/ops/suppliers/supplier-private']){const r=await fetch(f.base+p,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});assert.equal(r.status,200);assert.ok(f.calls.at(-1)[0].includes('/jana-ops-extra'+p));assert.ok(!routeLabel(p).includes('private'))}
+});

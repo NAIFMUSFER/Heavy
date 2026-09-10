@@ -64,3 +64,17 @@ test('picker refreshes canonical order and disables completion for unresolved li
  vm.runInContext(bundle,context);await vm.runInContext("state.user={name:'Picker fixture',role:'picker'};pickDialog({id:'order-a',snapshot:{lines:[]}})",context);
  assert.deepEqual(paths,['/api/ops/orders/order-a/picking']);assert.match(html,/تفاح/);assert.match(html,/لم يتوفر الصنف/);assert.match(html,/data-finalize="order-a" disabled/);assert.match(html,/تأكيد توفر الأصلي بعد التحقق/);
 });
+test('warehouse view distinguishes unset thresholds and displays real count sessions',async()=>{
+ const root={innerHTML:''};const context=vm.createContext({...common,document:{body:{dataset:{workspace:'admin'}},addEventListener(){}},$:()=>root,setupConnectivity(){},identity:()=>new Promise(()=>{}),get:async p=>{if(p==='/api/ops/counts')return {items:[{id:'count-a',location:'الرف & أ',state:'submitted',created_at:1789000000000,counts:[]}]};assert.equal(p,'/api/ops/catalog');return {stock:[{id:'stock-a',name:'موز',base_unit:'gram',active:true,on_hand_base:1000,reserved_base:200,available_base:800,sellable_base:500,reorder_base:null,stock_status:'threshold_not_set'}],lots:[],suppliers:[]}}});
+ vm.runInContext(bundle,context);await vm.runInContext("state.user={role:'inventory',name:'Warehouse fixture'};render()",context);
+ assert.match(root.innerHTML,/حد إعادة الطلب غير محدد/);assert.match(root.innerHTML,/800/);assert.match(root.innerHTML,/500/);assert.match(root.innerHTML,/الرف &amp; أ/);assert.match(root.innerHTML,/بانتظار الاعتماد/);assert.match(root.innerHTML,/data-action="open-count"/);
+});
+test('stale count review shows original observed and current quantities and blocks approval',()=>{
+ let html='';const stub={};const context=vm.createContext({...common,document:{body:{dataset:{workspace:'admin'}},addEventListener(){}},$:selector=>selector==='[data-cancel-count]'?null:stub,$$:()=>[],setupConnectivity(){},identity:()=>new Promise(()=>{}),modal:(title,content)=>{html=content;return {}}});vm.runInContext(bundle,context);
+ vm.runInContext("state.user={role:'admin'};state.inventoryCounts=[{id:'count-a',location:'رف الاختبار',state:'submitted',counts:[{id:'line-a',lot_id:'lot-a',stock_name:'تفاح',base_unit:'gram',expected_base:1000,observed_base:900,current_base:950,current_reserved:200,stale:true,state:'submitted',reason:'عد موثق'}]}];countDialog('count-a')",context);
+ assert.match(html,/1,000/);assert.match(html,/900/);assert.match(html,/950/);assert.match(html,/تحركت الدفعة/);assert.match(html,/data-approve="true" disabled/);assert.match(html,/data-approve="false"/);
+});
+test('physical count entry starts blank rather than implying the system quantity was counted',()=>{
+ let html='';const stub={};const context=vm.createContext({...common,document:{body:{dataset:{workspace:'admin'}},addEventListener(){}},$:selector=>selector==='[data-cancel-count]'?null:stub,$$:()=>[],setupConnectivity(){},identity:()=>new Promise(()=>{}),modal:(title,content)=>{html=content;return {}}});vm.runInContext(bundle,context);
+ vm.runInContext("state.user={role:'inventory'};state.inventoryCounts=[{id:'count-a',location:'رف الاختبار',state:'open',counts:[{id:'line-a',lot_id:'lot-a',stock_name:'تفاح',base_unit:'gram',expected_base:1000,observed_base:1000,current_base:1000,current_reserved:200,state:'uncounted'}]}];countDialog('count-a')",context);assert.match(html,/name="line-a"[^>]*required/);assert.doesNotMatch(html,/name="line-a"[^>]*value=/);
+});
