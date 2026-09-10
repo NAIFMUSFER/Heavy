@@ -31,3 +31,8 @@ The first three runs identified concrete gaps that unit/database tests alone had
 Separate SQL suites cover stronger concurrency, quote/confirmation retries, cancellation, substitutions, refunds, counts and role changes. This browser journey does not yet cover every failed-delivery branch, physical device operation, real operator acceptance, load/performance or restoration of production data.
 
 The weight extension passed the complete 21-check browser journey in run 34465137608 at 45fdb3a. It creates a sellable product version through the admin form, opens its review panel, activates it, reviews the immutable weight range at checkout and records/consumes real extra inventory without increasing price. Fourteen database weight groups also passed. The earlier activation test failure remains recorded in RELEASE-EVIDENCE.md.
+
+
+## Customer order journey extension — 10 September 2026
+
+Source 792d000e485d129b287e9f015a451f2ba1ff6b20 passed run 34542145250 with 54 checks. New acceptance covers frozen order address/appointment and public timeline, separate COD amounts, courier directions/call links, foreground GPS sharing through the real authenticated API, hiding delivered locations, phone-width history beyond 50 orders and all-session password invalidation across two browsers. All fixtures remain in disposable PostgreSQL; no production orders, stock, cash or customer GPS data were created. Earlier selector failures and corrections are retained in RELEASE-EVIDENCE.md. Native compilation and physical-device acceptance are separate gates.
