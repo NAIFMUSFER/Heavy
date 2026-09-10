@@ -52,3 +52,15 @@ test('finance operations display remaining liability and distinguish requested f
  vm.runInContext("root.innerHTML=task({id:'order-a',number:'JN-fixture',status:'completed',fulfillment_state:'ready',delivery_state:'delivered',payment_state:'partially_refunded',cash_state:'with_courier',collected_halalas:2000,refunded_halalas:300,settled_halalas:700,cash_liability_halalas:1000,total_halalas:2000,created_at:1789000000000})",context);
  assert.match(root.innerHTML,/تسوية عهدة 10\.00 ر\.س/);assert.doesNotMatch(root.innerHTML,/تسوية عهدة 20\.00/);
 });
+test('substitution review discloses quantities prices and expiry without silently allowing incomplete consent',()=>{
+ const sub={id:'sub-a',state:'pending',expires_at:Date.now()+60000,proposed:{original_line:{name:'تفاح & موز',qty:1,components:[{name:'تفاح',base_unit:'gram',base_qty:1000}]},replacement_line:{name:'برتقال',qty:2,components:[{name:'برتقال',base_unit:'gram',base_qty:500}]},original_total_halalas:2000,total_halalas:2700,price_difference_halalas:700}};
+ const html=common.substitutionReview(sub,'order-a',true);assert.match(html,/تفاح &amp; موز/);assert.match(html,/27\.00 ر\.س/);assert.match(html,/7\.00 ر\.س/);assert.match(html,/2 /);assert.match(html,/أوافق على البديل والإجمالي/);assert.match(html,/عدم الرد لا يعني الموافقة/);
+ const incomplete=common.substitutionReview({...sub,proposed:{}},'order-a',true);assert.match(incomplete,/data-accept="true"[^>]*disabled/);
+ const expired=common.substitutionReview({...sub,expires_at:1},'order-a',true);assert.doesNotMatch(expired,/data-accept=/);assert.match(expired,/انتهت المهلة/);
+});
+test('picker refreshes canonical order and disables completion for unresolved lines',async()=>{
+ let html='',paths=[];const stub={onclick:null};const order={id:'order-a',number:'JN-fixture',fulfillment_state:'picking',total_halalas:2000,snapshot:{lines:[{line_id:'line-a',name:'تفاح',qty:1,components:[{name:'تفاح',base_unit:'gram',base_qty:1000}]}]},issues:[{line_id:'line-a',state:'open',reason:'لم يتوفر الصنف'}],substitutions:[]};
+ const context=vm.createContext({...common,document:{body:{dataset:{workspace:'picker'}},addEventListener(){}},$:()=>stub,$$:()=>[],setupConnectivity(){},identity:()=>new Promise(()=>{}),modal:(title,content)=>{html=content;return {}},get:async path=>{paths.push(path);return order}});
+ vm.runInContext(bundle,context);await vm.runInContext("state.user={name:'Picker fixture',role:'picker'};pickDialog({id:'order-a',snapshot:{lines:[]}})",context);
+ assert.deepEqual(paths,['/api/ops/orders/order-a/picking']);assert.match(html,/تفاح/);assert.match(html,/لم يتوفر الصنف/);assert.match(html,/data-finalize="order-a" disabled/);assert.match(html,/تأكيد توفر الأصلي بعد التحقق/);
+});

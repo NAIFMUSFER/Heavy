@@ -31,3 +31,7 @@ for(const [method,path,body] of cases){
  assert.ok(r.ok,`${method} ${path} returned ${r.status}`);assert.equal(calls,before+1,`${path} must resolve exactly one verified RPC`);
 }
 console.log(JSON.stringify({passed:cases.length,contract_source:'restored PostgreSQL pg_proc',scope:'operations Edge RPC argument signatures'}));
+await import('../supabase/functions/jana-api/index.ts');
+const pickingCases=[['GET','/api/ops/orders/fixture/picking'],['POST','/api/ops/orders/fixture/actual',{line_id:'line',actual_base:900}],['POST','/api/ops/orders/fixture/substitution',{line_id:'line',offering_id:'offering',qty:1}],['POST','/api/ops/orders/fixture/unavailable',{line_id:'line',reason:'Fixture reason'}],['POST','/api/ops/orders/fixture/restore',{line_id:'line',reason:'Verified fixture'}],['POST','/api/ops/orders/fixture/finalize',{}],['POST','/api/ops/orders/fixture/ready',{}],['POST','/api/substitutions/fixture/decision',{accept:true}]];
+for(const [method,path,body] of pickingCases){const before=calls;const r=await handler(new Request('https://edge.example/jana-api'+path,{method,headers:{authorization:'Bearer fixture-session','content-type':'application/json','idempotency-key':'contract-fixture-key'},...(body?{body:JSON.stringify(body)}:{})}));assert.ok(r.ok,`${path}: ${r.status}`);assert.equal(calls,before+1)}
+console.log(JSON.stringify({passed:pickingCases.length,contract_source:'restored PostgreSQL pg_proc',scope:'picker and customer consent RPC signatures'}));

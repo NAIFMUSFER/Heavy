@@ -1,4 +1,4 @@
-import {$,$$,esc,money,date,badge,empty,get,getAll,post,patch,remove,modal,closeModal,toast,busy,formData,identity,loginDialog,setupConnectivity,field,parseMoney,ticketCategories,ticketThread,selectField} from './common.js';
+import {substitutionReview,qty,$,$$,esc,money,date,badge,empty,get,getAll,post,patch,remove,modal,closeModal,toast,busy,formData,identity,loginDialog,setupConnectivity,field,parseMoney,ticketCategories,ticketThread,selectField} from './common.js';
 const cartKey='jana.live.cart';
 const state={user:null,config:null,catalog:[],cart:[],view:'shop',category:'all',addresses:[],favorites:new Set()};
 try{state.cart=JSON.parse(localStorage.getItem(cartKey)||'[]')}catch{state.cart=[]}

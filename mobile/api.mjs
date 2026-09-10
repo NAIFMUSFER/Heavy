@@ -8,7 +8,7 @@ export function createApiClient({base,storage,fetchImpl=fetch,timeoutMs=20000,ne
  let queue=Promise.resolve();const pending=new Map();
  const serialized=fn=>{const next=queue.then(fn,fn);queue=next.catch(()=>{});return next};
  const journalKey='jana.mobile.retry.v1';
- const critical=(method,path)=>method==='POST'&&(path==='/api/quotes'||path==='/api/orders'||/\/refunds$/.test(path));
+ const critical=(method,path)=>method==='POST'&&(path==='/api/quotes'||path==='/api/orders'||/\/refunds$/.test(path)||/^\/api\/substitutions\/[^/]+\/decision$/.test(path));
  async function journal(token,signature,clear=false){return serialized(async()=>{
   const raw=await storage.getItemAsync(journalKey);let data=raw?JSON.parse(raw):{token,entries:{}};
   if(data.token!==token)data={token,entries:{}};

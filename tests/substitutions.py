@@ -4,7 +4,7 @@ def passed(name):checks.append(name);print('PASS '+name,flush=True)
 def fails(q,code):
  r=run(q,False);assert not r['ok'] and code in r['error'],r
 
-def setup(replacement_stock=1000,qty=1):
+def setup(replacement_stock=1000,qty=1,coupon=False):
  f=fixture();p=f['p']
  st=val(rpc('jana_inventory_create_stock',f['atok'],'فاكهة بديلة للاختبار','gram'))['id']
  supplier=val(rpc('jana_admin_create_supplier',f['atok'],'مورد الاختبار',''))['id']
@@ -12,7 +12,11 @@ def setup(replacement_stock=1000,qty=1):
  val(rpc('jana_inventory_inspect_lot',f['atok'],lot,'accepted','فحص الاختبار'))
  v=val(rpc('jana_admin_create_product_version',f['atok'],'',dict(title='بديل محفوظ السعر',description='',category='fruit',kind='sized',offerings=[dict(sellable_key='one-kg',size_label='1 kg',sale_unit='kg',price_halalas=2700,components=[dict(stock_id=st,base_qty=1000)])])))
  val(rpc('jana_admin_activate_product_version',f['atok'],v['id']))
- q=val(quote(f,'substitution-quote',qty));o=val(rpc('jana_critical_write',f['t'],'substitution-confirm','order.confirm',{'quote_id':q['id']}));val(rpc('jana_ops_transition',f['atok'],o['id'],'start',''))
+ if coupon:
+  cp=val(rpc('jana_admin_create_coupon_v2',f['atok'],'S'+p.upper(),1,0,20,4102444800000,'percentage',1000))
+  q=val('SELECT jana_create_quote_with_coupon('+','.join(map(literal,[f['t'],'substitution-coupon',p+'s',p+'addr']))+','+literal(json.dumps([{'offering_id':p+'off','qty':qty}]))+'::jsonb,'+literal('S'+p.upper())+');')
+ else:q=val(quote(f,'substitution-quote',qty))
+ o=val(rpc('jana_critical_write',f['t'],'substitution-confirm','order.confirm',{'quote_id':q['id']}));val(rpc('jana_ops_transition',f['atok'],o['id'],'start',''))
  f.update(order=o['id'],line=q['lines'][0]['line_id'],replacement=v['offerings'][0]['id'],stock=st,lot=lot,version=v)
  return f
 
@@ -55,5 +59,10 @@ f=setup();s=val(propose(f));run('UPDATE inventory_lots SET expires_at=(SELECT en
 
 f=setup(1000);s=val(propose(f));f2=fixture();q=val(quote(f2,'second-substitution-order'));o=val(rpc('jana_critical_write',f2['t'],'second-confirm','order.confirm',{'quote_id':q['id']}));val(rpc('jana_ops_transition',f2['atok'],o['id'],'start',''));f2.update(order=o['id'],line=q['lines'][0]['line_id'],replacement=f['replacement']);s2=val(propose(f2));rows=race([decide(f,s),decide(f2,s2)]);assert len(successful(rows))==1 and stock(f)['reserved']==1000;assert all(r['ok'] or 'insufficient_stock' in r['error'] for r in rows);passed('two customers competing for the last substitute cannot over-reserve stock')
 
-assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('jana_picking_write','jana_reallocate_order','jana_picking_detail','jana_finalize_picking_base') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE'));")==0;assert val("SELECT has_function_privilege('service_role','public.jana_reallocate_order(text,jsonb,text)','EXECUTE');")==False;assert val('SELECT jana_deep_health();')['ok'];passed('transaction helpers remain private and stock slot and cash invariants still hold')
+
+f=setup(coupon=True);s=val(propose(f));assert s['proposed']['original_total_halalas']==1800 and s['proposed']['total_halalas']==2430 and s['proposed']['price_difference_halalas']==630;val(decide(f,s));assert current(f)['total_halalas']==2430;val(write(f,'actual-replacement-weight','line.actual',{'line_id':f['line'],'actual_base':900}));assert current(f)['total_halalas']==2187;val(write(f,'finish-weighted-replacement','picking.finish',{}));assert stock(f)=={'hand':100,'reserved':0};passed('approved substitute and actual lower weight preserve immutable percentage discount terms')
+
+f=setup();s=val(propose(f));rows=race([decide(f,s),rpc('jana_inventory_adjust_lot',f['atok'],f['lot'],500,'Physical count during reservation')]);assert len(successful(rows))==1;assert all(r['ok'] or any(code in r['error'] for code in ['insufficient_stock','validation']) for r in rows);assert stock(f)['reserved']<=stock(f)['hand'];passed('inventory adjustment and approval share balance-first locks and preserve reserved bounds')
+
+assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('jana_picking_write','jana_reallocate_order','jana_picking_detail','jana_finalize_picking_base') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE'));")==0;assert val("SELECT to_jsonb(has_function_privilege('service_role','public.jana_reallocate_order(text,jsonb,text)','EXECUTE'));")==False;assert val('SELECT jana_deep_health();')['ok'];passed('transaction helpers remain private and stock slot and cash invariants still hold')
 print(json.dumps({'passed':len(checks),'checks':checks}))
