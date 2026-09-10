@@ -39,3 +39,6 @@ test('delivery setting edits reach the operations Edge and redact resource ident
   assert.equal(r.status,200);assert.ok(f.calls.at(-1)[0].includes('/jana-ops-extra'+p));assert.ok(!routeLabel(p).includes('private'));
  }
 });
+test('saved cart PUT reaches the fixed API while unrelated PUT methods stay rejected',async t=>{
+ const f=await fixture(t);const r=await fetch(f.base+'/api/cart',{method:'PUT',headers:{'content-type':'application/json'},body:'{"revision":0,"items":[]}'});assert.equal(r.status,200);assert.ok(f.calls[0][0].endsWith('/jana-api/api/cart'));assert.equal(f.calls[0][1].method,'PUT');const prior=f.calls.length;assert.equal((await fetch(f.base+'/api/orders',{method:'PUT',headers:{'content-type':'application/json'},body:'{}'})).status,405);assert.equal(f.calls.length,prior);
+});

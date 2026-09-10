@@ -66,7 +66,7 @@ function createGateway({settings=config(),fetchImpl=fetch,log=entry=>console.log
       if(active>100)throw error(503,'BUSY');
       if(!req.url.startsWith('/')||req.url.startsWith('//')||/[\\\x00-\x1f]/.test(req.url))throw error(400,'INVALID_PATH');
       const u=new URL(req.url,settings.origin);p=u.pathname;
-      if(!['GET','HEAD','POST','PATCH','DELETE','OPTIONS'].includes(req.method))throw error(405,'METHOD_NOT_ALLOWED');
+      if(!['GET','HEAD','POST','PATCH','DELETE','OPTIONS'].includes(req.method)&&!(req.method==='PUT'&&p==='/api/cart'))throw error(405,'METHOD_NOT_ALLOWED');
       if(p==='/health'&&req.method==='GET')return json(res,200,{ok:true,service:'jana-gateway'});
       if(p==='/version'&&req.method==='GET')return json(res,200,{service:'jana-gateway',commit:settings.commit});
       if(p==='/ready'&&req.method==='GET'){

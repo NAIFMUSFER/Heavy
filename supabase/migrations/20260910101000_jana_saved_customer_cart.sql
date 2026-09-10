@@ -1,7 +1,7 @@
 -- A cart is an explicit saved selection, never a stock or slot reservation.
 CREATE TABLE public.customer_carts(
  user_id varchar(36) PRIMARY KEY REFERENCES public.users(id),
- items jsonb NOT NULL DEFAULT '[]' CHECK(jsonb_typeof(items)='array' AND jsonb_array_length(items)<=60),
+ items jsonb NOT NULL DEFAULT '[]' CHECK(jsonb_typeof(items)='array' AND jsonb_array_length(items)<=40),
  revision bigint NOT NULL CHECK(revision>0),
  updated_at bigint NOT NULL
 );
@@ -28,7 +28,7 @@ BEGIN
  IF prior.scope IS NOT NULL THEN IF prior.request_hash<>req_hash THEN RAISE EXCEPTION 'idempotency_conflict';END IF;RETURN prior.response::jsonb;END IF;
  SELECT * INTO c FROM public.customer_carts WHERE user_id=u.id FOR UPDATE;
  IF p_revision IS DISTINCT FROM coalesce(c.revision,0) THEN RAISE EXCEPTION 'cart_changed';END IF;
- canonical=public.jana_saved_items(p_items);
+ canonical=public.jana_saved_items(p_items);IF jsonb_array_length(canonical)>40 THEN RAISE EXCEPTION 'invalid_cart';END IF;
  INSERT INTO public.customer_carts(user_id,items,revision,updated_at) VALUES(u.id,canonical,1,nowms)
  ON CONFLICT(user_id) DO UPDATE SET items=EXCLUDED.items,revision=customer_carts.revision+1,updated_at=EXCLUDED.updated_at RETURNING * INTO c;
  r=jsonb_build_object('revision',c.revision,'updated_at',c.updated_at,'saved',true);

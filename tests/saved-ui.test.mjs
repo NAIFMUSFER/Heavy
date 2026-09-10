@@ -19,3 +19,6 @@ for(const [client,merge] of [['web',webMerge],['mobile',mobileMerge]]){
 test('mobile reminder input preserves Saudi time and rejects calendar rollover',()=>{
  assert.equal(new Date(saudiReminderDate('2027-01-31 10:00')).toISOString(),'2027-01-31T07:00:00.000Z');for(const text of ['2027-02-30 10:00','2027-01-31 24:00','31/1/2027 10:00','invalid'])assert.throws(()=>saudiReminderDate(text));
 });
+for(const [client,merge] of [['web',webMerge],['mobile',mobileMerge]])test(`${client}: restoring selections cannot exceed the checkout line bound`,()=>{
+ const catalog=Array.from({length:41},(_,i)=>({id:'offering-'+i,family_id:'family-'+i,name:'صنف '+i,available_units:5,price_halalas:100}));const items=catalog.map(p=>({offering_family_id:p.family_id,quantity:1}));assert.throws(()=>merge([],items,catalog),/40/);
+});

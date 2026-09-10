@@ -27,7 +27,7 @@ export function guard(handler:(req:Request)=>Promise<Response>) {
   try {
    const origin=req.headers.get('origin');
    if(origin && !ORIGINS.has(origin)) return new Response(JSON.stringify({error:{code:'ORIGIN',message:'مصدر الطلب غير مسموح'}}),{status:403,headers:{'content-type':'application/json','cache-control':'no-store'}});
-   if(req.method==='OPTIONS') return new Response(null,{status:204,headers:origin?{'access-control-allow-origin':origin,'access-control-allow-credentials':'true','access-control-allow-headers':'content-type,authorization,x-csrf-token,idempotency-key','access-control-allow-methods':'GET,POST,PATCH,DELETE,OPTIONS','vary':'Origin'}:{}});
+   if(req.method==='OPTIONS') return new Response(null,{status:204,headers:origin?{'access-control-allow-origin':origin,'access-control-allow-credentials':'true','access-control-allow-headers':'content-type,authorization,x-csrf-token,idempotency-key','access-control-allow-methods':'GET,POST,PUT,PATCH,DELETE,OPTIONS','vary':'Origin'}:{}});
    const cookies=safeCookies(req);
    const mutates=!['GET','HEAD','OPTIONS'].includes(req.method);
    if(mutates && cookies.jana_session && !(req.headers.get('authorization')||'').startsWith('Bearer ')) {
