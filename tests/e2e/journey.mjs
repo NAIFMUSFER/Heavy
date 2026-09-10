@@ -132,7 +132,7 @@ try{
  await fs.writeFile(output+'/results.json',JSON.stringify({status:'passed',checks},null,2));
  console.log('Browser journey complete: '+checks.length+' checks');
 }catch(error){
- console.error('FAILED PHASE: '+phase);console.error(error);
+ console.error('FAILED PHASE: '+phase);console.error(error);for(const [role,page] of Object.entries(pages))console.error('FIXTURE PAGE '+role+': '+(await page.locator('body').innerText()).slice(0,8000));
  for(const [role,page] of Object.entries(pages)){await page.screenshot({path:output+'/failure-'+role+'.png',fullPage:true}).catch(()=>{});await fs.writeFile(output+'/failure-'+role+'.txt',await page.locator('body').innerText()).catch(()=>{})}
  await fs.writeFile(output+'/results.json',JSON.stringify({status:'failed',phase,checks,error:String(error),browserErrors:errors,gatewayErrors:harness.failures},null,2));process.exitCode=1;
 }finally{await browser.close();await harness.close()}

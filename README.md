@@ -20,7 +20,7 @@ node --test tests/*.test.cjs tests/*.test.mjs
 node server.js
 ```
 
-The server fails startup on missing public assets or invalid project/origin configuration. Local browsing still uses real JANA APIs: do not create test orders in production. Test suites inject stub responses in memory; production has no fake backend fallback.
+The server fails startup on missing public assets or invalid project/origin configuration. Local browsing still uses real JANA APIs: do not create test orders in production. Unit tests inject responses in memory. The isolated browser gate instead uses actual Edge handlers and a disposable PostgreSQL/PostgREST service; production has no fake backend fallback.
 
 ## Configuration
 
@@ -56,7 +56,7 @@ The full product definition is not complete. Outstanding commercial transactions
 
 ## Transaction and release verification
 
-The isolated PostgreSQL CI gate runs 34 regression checks, ten groups of 16-client concurrency checks, and ten coupon lifecycle/pricing groups. Address ownership/default and actual pg_cron execution tests also pass. Successful database run: 34400862608. The JavaScript suite now has 114 passing tests. See `docs/RELEASE-EVIDENCE.md` for deployment and mobile evidence.
+The isolated PostgreSQL CI gate runs 34 regression checks, ten groups of 16-client concurrency checks, and ten coupon lifecycle/pricing groups. Address ownership/default and actual pg_cron execution tests also pass. Successful database run: 34400862608. The JavaScript suite now has 137 passing tests. See `docs/RELEASE-EVIDENCE.md` for deployment and mobile evidence.
 
 Coupons support fixed amounts and percentage basis points. Their usage is reserved with stock and delivery capacity, released on quote cancellation/expiry, and redeemed once on confirmation. Confirmed-order cancellation does not restore a redeemed usage. Immutable sold coupon terms govern weight adjustments. A coupon may expire sooner than the usual fifteen-minute quote window. VAT configuration remains outstanding.
 
@@ -67,3 +67,5 @@ Run the database scripts only with `JANA_TEST_DATABASE=disposable`, `PGHOST=127.
 The migration `20260909202730_jana_scheduled_quote_expiry.sql` installs pg_cron and schedules `jana-quote-expiry` every minute. It releases up to 200 expired quote reservations per run without swallowing transaction errors. Inspect `cron.job_run_details` for failures and `worker_runs` for the last successful run. The isolated Docker test uses PostgreSQL 17 Bookworm with genuine PostGIS and pg_cron; it verifies a scheduled release rather than invoking a fake timer. Scheduling reference: https://supabase.com/docs/guides/cron/quickstart .
 
 Canonical product families now contain immutable versions with multiple sellable sizes. Admin saves a draft and explicitly activates it; original offerings and old order snapshots remain intact. Support conversations include customer/staff replies, assignment, priority, closing and reopening. COD/refund ledger details and the latest release gate are in [financial integrity](docs/FINANCIAL-INTEGRITY.md).
+
+The isolated browser journey is defined in `.github/workflows/jana-browser-e2e.yml`. It uses pinned Playwright dependencies in `tests/e2e`, actual gateway/Edge code, and a fresh migrated local database. There is no production-network fallback. Its current run status and gaps are recorded in the audit matrix.
