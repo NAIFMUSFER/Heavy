@@ -1,6 +1,6 @@
 # Picking and customer-approved substitutions
 
-Status: source implemented; deployment pending database, mobile and release gates. Initial database run 34433511081 passed thirteen substitution behavior groups and failed while the test parser tried to decode PostgreSQL's `f` as JSON. The permission assertion now explicitly asks PostgreSQL for JSON; rerun evidence is required.
+Status: migration `20260910033534` applied and API v16 deployed; database gate 34433806064 passed sixteen substitution groups. Web/native release verification remains pending. Initial database run 34433511081 passed thirteen substitution behavior groups and failed while the test parser tried to decode PostgreSQL's `f` as JSON. The permission assertion now explicitly asks PostgreSQL for JSON; rerun evidence is required.
 
 An assigned picker (or admin) starts a queued order. Its original commercial snapshot remains unchanged. The picker records actual base-unit quantities, reports unavailable lines, or proposes a replacement from an active canonical offering. Proposals freeze the old line, new line, quantity, version identities, old and new order totals, sold coupon terms and exact price difference for fifteen minutes. Only one pending proposal is allowed per order, keeping the displayed total stable during review.
 
