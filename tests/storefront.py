@@ -42,9 +42,10 @@ s=write_store(f,'draft.save',dict(revision=s['revision'],profile=PROFILE))
 s=write_store(f,'profile.publish',dict(revision=s['revision'],confirmed=True))
 payload['revision']=s['revision']
 fails(rpc('jana_storefront_write',f['atok'],'review-fixture','intake.set',dict(payload,reviewed=dict(REVIEWED,inventory=False))),'storefront_review_required')
-run('UPDATE offerings SET description='+literal('بيانات معاينة تجريبية')+' WHERE id='+literal(f['p']+'off')+';')
+preview=val(rpc('jana_admin_create_product_version',f['atok'],'',dict(title='Fixture preview',description='بيانات معاينة تجريبية',category='fruit',kind='individual',offerings=[dict(sellable_key='preview',size_label='Fixture',sale_unit='kg',price_halalas=2000,components=[dict(stock_id=f['p']+'st',base_qty=1000)])])))
+val(rpc('jana_admin_activate_product_version',f['atok'],preview['id']))
 fails(rpc('jana_storefront_write',f['atok'],'preview-fixture','intake.set',payload),'storefront_not_ready')
-run('UPDATE offerings SET description='+literal('Disposable test product')+' WHERE id='+literal(f['p']+'off')+';')
+run('UPDATE offerings SET active=false WHERE id='+literal(preview['offerings'][0]['id'])+';')
 s=intake(f,True)
 passed('opening requires complete operations attestation and rejects known preview merchandise')
 q2=val(quote(f,'after-policy-change'));assert q2['store_profile']['id']==s['published']['id'] and q2['store_profile']['id']!=old['id']
