@@ -1,0 +1,41 @@
+name: JANA Mobile Lock Candidate
+on:
+  push:
+    branches: [jana-integrity]
+    paths: ['.github/workflows/jana-mobile-lock-candidate.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lock-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Resolve public mobile dependencies without install scripts
+        working-directory: mobile
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Export verifiable lock candidate for review
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs'),zlib=require('node:zlib'),crypto=require('node:crypto');
+          const bytes=fs.readFileSync('mobile/package-lock.json');
+          const lock=JSON.parse(bytes);
+          for(const pkg of Object.values(lock.packages))if(pkg.resolved){
+            const u=new URL(pkg.resolved);
+            if(u.protocol!=='https:'||u.hostname!=='registry.npmjs.org'||u.username||u.password)throw Error('Non-public dependency requires separate review');
+          }
+          const encoded=zlib.gzipSync(bytes).toString('base64'),chunks=encoded.match(/.{1,12000}/g);
+          console.log('JANA_LOCK_SHA256='+crypto.createHash('sha256').update(bytes).digest('hex'));
+          console.log('JANA_LOCK_PARTS='+chunks.length);
+          chunks.forEach((chunk,i)=>console.log('JANA_LOCK_PART='+i+':'+chunk));
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jana-mobile-lock-candidate
+          path: mobile/package-lock.json
+          if-no-files-found: error
+          retention-days: 7
