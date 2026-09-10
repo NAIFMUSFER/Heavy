@@ -129,6 +129,9 @@ try{
  phase='delivery proof and separate cash collection';
  await assign('courier');const courier=await login('courier');
  await change(courier,'/api/ops/orders/'+confirmed.id+'/dispatch',()=>courier.locator('[data-action=dispatch]').click());
+ await change(courier,'/api/ops/orders/'+confirmed.id+'/fail',()=>courier.locator('[data-action=fail]').click());assert.equal(order().delivery,'failed');assert.equal(order().collected,0);assert.equal(order().settled,0);assert.deepEqual(stock(),{on_hand:9101,reserved:0});
+ const failedEvent=value('SELECT jsonb_build_object(\'actor_id\',actor_id,\'reason\',reason,\'created_at\',created_at) FROM order_events WHERE order_id='+literal(confirmed.id)+" AND event='delivery_failed';");assert.equal(failedEvent.actor_id,sql('SELECT id FROM users WHERE email='+literal(fixture.accounts.courier)+';'));assert.equal(failedEvent.reason,'تم التحقق في اختبار المستودع');assert.ok(failedEvent.created_at>0);
+ await change(courier,'/api/ops/orders/'+confirmed.id+'/dispatch',()=>courier.locator('[data-action=dispatch]').click());pass('failed delivery preserves reason actor time and consumed stock without collecting cash before a real retry');
  await courier.locator('[data-action=deliver]').click();await courier.locator('#deliver-form [name=code]').fill(code);
  await change(courier,'/api/ops/orders/'+confirmed.id+'/deliver',()=>courier.locator('#deliver-form button').click());
  assert.equal(order().delivery,'delivered');assert.equal(order().collected,0);assert.equal(order().settled,0);pass('delivery proof never collects or settles cash automatically');
