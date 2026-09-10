@@ -93,7 +93,7 @@ BEGIN
   results=results||jsonb_build_array(jsonb_build_object('test','other_courier_cannot_change_order','pass',ok));
 
   UPDATE public.orders SET status='completed',delivery_state='delivered',payment_state='collected',cash_state='with_courier',courier_id=p||'c',collected_halalas=total_halalas WHERE id=o->>'id';
-  BEGIN r=public.jana_admin_refund(atok,o->>'id',100,'Audit refund reason');ok=true;detail='refund recorded';
+  BEGIN r=public.jana_record_paid_refund(atok,o->>'id',100,'Audit refund reason','Fixture paid refund','finance');ok=true;detail='refund recorded';
   EXCEPTION WHEN OTHERS THEN ok=false;detail=SQLSTATE||':'||SQLERRM; END;
   results=results||jsonb_build_array(jsonb_build_object('test','refund_records_required_actor_fields','pass',ok,'detail',detail));
 
@@ -175,8 +175,8 @@ BEGIN
   q2=public.jana_critical_write(ct,p||'collect','cod.collect',jsonb_build_object('order_id',o->>'id','amount_halalas',2000));
   SELECT count(*) INTO n FROM public.order_events WHERE order_id=o->>'id' AND event='collect';
   results=results||jsonb_build_array(jsonb_build_object('test','cod_retry_collects_once','pass',r=q2 AND n=1));
-  r=public.jana_critical_write(atok,p||'refund','refund.create',jsonb_build_object('order_id',o->>'id','amount_halalas',100,'reason','Audit refund reason'));
-  q2=public.jana_critical_write(atok,p||'refund','refund.create',jsonb_build_object('order_id',o->>'id','amount_halalas',100,'reason','Audit refund reason'));
+  r=public.jana_critical_write(atok,p||'refund','refund.create',jsonb_build_object('order_id',o->>'id','amount_halalas',100,'reason','Audit refund reason','reference','Fixture cash refund','payment_source','courier'));
+  q2=public.jana_critical_write(atok,p||'refund','refund.create',jsonb_build_object('order_id',o->>'id','amount_halalas',100,'reason','Audit refund reason','reference','Fixture cash refund','payment_source','courier'));
   SELECT refunded_halalas INTO n FROM public.orders WHERE id=o->>'id';
   results=results||jsonb_build_array(jsonb_build_object('test','refund_retry_creates_once','pass',r=q2 AND n=100));
   r=public.jana_critical_write(atok,p||'settle','cod.settle',jsonb_build_object('order_id',o->>'id','reference','Audit deposit'));

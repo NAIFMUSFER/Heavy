@@ -8,7 +8,7 @@ const MAX_BODY = 65536, MAX_RESPONSE = 4 * 1024 * 1024;
 const PUBLIC_FILES = ['index.html','admin.html','picker.html','courier.html','offline.html','manifest.webmanifest','sw.js','assets/icon.svg','assets/common.js'];
 const BUNDLES = {'/assets/shop.js':['shop',5,'.js'],'/assets/ops.js':['ops',4,'.js'],'/assets/styles.css':['styles',2,'.css']};
 const TYPES = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
-const OPS = /^\/api\/ops\/(catalog|products|product-versions\/[^/]+\/activate|suppliers|coupons|slots|stock|lots|zones|lots\/[^/]+\/(inspect|adjust)|families\/[^/]+\/versions|offerings\/[^/]+\/active|coupons\/[^/]+\/active|slots\/[^/]+\/active|orders\/[^/]+\/(collect|settle))$/;
+const OPS = /^\/api\/ops\/(catalog|finance|refunds\/[^/]+\/(complete|reject)|products|product-versions\/[^/]+\/activate|suppliers|coupons|slots|stock|lots|zones|lots\/[^/]+\/(inspect|adjust)|families\/[^/]+\/versions|offerings\/[^/]+\/active|coupons\/[^/]+\/active|slots\/[^/]+\/active|orders\/[^/]+\/(collect|settle|refunds))$/;
 function config(env=process.env) {
   const supabase=(env.JANA_SUPABASE_URL||JANA_SUPABASE).replace(/\/$/,'');
   if(supabase!==JANA_SUPABASE) throw Error('JANA_SUPABASE_URL must identify the dedicated JANA project');

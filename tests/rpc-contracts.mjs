@@ -13,6 +13,7 @@ globalThis.fetch=async(url,init)=>{
 };
 const cases=[
  ['POST','/products',{title:'Fixture product',offerings:[]}],['POST','/product-versions/11111111-1111-1111-1111-111111111111/activate'],
+ ['GET','/finance'],['POST','/orders/fixture/refunds',{amount_halalas:100,reason:'Fixture refund',reference:'Fixture paid',payment_source:'finance'}],['POST','/refunds/fixture/complete',{reference:'Fixture paid',payment_source:'finance'}],['POST','/refunds/fixture/reject',{reason:'Fixture rejected'}],
  ['GET','/catalog'],['POST','/suppliers',{name:'Fixture supplier',phone:''}],
  ['POST','/coupons',{code:'FIXTURE',amount_halalas:500,minimum_halalas:0,max_uses:1,expires_at:4102444800000}],
  ['POST','/slots',{zone_id:'fixture-zone',starts_at:4102444800000,ends_at:4102448400000,cutoff_at:4102441200000,capacity:1}],
