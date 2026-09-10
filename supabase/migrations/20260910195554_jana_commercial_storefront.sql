@@ -28,7 +28,7 @@ BEGIN
  IF p_profile IS NULL OR jsonb_typeof(p_profile)<>'object' OR octet_length(p_profile::text)>60000 THEN RETURN false;END IF;
  FOR k,v IN SELECT key,value FROM jsonb_each_text(p_profile) LOOP
   IF NOT k=ANY(allowed) OR jsonb_typeof(p_profile->k)<>'string' THEN RETURN false;END IF;
-  IF length(v)>CASE WHEN k IN ('terms','privacy','delivery','returns') THEN 6000 ELSE 500 END THEN RETURN false;END IF;
+  IF length(v)>(CASE WHEN k IN ('terms','privacy','delivery','returns') THEN 6000 ELSE 500 END) THEN RETURN false;END IF;
  END LOOP;
  IF p_profile?'tax_status' AND p_profile->>'tax_status' NOT IN ('','not_registered','registered') THEN RETURN false;END IF;
  IF p_profile?'registration_type' AND p_profile->>'registration_type' NOT IN ('','commercial_registration','freelance_document','other_license') THEN RETURN false;END IF;
