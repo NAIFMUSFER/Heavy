@@ -9,6 +9,19 @@ let calls=[];let response={ok:true};
 globalThis.fetch=async (url,init)=>{calls.push({url:String(url),body:JSON.parse(init.body||'{}')});return Response.json(response)};
 function request(name,path,options={}) {return new Request(`https://edge.example/${name}${path}`,options)}
 const bearer={authorization:'Bearer test-only-token-01234567890123456789','content-type':'application/json'};
+test('basket component evidence requires a persistent key before reaching PostgreSQL',async()=>{
+ calls=[];const r=await handlers['jana-api'](request('jana-api','/api/ops/orders/fixture/components',{method:'POST',headers:bearer,body:'{}'}));assert.equal(r.status,422);assert.equal(calls.length,0);
+});
+test('basket component route preserves typed evidence and authoritative path order for transactional validation',async()=>{
+ calls=[];response={matches:false};const body={order_id:'wrong-body-order',line_id:'fixture-line',revision:7,items:[{stock_id:'grams',actual_base:0},{stock_id:'pieces',actual_base:3}]};
+ const r=await handlers['jana-api'](request('jana-api','/api/ops/orders/fixture/components',{method:'POST',headers:{...bearer,'idempotency-key':'component-test-key'},body:JSON.stringify(body)}));
+ assert.equal(r.status,200);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_picker_record_components'));assert.equal(calls[0].body.p_idem_key,'component-test-key');assert.deepEqual(calls[0].body.p_payload,{...body,order_id:'fixture'});
+});
+test('basket stale revision and unresolved quantity errors are actionable conflicts',async()=>{
+ for(const [message,code]of [['component_check_changed','COMPONENT_CHANGED'],['basket_components_unresolved','BASKET_UNRESOLVED']]){
+  response={_error:message,status:409};const r=await handlers['jana-api'](request('jana-api','/api/ops/orders/fixture/components',{method:'POST',headers:{...bearer,'idempotency-key':'component-test-key'},body:'{}'}));assert.equal(r.status,409);assert.equal((await r.json()).error.code,code);
+ }
+});
 for(const name of Object.keys(handlers)) {
  test(`${name}: blocks cookie write without CSRF before database`,async()=>{
   calls=[];const r=await handlers[name](request(name,'/api/quotes',{method:'POST',headers:{cookie:'jana_session=test-session; jana_csrf=known','content-type':'application/json'},body:'{}'}));assert.equal(r.status,403);assert.equal(calls.length,0);
