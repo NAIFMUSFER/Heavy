@@ -154,3 +154,12 @@ test('own membership change clears both browser cookies when reauthentication is
 test('last administrator business constraint is a clear conflict without database details',async()=>{
  calls=[];response={_error:'last_active_admin',status:409};const r=await handlers['jana-api'](request('jana-api','/api/ops/staff/staff-a',{method:'PATCH',headers:{...bearer,'idempotency-key':'last-admin-fixture'},body:'{"active":false,"reason":"Fixture change"}'}));assert.equal(r.status,409);assert.equal((await r.json()).error.code,'LAST_ADMIN');
 });
+for(const [method,path,operation,input,expected] of [
+ ['POST','/api/shopping-lists','list.save',{name:'Weekly fixture',items:[],user_id:'foreign'},{name:'Weekly fixture',items:[]}],
+ ['PATCH','/api/shopping-lists/list-a','list.save',{name:'Renamed',revision:2,list_id:'foreign'},{list_id:'list-a',revision:2,name:'Renamed'}],
+ ['DELETE','/api/shopping-lists/list-a','list.delete',{revision:2,list_id:'foreign'},{list_id:'list-a',revision:2}],
+ ['POST','/api/recurring','recurring.save',{name:'Reminder',cadence:'monthly',next_at:4102444800000,items:[],auto_charge:true},{plan_id:null,changes:{name:'Reminder',items:[],cadence:'monthly',next_at:4102444800000}}],
+ ['PATCH','/api/profile','profile.update',{name:'Customer',phone:'0500000000',role:'admin',verified_phone:true},{name:'Customer',phone:'0500000000'}]
+])test(`${operation}: saved customer writes require a key and retain only allowed fields`,async()=>{
+ calls=[];response={id:'saved-a'};const invoke=headers=>handlers['jana-api'](request('jana-api',path,{method,headers,body:JSON.stringify(input)}));let r=await invoke(bearer);assert.equal(r.status,422);assert.equal(calls.length,0);r=await invoke({...bearer,'idempotency-key':'saved-data-fixture'});assert.ok(r.ok);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_customer_saved_write'));assert.equal(calls[0].body.p_operation,operation);assert.deepEqual(calls[0].body.p_payload,expected);
+});

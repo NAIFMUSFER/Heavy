@@ -62,7 +62,7 @@ export async function request(path, {method='GET',body,key}={}) {
 export const get=path=>request(path);
 export const post=(path,body={},key)=>request(path,{method:'POST',body,key});
 export const patch=(path,body,key)=>request(path,{method:'PATCH',body,key});
-export const remove=(path,key)=>request(path,{method:'DELETE',key});
+export const remove=(path,body,key)=>request(path,{method:'DELETE',body,key});
 export async function getAll(path){const all=[];let offset=0;for(let i=0;i<100;i++){const r=await get(`${path}${path.includes('?')?'&':'?'}limit=100&offset=${offset}`);all.push(...r.items);if(r.next_offset==null)return all;offset=r.next_offset;}throw new Error('القائمة كبيرة. استخدم التصفح المقسم بدل تحميل جميع السجلات.');}
 export async function identity(){try{return (await get('/api/auth/me')).user;}catch(e){if(e.status===401)return null;throw e;}}
 export function loginDialog(onSuccess, startRegister=false){

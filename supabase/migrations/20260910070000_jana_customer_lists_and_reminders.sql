@@ -111,7 +111,7 @@ BEGIN
  FOR target IN SELECT p.id,p.user_id FROM public.recurring_plans p JOIN public.users u ON u.id=p.user_id AND u.active WHERE p.state='active' AND p.next_at<=nowms ORDER BY p.next_at,p.id LIMIT 100 LOOP
   PERFORM 1 FROM public.users WHERE id=target.user_id AND active FOR KEY SHARE;IF NOT FOUND THEN CONTINUE;END IF;
   SELECT * INTO r FROM public.recurring_plans WHERE id=target.id AND state='active' AND next_at<=nowms FOR UPDATE SKIP LOCKED;IF r.id IS NULL THEN CONTINUE;END IF;
-  INSERT INTO public.notifications(id,user_id,dedupe_key,title,body,order_id,is_read,created_at) VALUES('ntf-'||replace(gen_random_uuid()::text,'-',''),r.user_id,'recurring-'||r.id||'-'||r.next_at,'تذكير بقائمة مشترياتك','حان موعد '+r.name+'. راجع قائمتك والأسعار والتوصيل ثم أكد الطلب بنفسك. لم يُنشأ طلب ولم يُحجز مخزون.',NULL,false,nowms) ON CONFLICT(dedupe_key) DO NOTHING;
+  INSERT INTO public.notifications(id,user_id,dedupe_key,title,body,order_id,is_read,created_at) VALUES('ntf-'||replace(gen_random_uuid()::text,'-',''),r.user_id,'recurring-'||r.id||'-'||r.next_at,'تذكير بقائمة مشترياتك','حان موعد '||r.name||'. راجع قائمتك والأسعار والتوصيل ثم أكد الطلب بنفسك. لم يُنشأ طلب ولم يُحجز مخزون.',NULL,false,nowms) ON CONFLICT(dedupe_key) DO NOTHING;
   nxt=r.next_at;steps=0;LOOP nxt=public.jana_next_reminder(nxt,r.cadence,r.interval_days,r.anchor_day);steps=steps+1;EXIT WHEN nxt>nowms;IF steps>3700 THEN RAISE EXCEPTION 'reminder_schedule_invalid';END IF;END LOOP;
   UPDATE public.recurring_plans SET next_at=nxt,last_notice_at=nowms,revision=revision+1 WHERE id=r.id;n=n+1;
  END LOOP;
