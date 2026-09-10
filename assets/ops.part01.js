@@ -1,4 +1,4 @@
-import {$,$$,esc,money,number,parseMoney,date,badge,empty,get,post,patch,modal,closeModal,toast,busy,formData,identity,loginDialog,setupConnectivity,field,selectField} from './common.js';
+import {$,$$,esc,money,number,parseMoney,date,badge,empty,get,post,patch,modal,closeModal,toast,busy,formData,identity,loginDialog,setupConnectivity,field,selectField,ticketCategories,ticketThread} from './common.js';
 const root=$('#ops-app'),workspace=document.body.dataset.workspace;const state={user:null,page:'orders',orders:[],reports:null,staff:[],catalog:null};
 const roleTitle={admin:'لوحة التشغيل',picker:'التجهيز',courier:'التوصيل',finance:'المالية',support:'خدمة العملاء',inventory:'المستودع'};
 function allowed(){if(!state.user)return false;if(workspace==='admin')return ['admin','finance','support','inventory'].includes(state.user.role);return state.user.role===workspace||state.user.role==='admin'}

@@ -39,3 +39,9 @@ test('product administration renders grouped sizes and confirms draft activation
  await listeners.click({target:{closest:()=>button}});assert.equal(calls.length,0);
  consent=true;await listeners.click({target:{closest:()=>button}});assert.deepEqual(calls,['/api/ops/product-versions/draft-version/activate']);
 });
+test('support workspace displays conversation history and closed-ticket access',async()=>{
+ const root={innerHTML:''};const context=vm.createContext({...common,document:{body:{dataset:{workspace:'admin'}},addEventListener(){}},$:()=>root,$$:()=>[],setupConnectivity(){},identity:()=>new Promise(()=>{}),get:async p=>{assert.equal(p,'/api/ops/support');return {staff:[{id:'staff-a',name:'موظف الدعم'}],items:[{id:'ticket-a',subject:'مساعدة مفتوحة',customer_name:'عميل الاختبار',state:'pending_customer',priority:'high',category:'delivery',assigned_to:'staff-a',messages:[{actor:'customer',text:'رسالة أولى',at:1789000000000},{actor:'support',text:'رد & متابعة',at:1789000001000}]},{id:'ticket-b',subject:'طلب مغلق',customer_name:'عميل الاختبار',state:'closed',priority:'normal',category:'other',messages:[]}]}}});
+ vm.runInContext(bundle,context);await vm.runInContext("state.user={name:'Support fixture',role:'support'};state.page='support';render()",context);
+ assert.match(root.innerHTML,/رسالة أولى/);assert.match(root.innerHTML,/رد &amp; متابعة/);assert.match(root.innerHTML,/بانتظار العميل/);assert.match(root.innerHTML,/name="assigned_to"/);assert.doesNotMatch(root.innerHTML,/طلب مغلق/);
+ await vm.runInContext("state.supportFilter='closed';render()",context);assert.match(root.innerHTML,/طلب مغلق/);
+});

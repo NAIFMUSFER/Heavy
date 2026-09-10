@@ -108,3 +108,10 @@ for(const [path,method,body,addressId] of [
 test('goods receipt preserves unknown cost and excludes unrelated coupon arguments',async()=>{
  calls=[];response={id:'fixture-lot'};const r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/lots',{method:'POST',headers:bearer,body:JSON.stringify({stock_id:'fixture-stock',received_base:1000,total_cost_halalas:null,expires_at:4102444800000})}));assert.equal(r.status,201);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_inventory_receive_lot'));assert.equal(calls[0].body.p_total_cost_halalas,null);assert.deepEqual(Object.keys(calls[0].body).sort(),['p_token','p_stock_id','p_supplier_id','p_received_base','p_total_cost_halalas','p_expires_at'].sort());
 });
+for(const [path,operation,input,expected] of [
+ ['/api/tickets','ticket.create',{subject:'Support subject',message:'Customer message',category:'delivery'},{order_id:null,subject:'Support subject',message:'Customer message',category:'delivery'}],
+ ['/api/tickets/ticket-a/reply','ticket.reply',{message:'Customer reply',state:'closed',ticket_id:'unrelated'},{ticket_id:'ticket-a',message:'Customer reply'}],
+ ['/api/ops/support/ticket-a','ticket.update',{message:'Staff reply',state:'closed',priority:'high',assigned_to:null,user_id:'unrelated',ticket_id:'unrelated'},{ticket_id:'ticket-a',message:'Staff reply',state:'closed',priority:'high',assigned_to:null}]
+])test(`${operation} forwards a persisted key and approved fields only`,async()=>{
+ calls=[];response={id:'ticket-a',state:'open'};const r=await handlers['jana-api'](request('jana-api',path,{method:'POST',headers:{...bearer,'idempotency-key':'support-key-123'},body:JSON.stringify(input)}));assert.ok(r.ok);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_ticket_write'));assert.equal(calls[0].body.p_key,'support-key-123');assert.equal(calls[0].body.p_operation,operation);assert.deepEqual(calls[0].body.p_payload,expected);
+});
