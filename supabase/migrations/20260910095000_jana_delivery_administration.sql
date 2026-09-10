@@ -27,8 +27,8 @@ BEGIN
   SELECT * INTO z FROM public.delivery_zones WHERE id=p_zone_id FOR UPDATE;IF z.id IS NULL THEN RAISE EXCEPTION 'zone_not_found';END IF;
   IF p_revision IS DISTINCT FROM z.revision THEN RAISE EXCEPTION 'delivery_changed';END IF;before_state=to_jsonb(z)-'geom';
  ELSE z.id='zn-'||replace(gen_random_uuid()::text,'-','');z.active=true;z.metadata='{}';END IF;
- IF p_payload?'name' THEN IF jsonb_typeof(p_payload->'name') IS DISTINCT FROM 'string' THEN RAISE EXCEPTION 'delivery_validation';END IF;z.name=trim(p_payload->>'name');END IF;
- IF z.name IS NULL OR length(z.name) NOT BETWEEN 2 AND 120 THEN RAISE EXCEPTION 'delivery_validation';END IF;
+ IF p_payload?'name' THEN IF jsonb_typeof(p_payload->'name') IS DISTINCT FROM 'string' OR length(trim(p_payload->>'name')) NOT BETWEEN 2 AND 100 THEN RAISE EXCEPTION 'delivery_validation';END IF;z.name=trim(p_payload->>'name');END IF;
+ IF z.name IS NULL OR length(z.name) NOT BETWEEN 2 AND 100 THEN RAISE EXCEPTION 'delivery_validation';END IF;
  FOREACH k IN ARRAY ARRAY['fee_halalas','minimum_halalas'] LOOP
   IF p_payload?k AND (jsonb_typeof(p_payload->k) IS DISTINCT FROM 'number' OR (p_payload->>k)!~'^[0-9]{1,10}$') THEN RAISE EXCEPTION 'delivery_validation';END IF;
  END LOOP;

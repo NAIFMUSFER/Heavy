@@ -50,6 +50,19 @@ try{
  await change(inventory,'/api/ops/lots/'+lot.id+'/inspect',()=>inventory.locator('[data-action=inspect-lot][data-id="'+lot.id+'"][data-state=accepted]').click());
  assert.deepEqual(stock(),{on_hand:10001,reserved:0});pass('accepted warehouse lot increases usable stock once');
 
+ phase='delivery administration';
+ const admin=await login('admin');await admin.locator('[data-page=logistics]').click();await admin.locator('[data-action=new-zone]').click();
+ const zoneForm=admin.locator('#zone-form');await zoneForm.locator('[name=name]').fill('منطقة اختبار التوسع');await zoneForm.locator('[name=city]').fill('الرياض');await zoneForm.locator('[name=fee]').fill('12');await zoneForm.locator('[name=minimum]').fill('20');await zoneForm.locator('[name=polygon]').fill(JSON.stringify({type:'Polygon',coordinates:[[[45,24],[46,24],[46,25],[45,25],[45,24]]]}));await zoneForm.locator('[name=reason]').fill('إنشاء تغطية اختبار مستقلة');
+ const newZone=await change(admin,'/api/ops/zones',()=>zoneForm.locator('button').click());assert.equal(newZone.revision,1);
+ await admin.locator('[data-action=edit-zone][data-id="'+newZone.id+'"]').click();await admin.locator('#zone-form [name=fee]').fill('15');await admin.locator('#zone-form [name=reason]').fill('تحديث الرسوم للاختبار');
+ const revisedZone=await change(admin,'/api/ops/zones/'+newZone.id,()=>admin.locator('#zone-form button').click(),'PATCH');assert.equal(revisedZone.fee_halalas,1500);assert.equal(revisedZone.revision,2);
+ await admin.locator('[data-action=new-slot]').click();const slotForm=admin.locator('#slot-form');await slotForm.locator('[name=zone_id]').selectOption(newZone.id);
+ const stamp=hours=>new Date(Date.now()+(hours+3)*3600000).toISOString().slice(0,16);await slotForm.locator('[name=starts_at]').fill(stamp(48));await slotForm.locator('[name=ends_at]').fill(stamp(50));await slotForm.locator('[name=cutoff_at]').fill(stamp(46));await slotForm.locator('[name=capacity]').fill('3');await slotForm.locator('[name=reason]').fill('فتح نافذة اختبار');
+ const newSlot=await change(admin,'/api/ops/slots',()=>slotForm.locator('button').click());assert.equal(newSlot.capacity,3);
+ await admin.locator('[data-action=edit-slot][data-id="'+newSlot.id+'"]').click();await admin.locator('#slot-form [name=capacity]').fill('2');await admin.locator('#slot-form [name=reason]').fill('مراجعة سعة الاختبار');
+ const revisedSlot=await change(admin,'/api/ops/slots/'+newSlot.id,()=>admin.locator('#slot-form button').click(),'PATCH');assert.equal(revisedSlot.capacity,2);assert.equal(revisedSlot.booked,0);pass('admin creates and revises geographic zones and delivery slot capacity through audited forms');
+ await admin.locator('[data-page=orders]').click();
+
  phase='customer account and saved preferences';
  const customer=await pageFor('customer');await customer.locator('[data-view=account]').first().click();await customer.locator('[data-register]').click();
  const auth=customer.locator('#auth-form');await auth.locator('[name=name]').fill('عميل اختبار المتصفح');await auth.locator('[name=email]').fill(fixture.prefix+'browser@example.invalid');await auth.locator('[name=password]').fill(password);
@@ -74,7 +87,6 @@ try{
  await customer.locator('.success-view [data-view=orders]').click();
 
  phase='picker assignment and actual weight';
- const admin=await login('admin');
  async function assign(role){
   await admin.locator('[data-action=refresh]').click();await admin.locator('[data-action=assign-order][data-id="'+confirmed.id+'"]').click();
   const form=admin.locator('#assignment-form');const id=sql('SELECT id FROM users WHERE email='+literal(fixture.accounts[role])+';');await form.locator('[name='+role+'_id]').selectOption(id);await form.locator('[name=reason]').fill('إسناد رحلة المتصفح');
