@@ -28,7 +28,7 @@ async function change(page,path,action,method='POST'){
  const pending=page.waitForResponse(r=>new URL(r.url()).pathname===path&&r.request().method()===method);
  const [response]=await Promise.all([pending,action()]);
  assert.ok(response.ok(),path+' returned '+response.status()+': '+(await response.text()).slice(0,600));
- return response.json();
+ const result=await response.json();if(path.startsWith('/api/ops/storefront/'))await page.locator('[data-store-revision="'+result.revision+'"]').waitFor();return result;
 }
 async function login(role){
  const page=await pageFor(role,role==='picker'?'/picker.html':role==='courier'?'/courier.html':'/admin.html');
