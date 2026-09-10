@@ -14,4 +14,6 @@ Stock master includes optional English name, category and per-item reorder quant
 
 Supplier email, phone, notes and active state are validated and audited. Deactivation prevents new receipts linked to that supplier and preserves old lots. Existing creation timestamps not previously recorded remain unknown; only new supplier records receive a creation timestamp.
 
-Remaining: modeled warehouse/location ownership and multi-city stock pools, purchase orders, barcode workflows, quarantine/return/waste-specific interfaces and authorized physical operator acceptance. A free-text count-location description does not implement multi-warehouse stock segregation.
+Remaining: modeled warehouse/location ownership and multi-city stock pools, purchase orders, barcode workflows, quarantine and customer/rejected-receipt return interfaces and authorized physical operator acceptance. A free-text count-location description does not implement multi-warehouse stock segregation.
+
+Typed waste, damage and accepted-stock supplier returns are deployed with immutable movements, cost recognition and guarded idempotency; see INVENTORY-DISPOSALS.md. General paginated movement history is under validation.

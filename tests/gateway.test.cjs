@@ -54,3 +54,5 @@ test('map images are allowed only on the operations document without expanding s
 test('disposal history and lot disposal routes use the trusted operations Edge',async t=>{
  const f=await fixture(t);for(const [path,method]of [['/api/ops/disposals','GET'],['/api/ops/lots/fixture-lot/disposal','GET'],['/api/ops/lots/fixture-lot/disposal','POST']]){const r=await fetch(f.base+path,{method,...(method==='POST'?{headers:{'content-type':'application/json'},body:'{}'}:{})});assert.equal(r.status,200);assert.ok(f.calls.at(-1)[0].includes('/jana-ops-extra'+path))}
 });
+
+test('stock movement reads use the canonical operations Edge',async t=>{const f=await fixture(t);const r=await fetch(f.base+'/api/ops/movements?reason=waste');assert.equal(r.status,200);assert.ok(f.calls.at(-1)[0].includes('/jana-ops-extra/api/ops/movements?reason=waste'))});

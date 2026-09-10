@@ -193,3 +193,8 @@ test('disposal requires idempotency and forwards only canonical operation inputs
 test('malformed disposal pagination is rejected before database access',async()=>{
  calls=[];const r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/disposals?before_at=123',{headers:bearer}));assert.equal(r.status,422);assert.equal(calls.length,0);
 });
+
+test('movement pagination validates ranges and filters before canonical RPC',async()=>{
+ for(const q of ['before_at=123','from_at=20&to_at=10','from_at=abc','secret=x','lot_id='+('x'.repeat(37))]){calls=[];const r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/movements?'+q,{headers:bearer}));assert.equal(r.status,422);assert.equal(calls.length,0)}
+ calls=[];response={items:[],next:null};const r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/movements?reason=waste&reference=DOC%25&before_at=123&before_id=mov-fixture',{headers:bearer}));assert.equal(r.status,200);assert.deepEqual(calls[0].body,{p_token:bearer.authorization.slice(7),p_filters:{reason:'waste',reference:'DOC%'},p_before_at:123,p_before_id:'mov-fixture'});
+});

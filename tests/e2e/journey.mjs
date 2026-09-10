@@ -195,6 +195,11 @@ try{
  pass('warehouse records waste damage and supplier return with actual stock and cost movements');
  await finance.locator('[data-page=disposals]').click();await finance.getByText('E2E-DISPOSAL-supplier_return',{exact:false}).waitFor();assert.equal(await finance.locator('.data-table tbody tr').count(),3);assert.equal(await finance.locator('[data-action=dispose-lot]').count(),0);assert.equal(Number(sql("SELECT count(*) FROM audit_log WHERE action='inventory_disposed';")),3);
  pass('finance reviews immutable disposal documents without recording supplier repayment or gaining write access');
+ phase='stock movement ledger';
+ await finance.locator('[data-page=movements]').click();const movementForm=finance.locator('#movement-filters');await movementForm.locator('[name=reason]').selectOption('waste');await movementForm.locator('[name=reference]').fill('E2E-DISPOSAL-waste');
+ const ledger=await change(finance,'/api/ops/movements',()=>movementForm.locator('button[type=submit]').click(),'GET');assert.equal(ledger.items.length,1);assert.equal(ledger.items[0].on_hand_delta,-100);assert.equal(ledger.items[0].reserved_delta,0);assert.equal(ledger.items[0].value_delta_halalas,-100);await finance.locator('[data-movement="'+ledger.items[0].id+'"]').waitFor();assert.equal(await finance.locator('.data-table tbody tr').count(),1);
+ await change(finance,'/api/ops/movements',()=>finance.locator('#movements-reset').click(),'GET');assert.ok(await finance.locator('.data-table tbody tr').count()>3);assert.deepEqual(stock(),{on_hand:7801,reserved:0});
+ pass('finance filters real signed stock and cost ledger by document then restores history without changing inventory');
  assert.deepEqual(errors,[],'Browser JavaScript errors');assert.deepEqual(harness.failures,[],'Gateway server errors');
  pass('all seven role interfaces complete the real database journey without JavaScript or server errors');
  await fs.writeFile(output+'/results.json',JSON.stringify({status:'passed',checks},null,2));
