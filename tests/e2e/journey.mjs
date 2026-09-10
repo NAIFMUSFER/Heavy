@@ -203,6 +203,8 @@ try{
  const ledger=await change(finance,'/api/ops/movements',()=>movementForm.locator('button[type=submit]').click(),'GET');assert.equal(ledger.items.length,1);assert.equal(ledger.items[0].on_hand_delta,-100);assert.equal(ledger.items[0].reserved_delta,0);assert.equal(ledger.items[0].value_delta_halalas,-100);await finance.locator('[data-movement="'+ledger.items[0].id+'"]').waitFor();assert.equal(await finance.locator('.data-table tbody tr').count(),1);
  await change(finance,'/api/ops/movements',()=>finance.locator('#movements-reset').click(),'GET');assert.ok(await finance.locator('.data-table tbody tr').count()>3);assert.deepEqual(stock(),{on_hand:7801,reserved:0});
  pass('finance filters real signed stock and cost ledger by document then restores history without changing inventory');
+ phase='external notification state';
+ const channelState=await change(admin,'/api/ops/notification-jobs',()=>admin.locator('[data-page=notification-jobs]').click(),'GET');assert.ok(channelState.channels.every(x=>!x.enabled));assert.equal(channelState.items.length,0);assert.ok(Number(sql('SELECT count(*) FROM notifications;'))>0);assert.equal(Number(sql('SELECT count(*) FROM notification_outbox;')),0);await admin.getByText('لا توجد محاولات إرسال خارجية').waitFor();pass('core in-app notifications persist while all external channels and outbound jobs remain disabled');
  assert.deepEqual(errors,[],'Browser JavaScript errors');assert.deepEqual(harness.failures,[],'Gateway server errors');
  pass('all seven role interfaces complete the real database journey without JavaScript or server errors');
  await fs.writeFile(output+'/results.json',JSON.stringify({status:'passed',checks},null,2));

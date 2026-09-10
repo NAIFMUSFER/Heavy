@@ -53,3 +53,5 @@ Errors have the form `{"error":{"code":"OUT_OF_STOCK","message":"الكمية ل
 Money uses integer halalas, quantities integer canonical grams/pieces and timestamps epoch milliseconds. Human schedules use Asia/Riyadh. Stock, slot, cash and original-price invariants are database constraints and transactional RPC rules; UI controls only guide users. Provider/tax configuration and actual operator acceptance remain separately documented release requirements.
 
 Warehouse outbound events: `GET /api/ops/lots/:id/disposal` returns current canonical context; `POST` records explicitly confirmed waste/damage/supplier return with `Idempotency-Key`. `GET /api/ops/disposals` provides paired keyset pagination for admin/inventory/finance. See INVENTORY-DISPOSALS.md.
+
+`GET /api/ops/movements` provides signed stock/reservation/cost history with 50-row keyset pages and exact stock/lot/type/reference plus time filters. See STOCK-MOVEMENTS.md.

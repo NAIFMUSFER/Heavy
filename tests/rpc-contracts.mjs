@@ -12,7 +12,7 @@ globalThis.fetch=async(url,init)=>{
  calls++;return Response.json({id:'fixture-response'});
 };
 const cases=[
- ['GET','/movements?reason=waste'],['GET','/disposals'],['GET','/lots/fixture/disposal'],['POST','/lots/fixture/disposal',{kind:'waste',quantity_base:1,revision:0,reason:'Fixture disposal',reference:'Fixture document'}],
+ ['GET','/notification-jobs'],['GET','/movements?reason=waste'],['GET','/disposals'],['GET','/lots/fixture/disposal'],['POST','/lots/fixture/disposal',{kind:'waste',quantity_base:1,revision:0,reason:'Fixture disposal',reference:'Fixture document'}],
  ['GET','/counts'],['POST','/counts',{location:'Fixture shelf',lot_ids:['fixture-lot']}],['POST','/counts/fixture/submit',{counts:[],note:'Fixture count'}],['POST','/counts/fixture/cancel',{reason:'Fixture cancellation'}],['POST','/count-lines/fixture/decision',{approve:true,reason:'Fixture approval'}],['PATCH','/stock/fixture',{reorder_base:500}],['PATCH','/suppliers/fixture',{notes:'Fixture supplier'}],
  ['POST','/products',{title:'Fixture product',offerings:[]}],['POST','/product-versions/11111111-1111-1111-1111-111111111111/activate'],
  ['GET','/finance'],['POST','/orders/fixture/refunds',{amount_halalas:100,reason:'Fixture refund',reference:'Fixture paid',payment_source:'finance'}],['POST','/refunds/fixture/complete',{reference:'Fixture paid',payment_source:'finance'}],['POST','/refunds/fixture/reject',{reason:'Fixture rejected'}],
