@@ -4,7 +4,7 @@
 
 | Adapter | Implementation | Production state |
 |---|---|---|
-| InAppProvider | Contract delegates to a trusted insertOnce repository and requires an actual persisted identifier | Existing commerce uses its transactional in-app SQL; generic adapter repository binding remains required |
+| InAppProvider | Contract delegates to a trusted insertOnce repository and requires an actual persisted identifier | Existing commerce uses its transactional in-app SQL; generic adapter now binds to the service-only jana_notification_insert_once RPC; existing commerce SQL remains canonical |
 | ResendEmailProvider | Concrete HTTPS adapter, explicit enable, dedicated variables, matching verified domain and enabled sending capability, timeout, safe errors and idempotency key | Disabled; verified JANA domain and dedicated key required |
 | SMS / WhatsApp / Push | Named interfaces that return CONFIGURATION_REQUIRED | Provider account, consent/recipient rules and concrete adapters required |
 | CodPaymentProvider | Validates SAR terms and returns awaiting_collection; capture/refund explicitly require audited database flows | Existing transactional COD workflow remains in use |
@@ -13,7 +13,7 @@
 
 The Resend implementation accepts plain-text transactional content only. It checks domain status via the fixed `https://api.resend.com/domains/{id}` endpoint before submitting to the fixed `/emails` endpoint. It rejects redirects. A provider identifier means submitted, not delivered. It never reports a failed/uncertain POST as successful and does not log provider response text, recipients, keys or message bodies. Runtime domain checks fail closed when credentials cannot read domain metadata.
 
-Required email variables, supplied only to a future trusted notification worker:
+Required email variables, supplied only to the trusted notification worker:
 
 - `JANA_EMAIL_ENABLED=true` is an explicit opt-in; unset/false leaves email disabled.
 - `JANA_RESEND_API_KEY` is a dedicated JANA server-side credential.
@@ -21,7 +21,7 @@ Required email variables, supplied only to a future trusted notification worker:
 - `JANA_EMAIL_DOMAIN` exactly matches that domain, including any sending subdomain.
 - `JANA_EMAIL_FROM` is a plain sender email at that domain.
 
-Do not wire synchronous provider calls into quote/order transactions. Before enabling automated external notifications, add a durable PostgreSQL outbox after canonical in-app insertion. Each immutable event/recipient/channel needs a unique key, recorded attempts, lease/claim handling, dead-letter visibility and explicit retry policy. This outbox/worker is **not yet implemented**. Adapter tests inject a fixture provider transport only; they do not prove an external integration works.
+External delivery now uses a durable PostgreSQL outbox after canonical in-app insertion, with immutable sender/recipient/content terms, unique event/channel keys, attempt evidence, leases, bounded retries and redacted admin/support monitoring. See NOTIFICATION-OUTBOX.md. Its schema and operations RPC are applied; gateway promotion is pending. The sending worker remains disabled until verified JANA provider/domain/destination/consent configuration exists. Provider tests inject fixture transports only; no real external sending is claimed.
 
 Use the same provider idempotency key for retries. Resend retains it for 24 hours; this adapter refuses jobs aged 23 hours or more, requiring operator reconciliation instead of blind resend after an uncertain outcome. Persist the result before completing a job. Webhook delivery/bounce processing and unsubscribe/marketing-consent enforcement are required before any broader notification rollout. Marketing notifications are not enabled by these contracts.
 

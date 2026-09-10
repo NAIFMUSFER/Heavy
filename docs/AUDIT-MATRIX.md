@@ -1,14 +1,14 @@
 # JANA implementation audit — 10 September 2026
 
-The verified production source is `0e7f8b398b8ff352b196b829883d06adfedea35d`, isolated in `NAIFMUSFER/Heavy/jana-live`. Render `dep-dahcnk6k1f9s73fb572g` became live at 15:25:37 UTC; exact-commit smoke 34495477006, browser 34495476994 and database 34495477001 passed. The outbox candidate is still under validation and is not included in this deployed status.
+The verified production source is `0e7f8b398b8ff352b196b829883d06adfedea35d`, isolated in `NAIFMUSFER/Heavy/jana-live`. Render `dep-dahcnk6k1f9s73fb572g` became live at 15:25:37 UTC; exact-commit smoke 34495477006, browser 34495476994 and database 34495477001 passed. The outbox schema and operations Edge v19 are applied after successful tests; its gateway promotion remains pending.
 
 **The full Definition of Done remains unmet.** The database and APIs are real; the existing catalog and lots are explicitly designated preview data. Actual commercial inventory, pricing, operating policy and launch acceptance must come from the owner. Historical evidence and failures are retained in RELEASE-EVIDENCE.md.
 
 | Component | Current status | Evidence | Gaps | Action required |
 |---|---|---|---|---|
 | Infrastructure isolation | Dedicated JANA database and gateway; JANA branches only | Supabase jjdsajiwoqanefmnikls, Render srv-dagnferl550s73cbivhg | Dedicated analytics project absent | Configure JANA-owned integrations only |
-| Canonical backend | Node gateway → authenticated Edge → transactional PostgreSQL | API v24, critical v5, operations v18 active | Owner production acceptance | Verify with actual operating accounts/data |
-| Database/migrations | 76 migrations applied; full recovered history replays | Database 34495477001; all business invariants zero | Real backup restore not verified | Restore an isolated production backup and measure recovery |
+| Canonical backend | Node gateway → authenticated Edge → transactional PostgreSQL | API v24, critical v5, operations v19 active | Owner production acceptance | Verify with actual operating accounts/data |
+| Database/migrations | 77 migrations applied; full recovered history replays | Database 34495477001; all business invariants zero | Real backup restore not verified | Restore an isolated production backup and measure recovery |
 | Authentication | Opaque hashed sessions, secure cookies/CSRF and mobile SecureStore | Server role tests; audited owner initialization | Recovery and verified phone/email provider absent | Configure approved recipient-verification/recovery flow |
 | Owner/staff | One active owner administrator; owner signed in after promotion | 14:19 UTC initialization audit and later live session | Staff/operator acceptance | Owner creates actual staff and accepts procedures |
 | Staff changes/assignments | Audited role changes, last-admin, cash and task safeguards | Fifteen staff groups and assignment concurrency | Field use pending | Accept with actual staff accounts |
@@ -32,14 +32,14 @@ The verified production source is `0e7f8b398b8ff352b196b829883d06adfedea35d`, is
 | iOS | Locked native simulator app compiled and retained | 34466248711, artifact 10147775727 | Device acceptance and signed distribution | Owner Apple account/certificates and device test |
 | Mobile configuration | Expo development/preview/production; pinned dependencies | Expo/native source 716bb7; later releases web/backend only | Signed release unverified | Retain app identifiers and validate distribution |
 | Analytics/flags | Privacy-minimized event code and fail-closed feature checks | Route/event tests; no rollout changed | Dedicated PostHog project, real events/funnels/error tracking absent | Provide approved JANA project then verify event ingestion |
-| In-app notifications | Transactional commerce notifications active | Database/browser notification assertions | Generic provider binding is in outbox candidate | Finish candidate gates and deployment |
-| External notifications | Guarded Resend adapter; sending disabled | Domain/idempotency/uncertainty tests | Outbox/worker/monitoring candidate under validation; verified destinations and domain absent | Complete candidate; activate only with approved verified configuration |
+| In-app notifications | Transactional commerce notifications active | Database/browser notification assertions | Generic provider binding is applied; gateway promotion pending | Verify gateway release |
+| External notifications | Guarded Resend adapter; sending disabled | Domain/idempotency/uncertainty tests | Outbox schema/worker code tested; gateway promotion pending; verified destinations and domain absent | Verify gateway; activate only with approved verified configuration |
 | Payment/image/SMS adapters | Server-only contracts with explicit configuration errors | Provider boundary tests | Selected-provider concrete integrations required | Implement approved providers when accounts/policy exist |
-| Security | 42 RLS application tables; zero JANA anon/authenticated RPC grants | Postmigration read-only checks and advisor review | Supabase-owned PostGIS findings unresolved | Supported extension-owner remediation; do not alter system ownership/RLS |
+| Security | 46 RLS application tables; zero JANA anon/authenticated RPC grants | Postmigration read-only checks and advisor review | Supabase-owned PostGIS findings unresolved | Supported extension-owner remediation; do not alter system ownership/RLS |
 | CI/deployment | Node, PostgreSQL, browser, Expo, native Android/iOS and exact smoke gates | Named passing runs in release evidence | Native builds do not prove device operation | Test meaningful changed scope; retain failures |
 | Operations/recovery | Runbooks, migration recovery, rollback, rotation and retention design documented | Architecture and operations runbooks | Staging, capacity/load, restore timing and retention/RPO/RTO not verified | Approve operating infrastructure and verify recovery |
 
-Current deployed JavaScript suite: **178 passes**. Current deployed browser journey: **28 checks** using actual web assets, canonical Edge handlers and disposable PostgreSQL/PostGIS. Outbox local candidate: **186 JavaScript passes**, with its database gate still pending. Database groups are heterogeneous and are not added to JavaScript tests as an invented total.
+Current deployed JavaScript suite: **178 passes**. Current deployed browser journey: **28 checks** using actual web assets, canonical Edge handlers and disposable PostgreSQL/PostGIS. Outbox local candidate: **186 JavaScript passes**, with 18 outbox database groups and the 29-check browser journey passing. Database groups are heterogeneous and are not added to JavaScript tests as an invented total.
 
 Native source 716bb7 uses Node 24 and the committed 748-package lock; later map/warehouse/movement changes do not alter mobile source. Retained artifacts expire 17 September 2026. Exact links and limitations are in DELIVERY-REPORT.md.
 
