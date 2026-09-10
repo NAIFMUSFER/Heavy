@@ -69,3 +69,5 @@ The migration `20260909202730_jana_scheduled_quote_expiry.sql` installs pg_cron 
 Canonical product families now contain immutable versions with multiple sellable sizes. Admin saves a draft and explicitly activates it; original offerings and old order snapshots remain intact. Support conversations include customer/staff replies, assignment, priority, closing and reopening. COD/refund ledger details and the latest release gate are in [financial integrity](docs/FINANCIAL-INTEGRITY.md).
 
 The isolated browser journey is defined in `.github/workflows/jana-browser-e2e.yml`. It uses pinned Playwright dependencies in `tests/e2e`, actual gateway/Edge code, and a fresh migrated local database. There is no production-network fallback. Its current run status and gaps are recorded in the audit matrix.
+
+[API overview](docs/API-OVERVIEW.md) documents the canonical client contract. [Delivery status report](docs/DELIVERY-REPORT.md) records current application, native artifact, security and owner-configuration status without claiming full commercial readiness.
