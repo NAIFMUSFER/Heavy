@@ -115,6 +115,15 @@ BEGIN
  RETURN r;
 END$$;
 
+-- Staff deactivation must pass through the audited membership workflow.
+ALTER FUNCTION public.jana_anonymize_account(text) RENAME TO jana_anonymize_customer_base;
+CREATE FUNCTION public.jana_anonymize_account(p_token text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,extensions,pg_temp AS $$
+DECLARE u public.users;
+BEGIN u=public.jana_auth_user(p_token);IF u.role<>'customer' THEN RAISE EXCEPTION 'staff_account_requires_admin';END IF;
+ RETURN public.jana_anonymize_customer_base(p_token);
+END$$;
+
 CREATE FUNCTION public.jana_audit_redact(p_value jsonb)
 RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=public,pg_temp AS $$
 DECLARE r jsonb;
@@ -143,8 +152,8 @@ END$$;
 CREATE INDEX jana_audit_page_idx ON public.audit_log(created_at DESC,id DESC);
 
 DO $privs$ DECLARE r record;BEGIN
- FOR r IN SELECT oid::regprocedure sig,proname FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname=ANY(ARRAY['jana_audit_redact','jana_staff_public','jana_list_staff','jana_create_staff','jana_update_staff','jana_assign_order','jana_ops_transition','jana_ops_transition_finance_base','jana_staff_write','jana_audit_page']) LOOP
+ FOR r IN SELECT oid::regprocedure sig,proname FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname=ANY(ARRAY['jana_anonymize_account','jana_anonymize_customer_base','jana_audit_redact','jana_staff_public','jana_list_staff','jana_create_staff','jana_update_staff','jana_assign_order','jana_ops_transition','jana_ops_transition_finance_base','jana_staff_write','jana_audit_page']) LOOP
   EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC,anon,authenticated',r.sig);
-  IF r.proname IN ('jana_audit_redact','jana_staff_public','jana_ops_transition_finance_base') THEN EXECUTE format('REVOKE ALL ON FUNCTION %s FROM service_role',r.sig);ELSE EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role',r.sig);END IF;
+  IF r.proname IN ('jana_anonymize_customer_base','jana_audit_redact','jana_staff_public','jana_ops_transition_finance_base') THEN EXECUTE format('REVOKE ALL ON FUNCTION %s FROM service_role',r.sig);ELSE EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role',r.sig);END IF;
  END LOOP;
 END $privs$;

@@ -11,7 +11,7 @@ This is an engineering checkpoint, not a commercial launch certification.
 | Address/mobile revision ae46c74 | Database, Expo export, Android APK (34400191895), and iOS simulator (34400191843) all passed |
 | Empty database replay | Recovered schema and all current migrations pass in disposable PostgreSQL 17/PostGIS; run 34400862608 |
 | Database tests | 34 transactional regression checks, ten sixteen-client concurrency groups, ten coupon lifecycle/pricing groups, eight address groups and four scheduled-worker checks passed |
-| JavaScript tests | 114 passed locally, zero failed |
+| JavaScript tests | 122 passed locally, zero failed |
 | Supabase Edge | jana-api v16, jana-critical v5, jana-ops-extra v13 deployed ACTIVE |
 | Production invariants | Negative stock, excess reservation, slot overbooking, duplicate quote orders and cash invariant counts all zero |
 | Security grants | Zero anon/authenticated EXECUTE grants on new coupon writes/triggers |
@@ -44,3 +44,7 @@ Financial release `0176a0b4` compiled Android **34432911178**, iOS simulator **3
 Corrective combined release **fcb7f8f1f41b15066249beba4a300743b5418ebb** is verified on the public URL. Render `dep-dah2dddbedkc738qef00` completed at 03:41:11 UTC after a build with cleared cache. Live smoke **34434232333** passed nineteen checks, and database **34434232313** passed. Independent requests confirmed exact `/version`, all three ready dependencies and service-worker v4. This supersedes the unverified 0176 deployment; the stale-routing root cause was not established. Substitution Android **34433806118**, iOS simulator **34433806132** and Expo **34433806149** all passed on identical mobile source. Financial and picking/customer-substitution interfaces are now deployed; authenticated browser/device and real business acceptance remain unverified.
 
 Inventory count migration `20260910035511` applied after **34434887966** passed fifteen warehouse groups, thirty-six RPC argument contracts and all prior suites. Before/after production inventory fingerprint `34ca43d93d066dd58dcfa56c312f96f4` matches; existing quantities, reservations and costs did not change. Zero client EXECUTE grants remain on JANA RPCs; count-session RLS enabled. Existing PostGIS owner findings persist. Operations Edge v13 deployed; warehouse UI release pending.
+
+Warehouse release **8f5ff5ca99c5afa5bc7202c90423e180c69aca53** is verified live (Render `dep-dah2osp42hec73eherdg`, 04:05:42 UTC). Exact public `/version` and `/ready` succeeded. Live smoke **34435760965** passed; database **34435760925** passed.
+
+Staff backend **e5270fb2** passed database **34436087456**, including fourteen staff groups and forty-one RPC argument contracts. Node verification **34436087463** passed. A subsequent review found the customer anonymization RPC also needed to reject staff; that guard and its regression test are pending the next database gate. Local UI/API suite: **122 passed**, zero failed. The first staff-dialog test failed because its DOM stub did not model a connected button; corrected stub passed. Production preflight found zero active administrators; no account was changed. Staff migration and UI are not yet deployed.
