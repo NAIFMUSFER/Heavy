@@ -11,9 +11,13 @@ concurrency:
   group: jana-ios-native-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   ios-simulator:
     runs-on: macos-15
+    timeout-minutes: 35
     defaults:
       run:
         working-directory: mobile
@@ -21,11 +25,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: .node-version
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Generate iOS native project
-        run: npx expo prebuild --platform ios --non-interactive
+        run: npx --no-install expo prebuild --platform ios --non-interactive --no-install
       - name: Install CocoaPods
         run: cd ios && pod install
       - name: Compile iOS simulator app
@@ -34,3 +38,12 @@ jobs:
           xcodebuild -workspace ios/jana.xcworkspace -scheme jana -configuration Debug -sdk iphonesimulator -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO build | xcpretty
       - name: Verify simulator app
         run: test -d ios/build/Build/Products/Debug-iphonesimulator/jana.app
+      - name: Package simulator app for handover
+        run: ditto -c -k --sequesterRsrc --keepParent ios/build/Build/Products/Debug-iphonesimulator/jana.app jana-ios-simulator.zip
+      - name: Upload simulator artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jana-ios-simulator
+          path: mobile/jana-ios-simulator.zip
+          if-no-files-found: error
+          retention-days: 7
