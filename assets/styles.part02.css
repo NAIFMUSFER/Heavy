@@ -7,3 +7,5 @@
 .policy-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.9}details>summary{cursor:pointer;font-weight:700;padding-block:8px}.store-readiness{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
 
 #addr [hidden]{display:none!important}#addr input[aria-invalid="true"]{border-color:var(--red)}#address-manual summary{cursor:pointer;padding:10px 0}#address-point-status{overflow-wrap:anywhere}
+
+.order-timeline{list-style:none;margin:0;padding:0;display:grid;gap:14px}.order-timeline li{border-inline-start:3px solid #1b563d;padding-inline-start:12px;display:grid;gap:4px}.order-timeline time{color:#64736a;font-size:.9rem}

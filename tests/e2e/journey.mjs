@@ -145,6 +145,13 @@ try{
  const code=(await customer.locator('.delivery-code').innerText()).trim();assert.match(code,/^\d{6}$/);assert.equal(order().id,confirmed.id);assert.equal(order().total,2000);pass('reviewed COD confirmation creates one immutable commercial order');
  await customer.screenshot({path:output+'/order-confirmed.png',fullPage:true});
  await customer.locator('.success-view [data-view=orders]').click();
+ phase='customer order detail';
+ const initialDetail=await change(customer,'/api/orders/'+confirmed.id,()=>customer.locator('[data-order="'+confirmed.id+'"]').click(),'GET');
+ assert.equal(initialDetail.original_snapshot.address.id,initialDetail.snapshot.address.id);assert.equal(initialDetail.original_snapshot.slot.id,fixture.slot_id);
+ await customer.locator('.order-timeline').getByText('تم تأكيد الطلب',{exact:true}).waitFor();await customer.getByText('المبلغ المحصّل',{exact:true}).waitFor();await customer.getByText('المتبقي للتحصيل',{exact:true}).waitFor();
+ await customer.getByText(initialDetail.snapshot.address.details,{exact:true}).waitFor();await closeModal(customer);
+ pass('customer order shows frozen address appointment recorded timeline and separate COD amounts');
+
 
  phase='picker assignment and actual weight';
  async function assign(role){
@@ -163,12 +170,22 @@ try{
  phase='delivery proof and separate cash collection';
  await assign('courier');const courier=await login('courier');
  await change(courier,'/api/ops/orders/'+confirmed.id+'/dispatch',()=>courier.locator('[data-action=dispatch]').click());
+ const directions=new URL(await courier.locator('[data-delivery-directions]').getAttribute('href'));assert.equal(directions.origin,'https://www.google.com');assert.equal(directions.searchParams.get('destination'),'16.5,42.5');assert.match(await courier.locator('[data-delivery-phone]').getAttribute('href'),/^tel:\+9665\d{8}$/);
+ pass('assigned courier can open the exact delivery destination and validated recipient telephone');
+ await courier.context().grantPermissions(['geolocation'],{origin});await courier.context().setGeolocation({latitude:16.51,longitude:42.51,accuracy:15});await change(courier,'/api/ops/orders/'+confirmed.id+'/location',()=>courier.locator('[data-action=share-location]').click());
+ await customer.locator('[data-order="'+confirmed.id+'"]').click();const tracked=await change(customer,'/api/orders/'+confirmed.id+'/tracking',()=>customer.locator('#refresh-tracking').click(),'GET');assert.equal(tracked.location_state,'recent');
+ await customer.locator('#order-tracking').getByText(/آخر موقع مسجل للمندوب/).waitFor();assert.match(await customer.locator('#order-tracking a').getAttribute('href'),/16.51%2C42.51/);await closeModal(customer);
+ pass('customer tracking displays a real recorded point and its timestamp without a fabricated live route');
+
  await change(courier,'/api/ops/orders/'+confirmed.id+'/fail',()=>courier.locator('[data-action=fail]').click());assert.equal(order().delivery,'failed');assert.equal(order().collected,0);assert.equal(order().settled,0);assert.deepEqual(stock(),{on_hand:9101,reserved:0});
  const failedEvent=value('SELECT jsonb_build_object(\'actor_id\',actor_id,\'reason\',reason,\'created_at\',created_at) FROM order_events WHERE order_id='+literal(confirmed.id)+" AND event='delivery_failed';");assert.equal(failedEvent.actor_id,sql('SELECT id FROM users WHERE email='+literal(fixture.accounts.courier)+';'));assert.equal(failedEvent.reason,'تم التحقق في اختبار المستودع');assert.ok(failedEvent.created_at>0);
  await change(courier,'/api/ops/orders/'+confirmed.id+'/dispatch',()=>courier.locator('[data-action=dispatch]').click());pass('failed delivery preserves reason actor time and consumed stock without collecting cash before a real retry');
  await courier.locator('[data-action=deliver]').click();await courier.locator('#deliver-form [name=code]').fill(code);
  await change(courier,'/api/ops/orders/'+confirmed.id+'/deliver',()=>courier.locator('#deliver-form button').click());
  assert.equal(order().delivery,'delivered');assert.equal(order().collected,0);assert.equal(order().settled,0);pass('delivery proof never collects or settles cash automatically');
+ await customer.locator('[data-order="'+confirmed.id+'"]').click();const endedTracking=await change(customer,'/api/orders/'+confirmed.id+'/tracking',()=>customer.locator('#refresh-tracking').click(),'GET');assert.equal(endedTracking.latitude,null);await customer.locator('#order-tracking').getByText(/انتهت مشاركة موقع/).waitFor();assert.equal(await customer.locator('#order-tracking a').count(),0);await closeModal(customer);
+ pass('completed delivery removes location sharing while uncollected cash remains distinguishable');
+
  await change(courier,'/api/ops/orders/'+confirmed.id+'/collect',()=>courier.locator('[data-action=collect]').click());
  assert.equal(order().collected,1800);assert.equal(order().settled,0);pass('separate courier collection creates cash liability');
 
@@ -297,6 +314,27 @@ try{
  pass('corrected gram and piece measurements permit exact FEFO consumption at the customer-approved basket price');
  phase='external notification state';
  const channelState=await change(admin,'/api/ops/notification-jobs',()=>admin.locator('[data-page=notification-jobs]').click(),'GET');assert.ok(channelState.channels.every(x=>!x.enabled));assert.equal(channelState.items.length,0);assert.ok(Number(sql('SELECT count(*) FROM notifications;'))>0);assert.equal(Number(sql('SELECT count(*) FROM notification_outbox;')),0);await admin.getByText('لا توجد محاولات إرسال خارجية').waitFor();pass('core in-app notifications persist while all external channels and outbound jobs remain disabled');
+
+ phase='customer order history pagination';
+ const historyPrefix=fixture.prefix.slice(0,14)+'h';
+ sql("INSERT INTO quotes SELECT clone.* FROM quotes q CROSS JOIN generate_series(1,55)n CROSS JOIN LATERAL jsonb_populate_record(NULL::quotes,to_jsonb(q)||jsonb_build_object('id',"+literal(historyPrefix)+"||'q'||lpad(n::text,3,'0'),'snapshot','{}'::json))clone WHERE q.id="+literal(confirmed.quote_id||sql('SELECT quote_id FROM orders WHERE id='+literal(confirmed.id)+';'))+';');
+ sql("INSERT INTO orders SELECT clone.* FROM orders o CROSS JOIN generate_series(1,55)n CROSS JOIN LATERAL jsonb_populate_record(NULL::orders,to_jsonb(o)||jsonb_build_object('id',"+literal(historyPrefix)+"||'o'||lpad(n::text,3,'0'),'number',"+literal(historyPrefix)+"||lpad(n::text,3,'0'),'quote_id',"+literal(historyPrefix)+"||'q'||lpad(n::text,3,'0'),'snapshot','{}'::json,'original_snapshot','{}'::json,'status','cancelled','fulfillment_state','cancelled','delivery_state','cancelled','payment_state','cancelled','total_halalas',0,'collected_halalas',0,'refunded_halalas',0,'settled_halalas',0,'courier_refunded_halalas',0,'code_hash',NULL))clone WHERE o.id="+literal(confirmed.id)+';');
+ const expectedHistory=Number(sql('SELECT count(*) FROM orders WHERE user_id='+literal(customerId)+';'));
+ await closeModal(customer);await customer.setViewportSize({width:390,height:844});await customer.locator('[data-view=orders]').first().click();await customer.locator('#more-orders').waitFor();assert.equal(await customer.locator('[data-order]').count(),25);
+ await change(customer,'/api/orders',()=>customer.locator('#more-orders').click(),'GET');await customer.locator('[data-order]').nth(49).waitFor();assert.equal(await customer.locator('[data-order]').count(),50);
+ await change(customer,'/api/orders',()=>customer.locator('#more-orders').click(),'GET');await customer.locator('[data-order]').nth(expectedHistory-1).waitFor();assert.equal(await customer.locator('#more-orders').count(),0);
+ const displayed=await customer.locator('[data-order]').evaluateAll(nodes=>nodes.map(n=>n.dataset.order));assert.equal(displayed.length,expectedHistory);assert.equal(new Set(displayed).size,expectedHistory);
+ await customer.screenshot({path:output+'/order-history-phone.png',fullPage:true});
+ pass('customer loads all older orders beyond 50 on phone width without missing or duplicated cards');
+
+ phase='customer password change and session invalidation';
+ const secondPhone=await pageFor('phone_second');await secondPhone.locator('[data-view=account]').first().click();await secondPhone.locator('[data-login]').click();await secondPhone.locator('#auth-form [name=email]').fill('0500000002');await secondPhone.locator('#auth-form [name=password]').fill(password);await change(secondPhone,'/api/auth/login',()=>secondPhone.locator('#auth-form button[type=submit]').click());
+ await phoneCustomer.locator('[data-action=password]').click();const passwordForm=phoneCustomer.locator('#password-form'),replacement='Changed-browser-fixture-password!';
+ await passwordForm.locator('[name=current]').fill(password);await passwordForm.locator('[name=next]').fill(replacement);await passwordForm.locator('[name=confirmation]').fill('mismatch');await passwordForm.locator('button').click();await phoneCustomer.locator('#password-error').getByText(/لا يطابق/).waitFor();
+ await passwordForm.locator('[name=confirmation]').fill(replacement);const changedPassword=await change(phoneCustomer,'/api/auth/password',()=>passwordForm.locator('button').click());assert.equal(changedPassword.sign_in_again,true);await phoneCustomer.locator('[data-login]').waitFor();assert.equal(Number(sql('SELECT count(*) FROM sessions WHERE user_id='+literal(phoneLogin.user.id)+';')),0);
+ assert.equal(await secondPhone.evaluate(async()=>{const r=await fetch('/api/auth/me');return r.status}),401);
+ await phoneCustomer.locator('[data-login]').click();await phoneCustomer.locator('#auth-form [name=email]').fill('0500000002');await phoneCustomer.locator('#auth-form [name=password]').fill(replacement);const afterPassword=await change(phoneCustomer,'/api/auth/login',()=>phoneCustomer.locator('#auth-form button[type=submit]').click());assert.equal(afterPassword.user.id,phoneLogin.user.id);
+ pass('password confirmation blocks mismatch and successful rotation signs out both browsers before new-password login');
  assert.deepEqual(errors,[],'Browser JavaScript errors');assert.deepEqual(harness.failures,[],'Gateway server errors');
  pass('all seven role interfaces complete the real database journey without JavaScript or server errors');
  await fs.writeFile(output+'/results.json',JSON.stringify({status:'passed',checks},null,2));

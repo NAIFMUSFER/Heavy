@@ -1,49 +1,38 @@
-# JANA implementation audit — 10 September 2026
+# JANA implementation and launch gaps
 
-The verified production baseline is `09352a2cdb1c89573f176de07cd100b339a4b483`, isolated in `NAIFMUSFER/Heavy/jana-live`. Render `dep-dahfoibl550s7383kpr0` became live at 18:52:17 UTC. Exact-commit smoke `34516898072`, browser `34516897939` and database `34516897968` passed. This baseline includes customer-return receipt, inspection and rejected-return custody. Later candidate and backend-application evidence is recorded below and in RELEASE-EVIDENCE.md; it must not be confused with a verified gateway promotion.
+This matrix describes implemented source. Exact release/deployment/build evidence and historical failures are retained in RELEASE-EVIDENCE.md and the release handoff. A passing build is not physical operating acceptance or a signed store release.
 
-**The full Definition of Done remains unmet.** The database and APIs are real; the existing catalog and lots are explicitly designated preview data. Actual commercial inventory, pricing, operating policy and launch acceptance must come from the owner. Historical evidence and failures are retained in RELEASE-EVIDENCE.md.
+**Commercial launch is not complete.** Store admission remains closed until actual merchant information, policies, inventory, geography and operating acceptance pass the existing readiness gate. No invented percentage represents readiness.
 
-| Component | Current status | Evidence | Gaps | Action required |
-|---|---|---|---|---|
-| Infrastructure isolation | Dedicated JANA database and gateway; JANA branches only | Supabase jjdsajiwoqanefmnikls, Render srv-dagnferl550s73cbivhg | Dedicated analytics project absent | Configure JANA-owned integrations only |
-| Canonical backend | Node gateway → authenticated Edge → transactional PostgreSQL | API v26, critical v5, operations v21 active | Owner production acceptance | Verify with actual operating accounts/data |
-| Database/migrations | 80 migrations applied; full recovered history replays | Database 34502809121; all business invariants zero | Real backup restore not verified | Restore an isolated production backup and measure recovery |
-| Authentication | Opaque hashed sessions, secure cookies/CSRF and mobile SecureStore | Server role tests; audited owner initialization | Recovery and verified phone/email provider absent | Configure approved recipient-verification/recovery flow |
-| Owner/staff | One active owner administrator; owner signed in after promotion | 14:19 UTC initialization audit and later live session | Staff/operator acceptance | Owner creates actual staff and accepts procedures |
-| Staff changes/assignments | Audited role changes, last-admin, cash and task safeguards | Fifteen staff groups and assignment concurrency | Field use pending | Accept with actual staff accounts |
-| Catalog/versioning | Families, immutable versions, offerings, weighted units and basket composer | Product and catalog DB/browser gates | Actual merchandise/images/prices missing | Enter approved commercial catalog |
-| Customer web | RTL storefront, real catalog, cart, quote review, COD and account journeys | 36 browser assertions, delayed-startup regression and exact production smoke | Commercial/device acceptance | Test with real approved operating data |
-| Customer saved data | Profiles, addresses, favorites, lists, synced carts, recurring reminders | Revision/concurrency and browser gates | External reminder channels disabled | Keep reminders noncharging; configure channels separately |
-| Address/coverage | Structured saved addresses and PostGIS polygon lookup | Address isolation, polygon and coverage tests | Approved service geography missing | Owner confirms actual boundaries |
-| Delivery administration | Zone/fee/minimum/slot/capacity editing, visual polygon and exclusion editor | Map browser checks including invalid geometry, drag/undo and failed tiles | City-specific fulfillment routing incomplete | Approve zones; add warehouse routing before multiple hubs |
-| Quote/order integrity | Stock/slot atomic reservations, expiry, durable idempotency, snapshots | Duplicate retries and last-stock/last-slot concurrency | VAT policy/calculation pending | Obtain policy and implement/verify applicable tax terms |
-| Inventory receiving | Suppliers, pending receipt, accept/reject, lot costs and reorder metadata | Seventeen warehouse and ten cost groups | Physical warehouse acceptance | Record actual receipts and inspections |
-| Counts | Physical location description, quantity/revision baseline, reviewed variance | Stale/repeated/concurrent count tests | Canonical warehouse/location ownership absent | Add location model before multi-hub stock segregation |
-| Waste/damage/supplier return | Confirmed accepted-stock outbound events with immutable evidence | Sixteen disposal groups; deployed 593c962 | Customer returns published; documented rejected-stock disposition backend applied; supplier credits absent | Extend workflows with approved operating policy |
-| Rejected-return custody | Partial documented destruction/handover, bounded remaining quantity, immutable evidence; no stock/cash changes | 197 Node tests, 34 return/custody database groups, 36 browser checks | Physical/operator acceptance | Use approved actual procedures and documents |
-| Stock movements | Real signed on-hand/reserved/cost history, 50-row pages and exact filters | Eight DB groups; 0e7f8b3 verified live | No fabricated historical receipt/cost backfill | Use actual recorded events; preserve legacy uncertainty |
-| Picker | Assignment, FEFO, single-product weight policy and recorded fixed-basket component quantities | Fourteen weight groups; twelve basket groups and 39-check browser candidate d576bfc | Component substitutions and basket variance pricing/tolerances remain unimplemented | Obtain approved basket commercial policy; physical picker acceptance |
-| Substitutions | Explicit proposal and customer accept/reject with transactional stock changes | Sixteen groups and concurrency | Device/operational acceptance | Complete actual picker/customer acceptance |
-| Courier/delivery | Assignment, dispatch, OTP, failure reason and retry | 28-check browser journey records failure actor/time/reason then retries | Physical device and field acceptance | Test courier devices and real delivery procedure |
-| COD/finance | Delivery separate from cash, liabilities, partial settlements and source-aware refunds | Nineteen finance groups and real browser reconciliation | Actual cash/accounting acceptance | Finance verifies references and procedures |
-| Support | Customer/staff replies, order link, assignment, state and priority | Fifteen support groups and browser journey | Operator acceptance | Accept with actual support staff |
-| Reporting/cost | Sales, refunds, cash, low/expiring stock, valuation and estimated margin | Recorded/estimated/unknown cost distinction tested | Actual cost data incomplete; tax/operating costs not incorporated | Supply costs; do not claim exact profitability |
-| Android | Locked native debug APK built and retained | 34466248708, artifact 10147846242 | Device acceptance and signed Play publishing | Owner Google account/signing and device test |
-| iOS | Locked native simulator app compiled and retained | 34466248711, artifact 10147775727 | Device acceptance and signed distribution | Owner Apple account/certificates and device test |
-| Mobile configuration | Expo development/preview/production; pinned dependencies | Expo/native source 716bb7; later releases web/backend only | Signed release unverified | Retain app identifiers and validate distribution |
-| Analytics/flags | Privacy-minimized event code and fail-closed feature checks | Route/event tests; no rollout changed | Dedicated PostHog project, real events/funnels/error tracking absent | Provide approved JANA project then verify event ingestion |
-| In-app notifications | Transactional commerce notifications active | Database/browser notification assertions | Generic provider binding and gateway are live | Keep external sending separately guarded |
-| External notifications | Guarded Resend adapter; sending disabled | Domain/idempotency/uncertainty tests | Outbox schema/worker code and monitoring gateway deployed; verified destinations and domain absent | Activate sending only with approved verified configuration |
-| Payment/image/SMS adapters | Server-only contracts with explicit configuration errors | Provider boundary tests | Selected-provider concrete integrations required | Implement approved providers when accounts/policy exist |
-| Security | 49 RLS application tables; zero JANA anon/authenticated RPC grants | Postmigration read-only checks and advisor review | Supabase-owned PostGIS findings unresolved | Supported extension-owner remediation; do not alter system ownership/RLS |
-| CI/deployment | Node, PostgreSQL, browser, Expo, native Android/iOS and exact smoke gates | Named passing runs in release evidence | Native builds do not prove device operation | Test meaningful changed scope; retain failures |
-| Operations/recovery | Runbooks, migration recovery, rollback, rotation and retention design documented | Architecture and operations runbooks | Staging, capacity/load, restore timing and retention/RPO/RTO not verified | Approve operating infrastructure and verify recovery |
+| Area | Implemented and covered by automated gates | Still required |
+|---|---|---|
+| Isolation/backend | Dedicated JANA Supabase/Render/branches; Node → custom authenticated Edge → transactional PostgreSQL/PostGIS | Dedicated JANA staging and actual operating acceptance |
+| Identity/staff | Email or Saudi phone sign-in; hashed sessions, CSRF/SecureStore; password change/all-session revocation; audited roles, assignment and cash/task safeguards | Verified recipient/recovery flow; actual staff acceptance |
+| Commercial storefront | Private versioned draft, immutable published policies, reviewed intake open/close, frozen seller terms | Actual merchant identity/contacts/tax status and approved policies |
+| Catalog | Families, versions, offerings, units, fixed/custom baskets, paginated catalog, images | Actual approved products, prices, photographs; replace preview catalog |
+| Customer web/mobile | Catalog/cart/quote/COD, account, frozen order details, dated history, older-order pages, recorded-location tracking | Real customer/device acceptance; signed mobile distribution |
+| Saved data | Profiles, address/default management, favorites, lists, synced cart, recurring reminders with revision/consent | External reminder channels disabled |
+| Addresses/maps | Arabic/Persian normalization, strict phone/coordinates, foreground GPS, supported pin import, keyless Google links, PostGIS coverage | Approved real geography; embedded Google API not enabled |
+| Delivery administration | Polygons/exclusions, fees, minimums, cutoff/slot capacity, revision checks | Actual capacity; warehouse routing before multiple hubs |
+| Quotes/orders | Atomic stock/slot reservation, expiration, persistent idempotency, frozen terms and cancellation gates | Tax/invoicing integration before enabling a VAT-registered seller |
+| Order experience | Frozen address/appointment, line/cash details, public timeline, cursor paging, cancellation/code renewal/refresh | No automatic background courier publishing or ETA |
+| Warehouse/counts | Suppliers, pending inspection, accepted FEFO stock, lot costs/metadata, reorder levels, reviewed counts | Actual inspected/received/count-verified stock; canonical warehouse/bin segregation for multiple hubs |
+| Disposal/returns | Waste, damage, supplier outbound return, customer quarantine/inspection, rejected-return custody/disposition | Supplier credit reconciliation and approved physical procedures |
+| Picker/substitutions | Assignment, FEFO, weight tolerance, fixed-basket measurements, explicit customer-approved substitutions | Component-level basket substitution/variance/tolerance/pricing rules and field acceptance |
+| Courier | Assignment, dispatch, delivery code, failure/retry, destination navigation, recipient call link and explicit foreground GPS sharing | Physical devices/procedure; continuous location publishing absent |
+| Finance/COD | Delivery separated from cash collection, liability, partial settlement and source-aware completed refunds | Actual cash handover/accounting acceptance |
+| Support/reporting | Threads, order links, priority/assignment; real sales/cash/stock reports and explicit unknown/estimated costs | Staff acceptance, actual costs; tax/operating expenses not full accounting |
+| Notifications | Transactional in-app notifications; guarded outbox/leases/retries/uncertainty, Resend adapter and monitoring | Dedicated worker, verified destinations/consent/domain and approved channel activation |
+| Providers/analytics | Server-only provider boundaries, privacy-minimized events, fail-closed flags | Concrete SMS/push/payment/media integrations as selected; dedicated PostHog ingestion verification |
+| Database assurance | Recovered replay, disposable concurrency tests, immutable ledgers, service-only application RPCs | Real backup restore/recovery timing; supported PostGIS platform-advisor remediation |
+| CI/operations | Node/PostgreSQL/browser/Expo/Android/iOS simulator gates, exact-commit smoke, recovery/rotation runbooks | Capacity/load, dedicated staging, alerts, measured backup/restore and signed releases |
 
-Verified baseline: **197 JavaScript passes**, **36 browser checks**, and **34 return/custody database groups**, alongside the existing heterogeneous business suites. Counts are not combined into an invented total. Earlier failures and recoveries remain in RELEASE-EVIDENCE.md.
+## Work order before commercial sales
 
-Native source 716bb7 uses Node 24 and the committed 748-package lock; later map/warehouse/movement changes do not alter mobile source. Retained artifacts expire 17 September 2026. Exact links and limitations are in DELIVERY-REPORT.md.
+1. Owner provides actual merchant identity, contacts, registrations/tax status, policies, catalog/prices and intended Jazan geography. Publish reviewed terms without inferring these values.
+2. Operations records actual inspected stock and capacity, creates real staff accounts and accepts the customer → warehouse → courier → cash/refund journey.
+3. Engineering connects the approved verification/recovery and communication providers, provisions the worker, verifies approved destinations, and establishes isolated staging/capacity/backup recovery evidence. Add VAT/invoicing if the confirmed tax status requires it.
+4. Owner provides Apple/Google distribution accounts; complete physical-device acceptance, signing and store review.
+5. Before Riyadh/Jeddah or another warehouse: implement warehouse/location ownership, routing and stock segregation, approved basket component variance/substitution rules and supplier credit accounting.
 
-The database advisor remains non-clean because of Supabase-owned [spatial_ref_sys](https://supabase.com/docs/guides/database/database-linter?lint=0013_rls_disabled_in_public), [PostGIS extension schema](https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public), and [extension function privileges](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable). These are separate from the verified service-only JANA application grants. No PostGIS system object was modified in these phases.
-
-Fixed-basket measurement candidate d576bfc passed 204 JavaScript tests, 39 browser checks and twelve dedicated PostgreSQL groups. Migration 20260910191908 and API v26 are applied. Postmigration business-field fingerprints, stock, lots, cash and costs match preflight; the only new order field is picking revision metadata. All health invariants remain zero. Gateway promotion must be verified separately.
+Supabase-owned PostGIS advisor findings remain documented platform limitations. Do not alter system-object ownership or invent policies to silence advisors. Service-only JANA application permissions are checked separately. Historical failed runs and recoveries stay in RELEASE-EVIDENCE.md.

@@ -9,6 +9,24 @@ let calls=[];let response={ok:true};
 globalThis.fetch=async (url,init)=>{calls.push({url:String(url),body:JSON.parse(init.body||'{}')});return Response.json(response)};
 function request(name,path,options={}) {return new Request(`https://edge.example/${name}${path}`,options)}
 const bearer={authorization:'Bearer test-only-token-01234567890123456789','content-type':'application/json'};
+test('courier foreground location preserves the path order and validates coordinates before its scoped RPC',async()=>{
+ calls=[];response={order_id:'fixture-order',latitude:16.5,longitude:42.5};
+ const r=await handlers['jana-api'](request('jana-api','/api/ops/orders/fixture-order/location',{method:'POST',headers:bearer,body:JSON.stringify({order_id:'ignored-body-order',latitude:'١٦٫٥',longitude:'٤٢٫٥',accuracy_m:15})}));
+ assert.equal(r.status,200);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_courier_update_location'));assert.deepEqual(calls[0].body,{p_token:bearer.authorization.slice(7),p_order_id:'fixture-order',p_lat:16.5,p_lng:42.5,p_accuracy:15});
+ for(const payload of [{latitude:null,longitude:42},{latitude:16,longitude:181},{latitude:16,longitude:42,accuracy_m:-1}]){calls=[];const bad=await handlers['jana-api'](request('jana-api','/api/ops/orders/fixture-order/location',{method:'POST',headers:bearer,body:JSON.stringify(payload)}));assert.equal(bad.status,422);assert.equal(calls.length,0)}
+});
+test('customer order pages pass a typed stable cursor to PostgreSQL instead of loading the full order history',async()=>{
+ calls=[];response={items:[],next:null,next_offset:null};
+ const r=await handlers['jana-api'](request('jana-api','/api/orders?limit=25&before_at=1800000000000&before_id=order-x',{headers:bearer}));
+ assert.equal(r.status,200);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_orders_page'));assert.deepEqual(calls[0].body,{p_token:bearer.authorization.slice(7),p_limit:25,p_before_at:1800000000000,p_before_id:'order-x',p_offset:0});
+ for(const query of ['limit=1.5','offset=-1','before_at=NaN','before_at=9007199254740992','limit=']){calls=[];const bad=await handlers['jana-api'](request('jana-api','/api/orders?'+query,{headers:bearer}));assert.equal(bad.status,422);assert.equal(calls.length,0)}
+});
+test('password success clears both web cookies only after PostgreSQL confirms the change',async()=>{
+ calls=[];response={ok:true,all_sessions_revoked:true};
+ const options={method:'POST',headers:{...bearer,cookie:'jana_session=known; jana_csrf=known','x-csrf-token':'known'},body:JSON.stringify({current_password:'fixture-current',new_password:'fixture-new-password'})};
+ const r=await handlers['jana-api'](request('jana-api','/api/auth/password',options));assert.equal(r.status,200);assert.equal((await r.json()).sign_in_again,true);assert.equal(r.headers.getSetCookie().filter(c=>c.includes('Max-Age=0')).length,2);assert.ok(calls[0].url.endsWith('/jana_change_password'));
+ response={_error:'invalid_credentials',status:401};const bad=await handlers['jana-api'](request('jana-api','/api/auth/password',options));assert.equal(bad.status,401);assert.equal(bad.headers.getSetCookie().length,0);
+});
 test('address API normalizes Arabic input before the atomic save and keeps partial edits partial',async()=>{
  calls=[];response={id:'fixture-address'};
  const r=await handlers['jana-api'](request('jana-api','/api/addresses/fixture-address',{method:'PATCH',headers:bearer,body:JSON.stringify({latitude:'١٦٫٥',longitude:'٤٢٫٥',recipient_phone:'٠٠٩٦٦ ٥٠ ٠٠٠ ٠٠٠١',is_default:false})}));

@@ -1,9 +1,11 @@
 # JANA Mobile feature coverage
 
-The React Native / Expo customer app uses the same production API as the live web storefront.
+The Expo customer app uses the dedicated JANA production API. It implements email/phone login, registration, SecureStore sessions, password changes with all-session revocation, paginated catalog, category/search, product details/images, favorites, local/synced carts, custom baskets, profiles, shopping lists and recurring reminders.
 
-Current mobile coverage: authentication, catalog, cart, secure token storage, favorites, address book (create/edit/delete/default), delivery coverage and slots, quote/checkout COD, orders, order tracking, substitution decisions, notifications/read state, support tickets/replies, refund requests, verified-purchase reviews, and EAS build profiles.
+Addresses support create/edit/delete/default, recipient details, Arabic/Persian numeric input, one-shot foreground GPS, supported Google pin import, manual coordinates, map review and actual coverage/slots. No background location permission is requested.
 
-External push/SMS/payment integrations remain intentionally disabled until provider accounts are connected.
+Checkout uses a server quote, published seller/policy review, consent and COD. Orders provide cursor-based older-page loading, frozen address/appointment, current lines/amounts, dated history, recorded location/time, cancellation before picking, delivery-code renewal, explicit substitution decisions, refund history/requests, verified-order review and support. Ended deliveries do not share locations; missing coordinates or cash values are not invented.
 
-Saved-list CRUD and full-list cart review, in-app recurring reminders with explicit consent, profile preferences, category/search/product details and favorites view are implemented. Native Android 34438196280, iOS simulator 34438196304 and Expo export 34438196312 passed. Calendar dates use Saudi time; external notifications remain disabled. Manual device acceptance and catalog pagination beyond 100 offerings remain unverified.
+In-app notifications/read state and ticket replies are implemented. External push/SMS/payment integrations remain disabled pending approved configuration. Forgotten-password recovery and automatic background courier tracking remain unimplemented.
+
+Expo, native Android debug and iOS simulator gates validate compilation/builds. Real database/browser tests validate the shared API and monetary/state model; they do not replace physical-device acceptance. Apple/Google signing, store distribution and device/network/permission acceptance remain outstanding. Historical evidence is in ../docs/RELEASE-EVIDENCE.md; current artifacts are linked in the release handoff.
