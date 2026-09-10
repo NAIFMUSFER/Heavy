@@ -130,7 +130,7 @@ passed('custody history is bounded to fifty rows with stable pages despite a new
 summary=history(f)['summary'];assert summary['open_rejected_receipts']>0 and summary['closed_rejected_receipts']>0
 assert summary['open_rejected_receipts']+summary['closed_rejected_receipts']==summary['rejected_receipts']
 assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('jana_customer_return_dispose','jana_customer_return_dispositions') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE'));")==0
-assert val("SELECT relrowsecurity FROM pg_class WHERE oid='public.customer_return_dispositions'::regclass;")
+assert val("SELECT to_jsonb(relrowsecurity) FROM pg_class WHERE oid='public.customer_return_dispositions'::regclass;")
 assert val('SELECT jana_deep_health();')['ok'];passed('custody counts reconcile without mixing units and new storage retains RLS service-only access and business invariants')
 
 print(json.dumps({'passed':len(checks),'checks':checks}))
