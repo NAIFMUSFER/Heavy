@@ -226,6 +226,27 @@ try{
  const returnFinance=await change(finance,'/api/ops/customer-returns',()=>finance.locator('[data-page=customer-returns]').click(),'GET');assert.equal(returnFinance.items.find(x=>x.id===receipt.id).inspection.restored_cost_halalas,60);assert.equal(await finance.locator('[data-action=new-customer-return]').count(),0);assert.equal(await finance.locator('[data-action=inspect-customer-return]').count(),0);
  const returnSupport=await change(support,'/api/ops/customer-returns',()=>support.locator('[data-page=customer-returns]').click(),'GET');assert.equal(returnSupport.items.find(x=>x.id===receipt.id).inspection.restored_cost_halalas,undefined);assert.equal(await support.locator('[data-action=inspect-customer-return]').count(),0);
  pass('finance reviews return cost while support receives redacted status and neither gains warehouse write controls');
+
+ phase='rejected return custody closure';
+ const custodyPath='/api/ops/customer-returns/'+receipt.id+'/dispositions',custodyStock=stock();
+ const custodyEntries=sql("SELECT jsonb_build_object('cash',(SELECT count(*) FROM cash_entries),'cost',(SELECT count(*) FROM inventory_cost_entries),'movements',(SELECT count(*) FROM stock_movements));");
+ for(const [kind,quantity,reference,remaining]of [['destroyed',15,'E2E-DESTROYED',25],['supplier_handover',25,'E2E-HANDOVER',0]]){
+  await change(inventory,custodyPath,()=>inventory.locator('[data-action=return-custody][data-id="'+receipt.id+'"]').click(),'GET');
+  const dispositionForm=inventory.locator('#return-disposition-form');assert.equal(await dispositionForm.locator('[name=quantity_base]').inputValue(),'');assert.equal(await dispositionForm.locator('[name=completed]').isChecked(),false);
+  await dispositionForm.locator('[name=kind]').selectOption(kind);await dispositionForm.locator('[name=quantity_base]').fill(String(quantity));await dispositionForm.locator('[name=reference]').fill(reference);await dispositionForm.locator('[name=note]').fill('تسجيل التصرف المنفذ في بيئة الاختبار');
+  if(kind==='supplier_handover')await dispositionForm.locator('[name=recipient]').fill('مورد الاختبار والجهة المستلمة');
+  await dispositionForm.locator('[name=completed]').check();
+  const recorded=await change(inventory,custodyPath,()=>dispositionForm.locator('button[type=submit]').click());assert.equal(recorded.remaining_base,remaining);assert.equal(recorded.state,remaining?'partial':'closed');assert.deepEqual(stock(),custodyStock);
+ }
+ assert.equal(sql("SELECT jsonb_build_object('cash',(SELECT count(*) FROM cash_entries),'cost',(SELECT count(*) FROM inventory_cost_entries),'movements',(SELECT count(*) FROM stock_movements));"),custodyEntries);
+ assert.deepEqual(value('SELECT to_jsonb(o) FROM orders o WHERE id='+literal(confirmed.id)+';'),beforeReturnOrder);
+ pass('warehouse closes rejected custody by partial destruction and documented handover without changing stock cost or money');
+ await change(inventory,custodyPath,()=>inventory.locator('[data-action=return-custody][data-id="'+receipt.id+'"]').click(),'GET');assert.equal(await inventory.locator('#return-disposition-form').count(),0);assert.equal(await inventory.locator('[data-return-disposition]').count(),2);await inventory.getByText('لا توجد كمية مرفوضة متبقية في العهدة.',{exact:true}).waitFor();await closeModal(inventory);
+ pass('closed custody displays two immutable documents and removes the warehouse disposition form');
+ for(const reader of [finance,support]){
+  const evidence=await change(reader,custodyPath,()=>reader.locator('[data-action=return-custody][data-id="'+receipt.id+'"]').click(),'GET');assert.equal(evidence.receipt.remaining_base,0);assert.equal(evidence.items.length,2);assert.equal(await reader.locator('#return-disposition-form').count(),0);await reader.getByText('E2E-HANDOVER',{exact:false}).waitFor();await closeModal(reader);
+ }
+ pass('finance and support review real custody documents without receiving warehouse write controls');
  phase='external notification state';
  const channelState=await change(admin,'/api/ops/notification-jobs',()=>admin.locator('[data-page=notification-jobs]').click(),'GET');assert.ok(channelState.channels.every(x=>!x.enabled));assert.equal(channelState.items.length,0);assert.ok(Number(sql('SELECT count(*) FROM notifications;'))>0);assert.equal(Number(sql('SELECT count(*) FROM notification_outbox;')),0);await admin.getByText('لا توجد محاولات إرسال خارجية').waitFor();pass('core in-app notifications persist while all external channels and outbound jobs remain disabled');
  assert.deepEqual(errors,[],'Browser JavaScript errors');assert.deepEqual(harness.failures,[],'Gateway server errors');

@@ -55,4 +55,82 @@ f=prepared();r=val(receive(f));count=val('SELECT jana_count_start('+literal(f['a
 f=prepared();run('DO $batch$ BEGIN FOR i IN 1..52 LOOP PERFORM jana_customer_return_receive('+literal(f['atok'])+",'return-page-'||i,jsonb_build_object('source_movement_id',"+literal(f['source']['id'])+",'quantity_base',1,'reference','RETURN-PAGE-'||i,'reason','Return pagination fixture'));END LOOP;END $batch$;");first=history(f);assert len(first['items'])==50 and first['next'];cursor=first['next'];second=val(rpc('jana_customer_returns',f['atok'],cursor['before_at'],cursor['before_id']));assert not ({x['id'] for x in first['items']}&{x['id'] for x in second['items']});passed('return history is bounded and uses stable keyset pagination')
 f=prepared();r=val(receive(f));val(inspect(f,r,100));fails(rpc('jana_customer_returns',f['t']),'forbidden');fails(rpc('jana_customer_return_receive',f['ct'],'courier-forged-return',body(f)),'forbidden');run("UPDATE users SET role='support' WHERE id="+literal(f['p']+'a')+';');item=next(x for x in history(f)['items'] if x['id']==r['id']);assert 'restored_cost_halalas' not in item['inspection'] and 'cost_basis' not in item['inspection'];assert 'recipient_phone' not in json.dumps(item);fails(receive(f),'forbidden');run("UPDATE users SET role='finance' WHERE id="+literal(f['p']+'a')+';');assert next(x for x in history(f)['items'] if x['id']==r['id'])['inspection']['restored_cost_halalas']==10;fails(inspect(f,r,100),'forbidden');passed('inventory and admin alone receive or inspect while support sees redacted status and finance sees cost evidence')
 assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname LIKE 'jana_customer_return%' AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE'));")==0;assert val("SELECT count(*) FROM pg_class WHERE relname IN ('customer_return_receipts','customer_return_inspections') AND relrowsecurity;")==2;assert val('SELECT jana_deep_health();')['ok'];passed('RLS service-only grants and existing stock slot order and cash invariants remain enforced')
+
+# Rejected-return custody is a separate append-only ledger, tested on the same disposable database.
+def dispose(f,r,qty=40,key='return-dispose-fixture',ref='DISPOSITION-FIXTURE',kind='destroyed',recipient=None,**extra):
+ return rpc('jana_customer_return_dispose',f['atok'],key,{'return_id':r['id'],'kind':kind,'quantity_base':qty,'reference':ref,'recipient':recipient,'note':'Completed physical disposition fixture',**extra})
+def custody(f,r,*cursor):return val(rpc('jana_customer_return_dispositions',f['atok'],r['id'],*cursor))
+def business(f):
+ sid=literal(f['p']+'st');oid=literal(f['order']['id'])
+ entries=val(f"SELECT jsonb_build_object('movements',(SELECT count(*) FROM stock_movements WHERE stock_id={sid}),'costs',(SELECT count(*) FROM inventory_cost_entries WHERE stock_id={sid}),'cash',(SELECT count(*) FROM cash_entries WHERE order_id={oid}),'refunds',(SELECT count(*) FROM refunds WHERE order_id={oid}),'receipts',(SELECT count(*) FROM customer_return_receipts WHERE order_id={oid}),'inspections',(SELECT count(*) FROM customer_return_inspections WHERE return_id IN (SELECT id FROM customer_return_receipts WHERE order_id={oid})));")
+ return {'balance':balance(f),'lot':lot(f),'order':order_row(f),'entries':entries}
+
+f=prepared();r=val(receive(f));val(inspect(f,r,400));before=business(f)
+rows=successful(race([dispose(f,r)]*16));assert len(rows)==16 and all(x==rows[0] for x in rows);d=rows[0]
+assert d['remaining_base']==60 and d['state']=='partial';assert custody(f,r)['receipt']['remaining_base']==60
+assert val('SELECT count(*) FROM customer_return_dispositions WHERE return_id='+literal(r['id'])+';')==1
+assert val("SELECT count(*) FROM audit_log WHERE action='customer_return_disposed' AND entity_id="+literal(d['id'])+';')==1
+assert business(f)==before;passed('sixteen custody retries create one partial disposal document and audit without changing stock cost order or cash')
+fails(dispose(f,r,41),'idempotency_conflict');fails(dispose(f,r,key='repeat-disposition-document'),'return_disposition_reference_exists')
+assert business(f)==before;passed('changed idempotency payload and duplicate disposition document do not close custody twice')
+closed=val(dispose(f,r,60,key='return-handover-fixture',ref='SUPPLIER-HANDOVER',kind='supplier_handover',recipient='Fixture supplier and recipient'))
+assert closed['state']=='closed' and closed['remaining_base']==0;h=custody(f,r)
+assert len(h['items'])==2 and h['receipt']['disposed_base']==100 and h['receipt']['remaining_base']==0
+assert any(x['recipient']=='Fixture supplier and recipient' for x in h['items'])
+item=next(x for x in history(f)['items'] if x['id']==r['id']);assert item['disposition_summary']=={'disposed_base':100,'remaining_base':0}
+assert business(f)==before;passed('partial destruction followed by supplier handover closes exactly the rejected quantity and preserves all business ledgers')
+fails(dispose(f,r,1,key='extra-disposition-fixture',ref='EXTRA'),'return_disposition_exceeds_remaining')
+assert val(dispose(f,r))==d;passed('closed custody rejects additional quantities while original retry returns its unchanged result')
+fails('DELETE FROM customer_return_dispositions WHERE id='+literal(d['id'])+';','append_only')
+fails("UPDATE customer_return_dispositions SET recipient='Changed' WHERE id="+literal(d['id'])+';','append_only')
+passed('recorded disposition quantity document recipient and actor cannot be overwritten or deleted')
+
+f=prepared();r=val(receive(f));val(inspect(f,r,0));before=business(f)
+rows=race([dispose(f,r,300,key='concurrent-dispose-one',ref='FIRST'),dispose(f,r,300,key='concurrent-dispose-two',ref='SECOND')])
+assert len(successful(rows))==1 and all(x['ok'] or 'return_disposition_exceeds_remaining' in x['error'] for x in rows)
+assert custody(f,r)['receipt']['remaining_base']==200 and business(f)==before
+passed('competing warehouse dispositions serialize and cannot exceed the same rejected quantity')
+
+f=prepared();r=val(receive(f));assert custody(f,r)['receipt']['remaining_base'] is None
+fails(dispose(f,r),'return_disposition_requires_rejection');val(inspect(f,r,500));fails(dispose(f,r),'return_disposition_requires_rejection')
+assert custody(f,r)['receipt']['remaining_base']==0 and custody(f,r)['items']==[]
+passed('pending inspection and fully accepted returns cannot be disposed as rejected goods')
+
+f=prepared();r=val(receive(f));val(inspect(f,r,0))
+for key,v in [('quantity_base',0),('quantity_base',-1),('quantity_base',1.5),('quantity_base','1'),('quantity_base',None),('kind','restock'),('reference',''),('note','x'),('recipient',{}),('actor_id','fabricated')]:
+ payload={'return_id':r['id'],'kind':'destroyed','quantity_base':1,'reference':'INVALID-FIXTURE','recipient':None,'note':'Fixture observed disposition',key:v}
+ fails(rpc('jana_customer_return_dispose',f['atok'],'invalid-disposition-fixture',payload),'return_disposition_validation')
+fails(dispose(f,r,kind='supplier_handover'),'return_disposition_validation')
+fails(dispose(f,r,kind='destroyed',recipient='Unexpected recipient'),'return_disposition_validation')
+assert custody(f,r)['items']==[];passed('custody validates actual integer quantity kind reference note and required handover recipient')
+before=business(f);run('BEGIN;'+dispose(f,r)+'ROLLBACK;');assert custody(f,r)['items']==[]
+assert val("SELECT count(*) FROM idempotency_records WHERE scope="+literal('customer-return-dispose:'+f['p']+'a:return-dispose-fixture')+';')==0
+assert val(dispose(f,r))['quantity_base']==40 and business(f)==before
+passed('rolled-back disposition leaves no document or idempotency claim and permits a complete retry')
+
+f=prepared();r=val(receive(f));val(inspect(f,r,0));run("UPDATE users SET role='inventory' WHERE id="+literal(f['p']+'a')+';');val(dispose(f,r))
+for role in ['finance','support']:
+ run('UPDATE users SET role='+literal(role)+' WHERE id='+literal(f['p']+'a')+';')
+ assert custody(f,r)['receipt']['remaining_base']==460;assert 'restored_cost_halalas' not in json.dumps(custody(f,r))
+ fails(dispose(f,r),'forbidden')
+for role in ['picker','courier','customer']:
+ run('UPDATE users SET role='+literal(role)+' WHERE id='+literal(f['p']+'a')+';')
+ fails(rpc('jana_customer_return_dispositions',f['atok'],r['id']),'forbidden');fails(dispose(f,r),'forbidden')
+passed('warehouse alone writes custody while finance and support read it and other roles cannot access it')
+
+f=prepared();r=val(receive(f));val(inspect(f,r,0))
+for n in range(52):val(dispose(f,r,1,key='custody-page-'+str(n),ref='PAGE-'+str(n)))
+first=custody(f,r);assert len(first['items'])==50 and first['next'];cursor=first['next'];ids={x['id'] for x in first['items']}
+val(dispose(f,r,1,key='custody-newest-after-page',ref='NEWEST'))
+second=custody(f,r,cursor['before_at'],cursor['before_id'])
+assert len(second['items'])==2 and second['next'] is None and not(ids&{x['id'] for x in second['items']})
+assert all(x['return_id']==r['id'] for x in first['items']+second['items'])
+assert second['receipt']['remaining_base']==447
+passed('custody history is bounded to fifty rows with stable pages despite a new intervening document')
+summary=history(f)['summary'];assert summary['open_rejected_receipts']>0 and summary['closed_rejected_receipts']>0
+assert summary['open_rejected_receipts']+summary['closed_rejected_receipts']==summary['rejected_receipts']
+assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('jana_customer_return_dispose','jana_customer_return_dispositions') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE'));")==0
+assert val("SELECT relrowsecurity FROM pg_class WHERE oid='public.customer_return_dispositions'::regclass;")
+assert val('SELECT jana_deep_health();')['ok'];passed('custody counts reconcile without mixing units and new storage retains RLS service-only access and business invariants')
+
 print(json.dumps({'passed':len(checks),'checks':checks}))

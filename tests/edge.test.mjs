@@ -211,3 +211,26 @@ test('return inspection accepts only the observed quality decision and cannot se
 test('malformed return history or order lookup is rejected before database access',async()=>{
  for(const path of ['/api/ops/customer-returns?before_at=1','/api/ops/customer-returns/context','/api/ops/customer-returns?before_at=x&before_id=bad']){calls=[];const r=await handlers['jana-ops-extra'](request('jana-ops-extra',path,{headers:bearer}));assert.equal(r.status,422);assert.equal(calls.length,0)}
 });
+test('return disposition requires an idempotency key and forwards only canonical document fields',async()=>{
+ calls=[];response={id:'fixture-disposition'};
+ const path='/api/ops/customer-returns/11111111-1111-1111-1111-111111111111/dispositions';
+ const body={kind:'destroyed',quantity_base:10,reference:'Fixture document',note:'Physical disposal recorded',actor_id:'ignored',refund:100};
+ let r=await handlers['jana-ops-extra'](request('jana-ops-extra',path,{method:'POST',headers:bearer,body:JSON.stringify(body)}));assert.equal(r.status,422);assert.equal(calls.length,0);
+ r=await handlers['jana-ops-extra'](request('jana-ops-extra',path,{method:'POST',headers:{...bearer,'idempotency-key':'custody-fixture-key'},body:JSON.stringify(body)}));assert.equal(r.status,201);
+ assert.ok(calls[0].url.endsWith('/jana_customer_return_dispose'));
+ assert.deepEqual(calls[0].body.p_payload,{return_id:'11111111-1111-1111-1111-111111111111',kind:'destroyed',quantity_base:10,reference:body.reference,recipient:null,note:body.note});
+});
+test('return disposition history validates identifiers and paired keyset cursors',async()=>{
+ const path='/api/ops/customer-returns/11111111-1111-1111-1111-111111111111/dispositions';
+ for(const invalid of [path+'?before_at=1',path+'?before_at=x&before_id=bad','/api/ops/customer-returns/invalid/dispositions']){
+  calls=[];const r=await handlers['jana-ops-extra'](request('jana-ops-extra',invalid,{headers:bearer}));assert.equal(r.status,422);assert.equal(calls.length,0);
+ }
+ calls=[];response={items:[]};const r=await handlers['jana-ops-extra'](request('jana-ops-extra',path+'?before_at=123&before_id=22222222-2222-2222-2222-222222222222',{headers:bearer}));assert.equal(r.status,200);
+ assert.deepEqual(calls[0].body,{p_token:bearer.authorization.slice(7),p_return_id:'11111111-1111-1111-1111-111111111111',p_before_at:123,p_before_id:'22222222-2222-2222-2222-222222222222'});
+});
+test('custody business conflicts surface as actionable HTTP errors',async()=>{
+ for(const [code,status]of [['return_disposition_requires_rejection',409],['return_disposition_exceeds_remaining',409],['return_disposition_reference_exists',409],['return_disposition_validation',422]]){
+  calls=[];response={_error:code,status};
+  const r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/customer-returns/11111111-1111-1111-1111-111111111111/dispositions',{method:'POST',headers:{...bearer,'idempotency-key':'custody-error-fixture'},body:'{}'}));assert.equal(r.status,status);assert.match((await r.json()).error.code,/RETURN_DISPOSITION/);
+ }
+});

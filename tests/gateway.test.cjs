@@ -63,6 +63,8 @@ test('customer return routes preserve operations requests while omitting documen
   ['/api/ops/customer-returns?before_at=1789050000000&before_id=private-cursor','GET'],
   ['/api/ops/customer-returns/context?number=private-order','GET'],
   ['/api/ops/customer-returns','POST'],
+  ['/api/ops/customer-returns/private-return/dispositions?before_at=1&before_id=private-cursor','GET'],
+  ['/api/ops/customer-returns/private-return/dispositions','POST'],
   ['/api/ops/customer-returns/private-return/inspection','POST']
  ]){
   const body=JSON.stringify({reference:'private-document'});
