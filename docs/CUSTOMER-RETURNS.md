@@ -2,7 +2,7 @@
 
 Published baseline: source 0b1c63e passed 190 JavaScript tests, 22 PostgreSQL return groups and 33 browser checks. Render dep-dahf7teq1p3s73em6eag became live at 18:16:50 UTC; exact-commit smoke 34513034338 passed. Migration 20260910170206 is applied; customer API v25 and operations Edge v20 are active.
 
-The custody extension in this commit passes local syntax and 197 JavaScript tests. Expanded PostgreSQL and browser gates and production deployment are pending.
+The custody extension passed syntax and 197 JavaScript tests, 34 return/custody PostgreSQL groups (34515669482) and 36 browser checks (34515292272). Migration 20260910184237 is applied with identical tested SQL; operations Edge v21 is active. Gateway release must be verified by the public /version and exact-commit smoke, as documented in the operations runbook.
 
 Admin/inventory staff look up the exact order number and select an actual shipped stock/lot allocation. Only delivered shipments or failed deliveries after completed picking are eligible. The operator records the quantity physically received, a real receipt reference and the reason. The canonical stock, unit, lot, order and actor are resolved by PostgreSQL; they cannot be selected through arbitrary client names or prices.
 
@@ -36,3 +36,5 @@ Only admin/inventory may write. Partial actions keep the remaining quantity in c
 `GET /api/ops/customer-returns/:id/dispositions` exposes 50-row keyset history to admin/inventory/finance/support, including actor, recording time, recipient and evidence reference. It does not expose purchase cost. Return history includes disposed/remaining quantities per receipt and counts of open/closed rejected receipts, without aggregating grams and pieces together. The UI starts quantity blank, requires an explicit completed-action checkbox and confirmation, shows supplier recipient only for handover, and removes the form when nothing remains.
 
 Storage is a new service-only RLS table with the existing JANA session/role checks. No historical returns are backfilled or closed automatically. Applicable quality, food-handling, disposal and supplier-credit procedures still require owner approval and actual operating acceptance. Erroneous recorded evidence cannot be silently edited or deleted.
+
+Applied custody migration: `20260910184237_jana_return_custody_disposition.sql`. The draft filename was renamed to the actual remote migration version without changing its SQL. Post-application order, balance, lot, cash and cost fingerprints match the prior values; there are zero production return receipts, inspections or dispositions, zero custody overruns and zero direct client RPC grants. Existing Supabase-owned PostGIS findings are unchanged.
