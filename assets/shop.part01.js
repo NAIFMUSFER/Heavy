@@ -1,3 +1,4 @@
+import {addressPayload,googleMapsLink,googleMapsSearch,parseMapLocation,locationPoint,locationFailure} from './address.js';
 import {productImage,substitutionReview,qty,$,$$,esc,money,number,date,badge,empty,get,getAll,request,post,patch,remove,modal,closeModal,toast,busy,formData,identity,loginDialog,setupConnectivity,field,parseMoney,ticketCategories,ticketThread,selectField} from './common.js';
 const cartKey='jana.live.cart';
 const state={ready:false,loading:false,loadError:null,user:null,config:null,catalog:[],cart:[],view:'shop',category:'all',addresses:[],favorites:new Set()};

@@ -5,3 +5,5 @@
 
 .product-picture{position:relative;overflow:hidden}.product-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit;background:#edf3e8}.product-tag{z-index:1}
 .policy-text{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.9}details>summary{cursor:pointer;font-weight:700;padding-block:8px}.store-readiness{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+
+#addr [hidden]{display:none!important}#addr input[aria-invalid="true"]{border-color:var(--red)}#address-manual summary{cursor:pointer;padding:10px 0}#address-point-status{overflow-wrap:anywhere}

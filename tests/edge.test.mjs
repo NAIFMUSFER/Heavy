@@ -9,6 +9,17 @@ let calls=[];let response={ok:true};
 globalThis.fetch=async (url,init)=>{calls.push({url:String(url),body:JSON.parse(init.body||'{}')});return Response.json(response)};
 function request(name,path,options={}) {return new Request(`https://edge.example/${name}${path}`,options)}
 const bearer={authorization:'Bearer test-only-token-01234567890123456789','content-type':'application/json'};
+test('address API normalizes Arabic input before the atomic save and keeps partial edits partial',async()=>{
+ calls=[];response={id:'fixture-address'};
+ const r=await handlers['jana-api'](request('jana-api','/api/addresses/fixture-address',{method:'PATCH',headers:bearer,body:JSON.stringify({latitude:'١٦٫٥',longitude:'٤٢٫٥',recipient_phone:'٠٠٩٦٦ ٥٠ ٠٠٠ ٠٠٠١',is_default:false})}));
+ assert.equal(r.status,200);assert.equal(calls.length,1);assert.deepEqual(calls[0].body.p_address,{latitude:'16.5',longitude:'42.5',recipient_phone:'+966500000001',is_default:false});
+ calls=[];const invalid=await handlers['jana-api'](request('jana-api','/api/addresses/fixture-address',{method:'PATCH',headers:bearer,body:'{"recipient_phone":"123"}'}));assert.equal(invalid.status,422);assert.equal((await invalid.json()).error.code,'ADDRESS_PHONE');assert.equal(calls.length,0);
+});
+test('Maps resolution authenticates a customer before parsing and performs no external fetch for coordinate URLs',async()=>{
+ calls=[];const anonymous=await handlers['jana-api'](request('jana-api','/api/maps/resolve',{method:'POST',headers:{'content-type':'application/json'},body:'{"url":"16.5,42.5"}'}));assert.equal(anonymous.status,401);assert.equal(calls.length,0);
+ response={id:'fixture-map-customer',role:'customer'};const r=await handlers['jana-api'](request('jana-api','/api/maps/resolve',{method:'POST',headers:bearer,body:'{"url":"https://www.google.com/maps/search/?api=1&query=16.5%2C42.5"}'}));assert.equal(r.status,200);assert.deepEqual(await r.json(),{latitude:16.5,longitude:42.5});assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_me'));
+ calls=[];response={id:'fixture-map-staff',role:'picker'};const staff=await handlers['jana-api'](request('jana-api','/api/maps/resolve',{method:'POST',headers:bearer,body:'{"url":"https://maps.app.goo.gl/FixturePin"}'}));assert.equal(staff.status,403);assert.equal(calls.length,1);
+});
 test('basket component evidence requires a persistent key before reaching PostgreSQL',async()=>{
  calls=[];const r=await handlers['jana-api'](request('jana-api','/api/ops/orders/fixture/components',{method:'POST',headers:bearer,body:'{}'}));assert.equal(r.status,422);assert.equal(calls.length,0);
 });
@@ -112,7 +123,7 @@ for(const scenario of ['offline','partial-error','quota','off'])test(`coupon fla
  } finally {Deno.env.get=oldEnv;globalThis.fetch=oldFetch;}
 });
 for(const [path,method,body,addressId] of [
- ['/api/addresses','POST',{label:'fixture',city:'Jazan',latitude:'',longitude:'',recipient_phone:'0500000000'},null],
+ ['/api/addresses','POST',{label:'fixture',city:'Jazan',details:'Fixture door',recipient_name:'Fixture customer',latitude:'16.5',longitude:'42.5',recipient_phone:'0500000000'},null],
  ['/api/addresses/fixture-id','PATCH',{notes:'fixture note'},'fixture-id'],
  ['/api/addresses/fixture-id/default','PATCH',{},'fixture-id']
 ])test(`${method} ${path}: one transactional address RPC owns validation`,async()=>{
