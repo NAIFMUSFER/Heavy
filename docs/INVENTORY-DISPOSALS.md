@@ -1,6 +1,6 @@
 # Inventory waste, damage and supplier returns
 
-Implementation is awaiting database, browser and deployment verification. Migration draft was created by Supabase CLI 2.117.0 as `20260910144937_jana_inventory_disposals.sql`; the CLI generated the empty file before its post-command network check was interrupted. The filename was verified rather than generated a second time.
+Database run 34492552637 passed all sixteen disposal groups and prior integrity/concurrency suites. Browser run 34492552641 passed 26 journey checks; the local JavaScript suite passes 175 tests. The unchanged tested SQL is applied as `20260910150043_jana_inventory_disposals.sql`, and operations Edge v17 is active. Its CLI-generated draft name 20260910144937 was aligned with the actual applied migration timestamp. Gateway promotion is pending.
 
 Authorized admin/inventory staff open a current lot context, choose waste/damage/supplier return, enter the actual outbound quantity in the canonical stock unit, and provide a reason plus real document reference. The UI explicitly confirms the physical stock reduction. This records a completed physical outbound event; it is not a request or automatic approval system.
 
