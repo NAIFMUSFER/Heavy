@@ -17,3 +17,6 @@ test('customer substitution approval retry survives restart with its original de
 for(const path of ['/api/shopping-lists','/api/recurring'])test(`${path}: uncertain creation retains its key across mobile restart`,async()=>{
  const storage=store(),options={method:'POST',token:'fixture',body:{name:'Saved fixture',items:[]}};let original;const one=createApiClient({base,storage,fetchImpl:async(u,i)=>{original=i.headers['idempotency-key'];throw Error('offline')}});await assert.rejects(one(path,options));const two=createApiClient({base,storage,fetchImpl:async(u,i)=>{assert.equal(i.headers['idempotency-key'],original);return Response.json({id:'saved-fixture'})}});assert.equal((await two(path,options)).id,'saved-fixture');
 });
+test('uncertain saved cart PUT retains its revision and key across mobile restart',async()=>{
+ const storage=store(),options={method:'PUT',token:'fixture',body:{revision:4,items:[]}};let original;const one=createApiClient({base,storage,fetchImpl:async(u,i)=>{original=i.headers['idempotency-key'];throw Error('offline')}});await assert.rejects(one('/api/cart',options));const two=createApiClient({base,storage,fetchImpl:async(u,i)=>{assert.equal(i.headers['idempotency-key'],original);assert.equal(JSON.parse(i.body).revision,4);return Response.json({revision:5,saved:true})}});assert.equal((await two('/api/cart',options)).revision,5);
+});

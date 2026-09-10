@@ -74,7 +74,11 @@ try{
 
  phase='address coverage quote and confirmation';
  await customer.locator('[data-view=shop]').first().click();await customer.locator('[data-add="'+fixture.offering_id+'"]').first().click();
- await customer.locator('[data-action=cart]').first().click();await customer.locator('#checkout').click();
+ await customer.locator('[data-action=cart]').first().click();await customer.locator('[data-action=cloud-cart]').click();
+ const savedCart=await change(customer,'/api/cart',()=>customer.locator('[data-cloud-save]').click(),'PUT');assert.equal(savedCart.revision,1);
+ const second=await pageFor('customer_second');await second.locator('[data-view=account]').first().click();await second.locator('[data-login]').click();await second.locator('#auth-form [name=email]').fill(fixture.prefix+'browser@example.invalid');await second.locator('#auth-form [name=password]').fill(password);await change(second,'/api/auth/login',()=>second.locator('#auth-form button[type=submit]').click());await second.locator('[data-action=profile]').waitFor();
+ await second.locator('[data-action=cart]').first().click();await second.locator('[data-action=cloud-cart]').click();await second.locator('[data-cloud-restore]').click();await second.locator('#cart-lines').waitFor();assert.equal(await second.locator('#cart-lines .cart-line').count(),1);assert.deepEqual(stock(),{on_hand:10001,reserved:0});assert.equal(Number(sql('SELECT count(*) FROM orders;')),0);pass('saved cart restores through a separate authenticated browser without creating reservations');
+ await closeModal(customer);await customer.locator('[data-action=cart]').first().click();await customer.locator('#checkout').click();
  const address=customer.locator('#addr');await address.locator('[name=city]').fill('جازان');await address.locator('[name=details]').fill('عنوان اختبار محلي ضمن منطقة الاختبار');await address.locator('[name=recipient_phone]').fill('0500000001');await address.locator('[name=latitude]').fill('16.5');await address.locator('[name=longitude]').fill('42.5');
  await change(customer,'/api/addresses',()=>address.locator('button[type=submit]').click());
  await customer.locator('[data-address]').first().click();

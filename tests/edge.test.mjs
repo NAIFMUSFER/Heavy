@@ -173,3 +173,9 @@ test('catalog rejects invalid pagination before database work',async()=>{
   calls=[];const r=await handlers['jana-api'](request('jana-api','/api/catalog?'+query));assert.equal(r.status,422,query);assert.equal((await r.json()).error.code,'CATALOG_PAGE');assert.equal(calls.length,0);
  }
 });
+test('saved cart persists only revision canonical selections and the retry key',async()=>{
+ calls=[];response={revision:1,saved:true};const r=await handlers['jana-api'](request('jana-api','/api/cart',{method:'PUT',headers:{...bearer,'idempotency-key':'cart-fixture-key'},body:JSON.stringify({revision:0,items:[],user_id:'other',price_halalas:1})}));assert.equal(r.status,200);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_save_customer_cart'));assert.deepEqual(Object.keys(calls[0].body).sort(),['p_items','p_key','p_revision','p_token']);assert.equal(calls[0].body.p_revision,0);assert.equal(calls[0].body.p_key,'cart-fixture-key');
+});
+test('saved cart rejects missing key or invalid revision before database mutation',async()=>{
+ for(const [revision,key] of [[0,null],[-1,'cart-key-fixture'],[1.2,'cart-key-fixture'],['1','cart-key-fixture']]){calls=[];const r=await handlers['jana-api'](request('jana-api','/api/cart',{method:'PUT',headers:{...bearer,...(key?{'idempotency-key':key}:{})},body:JSON.stringify({revision,items:[]})}));assert.ok([409,422].includes(r.status));assert.equal(calls.length,0)}
+});
