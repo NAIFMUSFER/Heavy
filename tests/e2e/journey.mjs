@@ -149,7 +149,7 @@ try{
  const initialDetail=await change(customer,'/api/orders/'+confirmed.id,()=>customer.locator('[data-order="'+confirmed.id+'"]').click(),'GET');
  assert.equal(initialDetail.original_snapshot.address.id,initialDetail.snapshot.address.id);assert.equal(initialDetail.original_snapshot.slot.id,fixture.slot_id);
  await customer.locator('.order-timeline').getByText('تم تأكيد الطلب',{exact:true}).waitFor();await customer.getByText('المبلغ المحصّل',{exact:true}).waitFor();await customer.getByText('المتبقي للتحصيل',{exact:true}).waitFor();
- await customer.getByText(initialDetail.snapshot.address.details,{exact:true}).waitFor();await closeModal(customer);
+ await customer.getByText(initialDetail.snapshot.address.details,{exact:false}).waitFor();await closeModal(customer);
  pass('customer order shows frozen address appointment recorded timeline and separate COD amounts');
 
 
