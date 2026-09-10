@@ -2,7 +2,7 @@
 
 This is the current status matrix; the chronological successes and failures remain in [release evidence](RELEASE-EVIDENCE.md). The verified production release is `716bb7caf8edd0a5de4a6398f41472ca39dca034` on the isolated `NAIFMUSFER/Heavy/jana-live` branch. Render deployment `dep-dah8gf2jnfac738ovnj0` became live at 10:37 UTC; exact-commit live verification passed in Actions `34466920786`.
 
-**The full Definition of Done is not satisfied.** Passing automated gates does not establish commercial readiness. The production catalog contains explicit preview records, and no active administrator currently exists. No existing account was promoted or reactivated.
+**The full Definition of Done is not satisfied.** Passing automated gates does not establish commercial readiness. The production catalog contains explicit preview records. Owner-authorized initialization completed at 14:19:39 UTC: one existing, owner-identified customer account is now the sole active administrator, with an audit event and its former session revoked. The inactive legacy administrator was not reactivated.
 
 | Component | Current status | Evidence | Gaps | Action required |
 |---|---|---|---|---|
@@ -11,7 +11,7 @@ This is the current status matrix; the chronological successes and failures rema
 | Gateway | Deployed and tested | Fixed upstream, request limits, secure cookie forwarding, CSP, 19 live-smoke assertions | Load/capacity planning and availability commitments unverified | Size service for approved operating load |
 | Database | 74 applied migrations | Complete recovered schema replay; transactional and concurrent CI gates | Production-data backup restoration unverified | Restore an isolated backup and measure recovery |
 | Edge APIs | Deployed | jana-api v24, jana-critical v5, jana-ops-extra v16; 163 local JavaScript tests | Browser journey passed on a disposable real database | Verify release and owner operation |
-| Authentication/RBAC | Custom opaque sessions and server role checks | SecureStore, hashed database tokens, secure cookies, session revocation | Phone/password and optional-email backend is deployed and passes DB/browser/native gates; no active owner administrator; account recovery provider unavailable | Establish owner account; provide verified-recipient recovery configuration |
+| Authentication/RBAC | Custom opaque sessions, server role checks and one active owner administrator | SecureStore, hashed database tokens, secure cookies; audited owner initialization and session revocation verified at 14:19 UTC | Owner sign-in after promotion and operational acceptance pending; account recovery provider unavailable | Owner signs in again; provide verified-recipient recovery configuration |
 | Staff/assignments/audit | Deployed | Fifteen staff test groups; e67c0f4 live-smoke success; last-admin and cash/task guards | Owner/admin operator acceptance pending | Validate with owner-controlled operational accounts |
 | Catalog/versioning | Deployed | Thirteen product groups; immutable original snapshots and concurrent version activation | Real merchandising/content required; custom basket selection is deployed and passes browser gate | Owner catalog input; verify builder deployment |
 | Inventory/warehouse | Receipt, inspection, cost ledger, counts and reorder levels deployed | Seventeen warehouse groups; ten costing groups; 8f5ff5c live | Multi-warehouse allocation, waste/returns and purchase orders incomplete | Extend canonical location model and operational workflows |
