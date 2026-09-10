@@ -1,6 +1,6 @@
 # JANA implementation audit — 10 September 2026
 
-This is the current status matrix; the chronological successes and failures remain in [release evidence](RELEASE-EVIDENCE.md). The verified production release is `fe9fcb557d5b0e839b8c2b6a4a0095d521692ca6` on the isolated `NAIFMUSFER/Heavy/jana-live` branch. Render deployment `dep-dah7kjpt0dsc73etsr4g` became live at 09:37 UTC; exact-commit live verification passed in Actions `34461586342`.
+This is the current status matrix; the chronological successes and failures remain in [release evidence](RELEASE-EVIDENCE.md). The verified production release is `388b777d31b8f3676f57b949968f328f0d3c25ff` on the isolated `NAIFMUSFER/Heavy/jana-live` branch. Render deployment `dep-dah81d942hec73f6o0ug` became live at 10:05 UTC; exact-commit live verification passed in Actions `34464111345`.
 
 **The full Definition of Done is not satisfied.** Passing automated gates does not establish commercial readiness. The production catalog contains explicit preview records, and no active administrator currently exists. No existing account was promoted or reactivated.
 
@@ -40,4 +40,4 @@ The PostGIS warnings concern Supabase-owned extension objects, including public 
 
 Browser acceptance release source is `c253f77` and delivery migration `20260910090725` is applied. Warehouse supplier and courier cash-task repairs were applied as migrations `20260910084133` and `20260910084148`; operations Edge v15 is active. Stock and order monetary fingerprints remained unchanged, application RPC client grants remain zero, and existing PostGIS advisor findings remain unresolved. Warehouse and courier repairs are verified live at ba912e0. Delivery settings are verified live at 25d4d60. Saved-cart migration 20260910092949 and API v20 are active; saved-cart and composer web release fe9fcb5 is verified live.
 
-Customer directory migration 20260910095523 and main API v22 are active. Eight directory groups and the 19-check browser journey passed; web promotion is pending. Phone/optional-email mobile source d89fb4a passed Android 34462074478, iOS 34462074546 and Expo 34462074506.
+Customer directory migration 20260910095523 and main API v22 are active. Eight directory groups and the 19-check browser journey passed; web release 388b777 is verified live. Phone/optional-email mobile source d89fb4a passed Android 34462074478, iOS 34462074546 and Expo 34462074506.

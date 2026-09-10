@@ -94,3 +94,8 @@ test('warehouse receipt dialog waits for refreshed stock and supplier data',asyn
  const html=[];let resolveCatalog;const wait=new Promise(resolve=>{resolveCatalog=resolve});const context=vm.createContext({...common,document:{body:{dataset:{workspace:'admin'}},addEventListener(){}},$:()=>({}),modal:(title,content)=>{html.push(content);return {}},identity:()=>new Promise(()=>{}),setupConnectivity(){},get:async path=>{assert.equal(path,'/api/ops/catalog');return wait}});
  vm.runInContext(bundle,context);const opening=vm.runInContext('state.catalog=null;newLot()',context);assert.equal(html.length,0);resolveCatalog({stock:[{id:'stock-fixture',name:'صنف فعلي',active:true}],suppliers:[{id:'supplier-fixture',name:'مورد جديد',active:true}]});await opening;assert.equal(html.length,1);assert.match(html[0],/stock-fixture/);assert.match(html[0],/supplier-fixture/);
 });
+
+test('picker uses sold weight bounds and discloses included overfill',async()=>{
+ let html='';const order={id:'weight-order',number:'JN-weight',fulfillment_state:'picking',total_halalas:2000,snapshot:{lines:[{line_id:'weight-line',name:'تفاح',qty:1,components:[{name:'تفاح',base_unit:'gram',base_qty:1000}],weight_policy:{min_base:850,max_base:1100}}]},issues:[],substitutions:[]};
+ const context=vm.createContext({...common,document:{body:{dataset:{workspace:'picker'}},addEventListener(){}},$:()=>({}),$$:()=>[],setupConnectivity(){},identity:()=>new Promise(()=>{}),modal:(title,content)=>{html=content;return {}},get:async()=>order});vm.runInContext(bundle,context);await vm.runInContext("state.user={role:'picker'};pickDialog({id:'weight-order'})",context);assert.match(html,/min="850"/);assert.match(html,/max="1100"/);assert.match(html,/دون رسوم إضافية/);
+});

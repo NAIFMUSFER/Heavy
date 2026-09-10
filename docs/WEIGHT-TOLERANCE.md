@@ -1,0 +1,15 @@
+# Versioned actual-weight rules
+
+Each sellable offering stores `weight_under_bps` and `weight_over_bps` as immutable integer basis points. Changing either requires a new product version. Copying a version preserves both values. Configured ranges apply to a single stock component whose canonical unit is gram. Whole bundles and piece products retain their existing preparation semantics.
+
+The initial compatibility values are 10000 basis points below target and zero above: existing offerings retain their historical lower-weight behavior and cannot overfill. An administrator can narrow the lower tolerance and explicitly allow up to 2000 basis points (20%) extra in a new version. No existing production product is silently opted into extra weight. There is no PostHog rollout change.
+
+A quote freezes the total target grams, integer minimum (rounded up), integer maximum (rounded down), underlying policy and overage pricing. The browser/mobile quote review displays this range. A proposed substitute includes its own policy in the immutable customer consent payload before approval. Later catalog activation cannot change the policy of a previously quoted or sold line. Old snapshots without a policy preserve their original rules.
+
+Extra weight inside the configured range is included in the quoted line price. Lower actual weight reduces the line proportionally; original coupon terms are then recomputed by the existing pricing trigger. This implementation never charges an unreviewed weight surcharge. A future paid-overage mode would require a separate explicit customer price-approval design.
+
+Recording an overfill locks the order, delivery slot, sorted stock balances and lots in the existing allocation order. It transactionally releases/reacquires allocations using accepted, active-stock FEFO lots that remain usable through delivery. Insufficient stock rolls back the entire operation, including the original allocation release. Weight reservation/release movements have their own reason and actor. Lower weights preserve the existing reservation-until-picking behavior; reducing a prior overfill releases its surplus. Final picking consumes and costs the actual allocated quantity.
+
+The assigned picker or administrator is authorized in PostgreSQL. Actual weights outside the sold bounds are rejected server-side. The existing persistent picking idempotency dispatcher returns the original result on same-key retries and rejects changed payloads. Order events and audit records retain the change. Allocation and policy helpers have no direct client or service-role execute grant.
+
+Validation is pending: the new disposable database suite covers quantity scaling, typed policy validation, immutable versions, concurrent retries, competing orders for the last extra stock, FEFO expiry, rollback, lower-weight pricing, original coupons, substitution consent and costing. Browser coverage creates a version using the actual admin editor, reviews its policy at checkout and records/consumes overfill at the quoted price. No production test order or product was created.
