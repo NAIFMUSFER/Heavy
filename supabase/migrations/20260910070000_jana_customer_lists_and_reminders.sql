@@ -15,7 +15,7 @@ BEGIN
   IF q NOT BETWEEN 1 AND 20 OR fid IS NULL OR NOT EXISTS(SELECT 1 FROM public.offerings WHERE family_id=fid) THEN RAISE EXCEPTION 'invalid_list_items';END IF;
  END LOOP;
  IF EXISTS(SELECT 1 FROM jsonb_array_elements(p_items) x GROUP BY x->>'offering_family_id' HAVING sum((x->>'quantity')::integer)>20) THEN RAISE EXCEPTION 'invalid_list_items';END IF;
- SELECT coalesce(jsonb_agg(jsonb_build_object('offering_family_id',fid,'quantity',qty) ORDER BY fid),'[]') INTO result FROM (SELECT x->>'offering_family_id' fid,sum((x->>'quantity')::integer) qty FROM jsonb_array_elements(p_items) x GROUP BY x->>'offering_family_id')s;
+ SELECT coalesce(jsonb_agg(jsonb_build_object('offering_family_id',s.fid,'quantity',s.qty) ORDER BY s.fid),'[]') INTO result FROM (SELECT x->>'offering_family_id' fid,sum((x->>'quantity')::integer) qty FROM jsonb_array_elements(p_items) x GROUP BY x->>'offering_family_id')s;
  RETURN result;
 END$$;
 CREATE FUNCTION public.jana_saved_items_view(p_items jsonb,p_catalog jsonb)
@@ -31,18 +31,18 @@ BEGIN u=public.jana_auth_user(p_token);IF u.role<>'customer' THEN RAISE EXCEPTIO
  RETURN coalesce((SELECT jsonb_agg(jsonb_build_object('id',l.id,'name',l.name,'revision',l.revision,'created_at',l.created_at,'updated_at',l.updated_at,'items',public.jana_saved_items_view(l.items,catalog)) ORDER BY updated_at DESC,id) FROM public.shopping_lists l WHERE user_id=u.id),'[]');END$$;
 CREATE FUNCTION public.jana_save_shopping_list(p_token text,p_list_id text,p_name text,p_items jsonb,p_revision bigint)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,extensions,pg_temp AS $$
-DECLARE u public.users;l public.shopping_lists;items jsonb;nowms bigint:=(extract(epoch from clock_timestamp())*1000)::bigint;
+DECLARE u public.users;l public.shopping_lists;canonical_items jsonb;nowms bigint:=(extract(epoch from clock_timestamp())*1000)::bigint;
 BEGIN
  u=public.jana_auth_user(p_token);IF u.role<>'customer' THEN RAISE EXCEPTION 'forbidden';END IF;
  PERFORM 1 FROM public.users WHERE id=u.id FOR UPDATE;
  IF p_list_id IS NOT NULL THEN SELECT * INTO l FROM public.shopping_lists WHERE id=p_list_id AND user_id=u.id FOR UPDATE;IF l.id IS NULL THEN RAISE EXCEPTION 'list_not_found';END IF;IF p_revision IS DISTINCT FROM l.revision THEN RAISE EXCEPTION 'saved_list_changed';END IF;END IF;
  p_name=trim(coalesce(p_name,l.name,''));IF length(p_name) NOT BETWEEN 1 AND 100 THEN RAISE EXCEPTION 'invalid_list_name';END IF;
  IF p_list_id IS NULL AND p_items IS NULL THEN RAISE EXCEPTION 'invalid_list_items';END IF;
- items=public.jana_saved_items(coalesce(p_items,l.items,'[]'));
+ canonical_items=public.jana_saved_items(coalesce(p_items,l.items,'[]'));
  IF l.id IS NULL THEN
   IF (SELECT count(*) FROM public.shopping_lists WHERE user_id=u.id)>=50 THEN RAISE EXCEPTION 'list_limit';END IF;
-  INSERT INTO public.shopping_lists(id,user_id,name,items,created_at,updated_at) VALUES('lst-'||replace(gen_random_uuid()::text,'-',''),u.id,p_name,items,nowms,nowms) RETURNING * INTO l;
- ELSE UPDATE public.shopping_lists SET name=p_name,items=items,updated_at=nowms,revision=revision+1 WHERE id=l.id RETURNING * INTO l;END IF;
+  INSERT INTO public.shopping_lists(id,user_id,name,items,created_at,updated_at) VALUES('lst-'||replace(gen_random_uuid()::text,'-',''),u.id,p_name,canonical_items,nowms,nowms) RETURNING * INTO l;
+ ELSE UPDATE public.shopping_lists SET name=p_name,items=canonical_items,updated_at=nowms,revision=revision+1 WHERE id=l.id RETURNING * INTO l;END IF;
  RETURN jsonb_build_object('id',l.id,'name',l.name,'revision',l.revision);
 END$$;
 CREATE OR REPLACE FUNCTION public.jana_create_shopping_list(p_token text,p_name text,p_items jsonb)

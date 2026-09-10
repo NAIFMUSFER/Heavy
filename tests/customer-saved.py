@@ -8,7 +8,7 @@ def write(f,key,op,payload,token=None):return rpc('jana_customer_saved_write',to
 def lists(f):return val(rpc('jana_shopping_lists',f['t']))
 def plans(f):return val(rpc('jana_recurring_list',f['t']))
 def now():return val('SELECT (extract(epoch FROM clock_timestamp())*1000)::bigint;')
-f=fixture();item={'offering_family_id':f['p']+'fam','quantity':1};payload={'name':'Weekly fixture','items':[item]};rows=successful(race([write(f,'list-create-once','list.save',payload)]*8));assert len(rows)==8 and all(r==rows[0] for r in rows);l=rows[0];assert len(lists(f))==1;assert balance(f)['reserved']==0 and balance(f)['booked']==0;passed('eight list creation retries save once without reserving stock or capacity')
+f=fixture();item={'offering_family_id':f['p']+'fam','quantity':1};payload={'name':'Weekly fixture','items':[item]};attempts=race([write(f,'list-create-once','list.save',payload)]*8);assert all(x['ok'] for x in attempts),attempts;rows=successful(attempts);assert len(rows)==8 and all(r==rows[0] for r in rows);l=rows[0];assert len(lists(f))==1;assert balance(f)['reserved']==0 and balance(f)['booked']==0;passed('eight list creation retries save once without reserving stock or capacity')
 fails(write(f,'list-create-once','list.save',{'name':'Changed','items':[]}), 'idempotency_conflict')
 for bad in [None,{},[{'offering_family_id':'unknown','quantity':1}],[{**item,'quantity':'1'}],[{**item,'quantity':0}],[{**item,'quantity':1.5}],[{**item,'quantity':21}]]:fails(write(f,'invalid-list-'+str(len(str(bad))),'list.save',{'name':'Invalid fixture','items':bad}),'invalid_list_items')
 passed('saved item validation rejects unknown lineage fractional quantities and malformed input')
