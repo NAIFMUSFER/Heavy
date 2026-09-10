@@ -1,0 +1,49 @@
+name: JANA Browser Commerce Journey
+on:
+  push:
+    branches: [jana-live, jana-integrity]
+    paths: ['assets/**', '*.html', 'server.js', 'supabase/**', 'tests/e2e/**', 'tests/database-history/**', 'scripts/bootstrap-test-database.py', 'scripts/start-test-database.sh', 'tests/postgres.Dockerfile', '.github/workflows/jana-browser-e2e.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      JANA_TEST_DATABASE: disposable
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGDATABASE: jana_test
+      PGUSER: postgres
+      PGPASSWORD: disposable-ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Start disposable PostgreSQL with PostGIS and pg_cron
+        run: bash scripts/start-test-database.sh
+      - name: Replay production migration history
+        run: python3 scripts/bootstrap-test-database.py
+      - name: Create isolated browser accounts and inventory fixture
+        run: python3 tests/e2e/bootstrap.py
+      - name: Start local PostgREST database transport
+        run: bash tests/e2e/start-rest.sh
+      - name: Install pinned browser tools
+        run: |
+          npm ci --ignore-scripts --prefix tests/e2e
+          node tests/e2e/node_modules/playwright/cli.js install --with-deps chromium
+      - name: Exercise real customer warehouse picker courier finance and support interfaces
+        run: node tests/e2e/journey.mjs
+      - name: Retain fixture-only browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jana-disposable-browser-evidence
+          path: evidence/local/browser/
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Remove disposable services
+        if: always()
+        run: docker rm -f jana-test-rest jana-test-postgres
