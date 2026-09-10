@@ -1,0 +1,13 @@
+# Inventory waste, damage and supplier returns
+
+Implementation is awaiting database, browser and deployment verification. Migration draft was created by Supabase CLI 2.117.0 as `20260910144937_jana_inventory_disposals.sql`; the CLI generated the empty file before its post-command network check was interrupted. The filename was verified rather than generated a second time.
+
+Authorized admin/inventory staff open a current lot context, choose waste/damage/supplier return, enter the actual outbound quantity in the canonical stock unit, and provide a reason plus real document reference. The UI explicitly confirms the physical stock reduction. This records a completed physical outbound event; it is not a request or automatic approval system.
+
+The transaction checks the physical revision and locks the stock balance before the lot, following the same order as reservation and counting. It refuses pending/rejected lots and quantities above unreserved stock. Supplier returns require a canonical supplier on the lot, including an inactive historical supplier. The same lot/kind/document reference cannot be posted twice, even with a different idempotency key. Identical idempotent retries return the prior result after the original revision has changed; changed payloads are rejected.
+
+Each event creates an immutable disposal record, stock movement, cost-ledger entry and audit event in the same transaction. The original recorded/estimated/unknown cost classification is preserved, and missing cost never becomes zero. Any failure rolls back all changes. A disposal advances the physical revision and makes earlier counts stale. It does not touch quote allocations, order prices, COD liabilities or supplier financial balances. Returned cash or supplier credit requires a separate future financial workflow.
+
+`GET /api/ops/lots/:id/disposal` supplies the current inventory context. `POST` on the same path requires `Idempotency-Key`, `kind`, `quantity_base`, `revision`, `reason` and `reference`. Server code resolves stock, supplier, actor and cost. `GET /api/ops/disposals` offers 50-row keyset pages using paired `before_at`/`before_id` cursors. Admin/inventory/finance may read history; only admin/inventory may record outbound quantities. Client database roles receive neither direct table access nor RPC EXECUTE grants.
+
+This phase covers accepted usable inventory, including expired lots for physical disposal. It does not implement quarantine, customer return inspection, returns of rejected incoming receipts, supplier credit notes or separate warehouse stock pools. Reserved goods must first be resolved through the real order workflow; this API cannot silently discard reserved produce.

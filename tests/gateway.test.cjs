@@ -51,3 +51,6 @@ test('map images are allowed only on the operations document without expanding s
  assert.match(admin.headers.get('content-security-policy'),/connect-src 'self';/);assert.match(admin.headers.get('content-security-policy'),/script-src 'self';/);
  assert.ok(!shop.headers.get('content-security-policy').includes('tile.openstreetmap.org'));assert.equal(admin.headers.get('referrer-policy'),'same-origin');
 });
+test('disposal history and lot disposal routes use the trusted operations Edge',async t=>{
+ const f=await fixture(t);for(const [path,method]of [['/api/ops/disposals','GET'],['/api/ops/lots/fixture-lot/disposal','GET'],['/api/ops/lots/fixture-lot/disposal','POST']]){const r=await fetch(f.base+path,{method,...(method==='POST'?{headers:{'content-type':'application/json'},body:'{}'}:{})});assert.equal(r.status,200);assert.ok(f.calls.at(-1)[0].includes('/jana-ops-extra'+path))}
+});

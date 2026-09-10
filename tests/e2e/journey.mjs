@@ -185,6 +185,16 @@ try{
  const actualInput=admin.locator('[data-actual] [name=actual_base]');assert.equal(await actualInput.getAttribute('min'),'800');assert.equal(await actualInput.getAttribute('max'),'1200');await actualInput.fill('1100');
  const weightResult=await change(admin,'/api/ops/orders/'+weightOrder.id+'/actual',()=>admin.locator('[data-actual] button').click());assert.equal(weightResult.total_halalas,2000);assert.deepEqual(stock(),{on_hand:9101,reserved:1100});
  await change(admin,'/api/ops/orders/'+weightOrder.id+'/finalize',()=>admin.locator('[data-finalize]').click());assert.deepEqual(stock(),{on_hand:8001,reserved:0});pass('reviewed weight range permits real extra stock with no extra customer charge and consumes actual quantity');
+ phase='inventory disposal and finance evidence';
+ await inventory.locator('[data-action=refresh]').click();
+ let disposed=0;
+ for(const [kind,quantity]of [['waste',100],['damage',50],['supplier_return',50]]){
+  await inventory.locator('[data-action=dispose-lot][data-id="'+lot.id+'"]').click();const form=inventory.locator('#disposal-form');await form.locator('[name=kind]').selectOption(kind);await form.locator('[name=quantity_base]').fill(String(quantity));await form.locator('[name=reference]').fill('E2E-DISPOSAL-'+kind);await form.locator('[name=reason]').fill('إخراج موثق في اختبار المستودع');
+  const event=await change(inventory,'/api/ops/lots/'+lot.id+'/disposal',()=>form.locator('button[type=submit]').click());assert.equal(event.kind,kind);assert.equal(event.quantity_base,quantity);assert.equal(event.value_halalas,quantity);assert.equal(event.cost_basis,'recorded');disposed+=quantity;assert.deepEqual(stock(),{on_hand:8001-disposed,reserved:0});
+ }
+ pass('warehouse records waste damage and supplier return with actual stock and cost movements');
+ await finance.locator('[data-page=disposals]').click();await finance.getByText('E2E-DISPOSAL-supplier_return',{exact:false}).waitFor();assert.equal(await finance.locator('.data-table tbody tr').count(),3);assert.equal(await finance.locator('[data-action=dispose-lot]').count(),0);assert.equal(Number(sql("SELECT count(*) FROM audit_log WHERE action='inventory_disposed';")),3);
+ pass('finance reviews immutable disposal documents without recording supplier repayment or gaining write access');
  assert.deepEqual(errors,[],'Browser JavaScript errors');assert.deepEqual(harness.failures,[],'Gateway server errors');
  pass('all seven role interfaces complete the real database journey without JavaScript or server errors');
  await fs.writeFile(output+'/results.json',JSON.stringify({status:'passed',checks},null,2));

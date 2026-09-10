@@ -185,3 +185,11 @@ test('optional-email registration forwards no invented address and only customer
 test('phone login uses the canonical password authentication RPC',async()=>{
  calls=[];response={user:{id:'fixture'},token:'fixture-token',csrf:'fixture-csrf'};const r=await handlers['jana-api'](request('jana-api','/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({identifier:'0500000002',password:'Fixture-password-123'})}));assert.equal(r.status,200);assert.ok(calls[0].url.endsWith('/jana_login'));assert.equal(calls[0].body.p_email,'0500000002');assert.equal(r.headers.getSetCookie().length,2);
 });
+test('disposal requires idempotency and forwards only canonical operation inputs',async()=>{
+ calls=[];response={id:'disposal-fixture'};const body={kind:'waste',quantity_base:100,revision:0,reason:'Fixture reason',reference:'Fixture reference',actor_id:'ignored-client-actor',value_halalas:1};
+ let r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/lots/fixture-lot/disposal',{method:'POST',headers:bearer,body:JSON.stringify(body)}));assert.equal(r.status,422);assert.equal(calls.length,0);
+ r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/lots/fixture-lot/disposal',{method:'POST',headers:{...bearer,'idempotency-key':'disposal-fixture-key'},body:JSON.stringify(body)}));assert.equal(r.status,201);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_inventory_dispose'));assert.equal(calls[0].body.p_payload.actor_id,undefined);assert.equal(calls[0].body.p_payload.value_halalas,undefined);assert.equal(calls[0].body.p_payload.lot_id,'fixture-lot');
+});
+test('malformed disposal pagination is rejected before database access',async()=>{
+ calls=[];const r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/disposals?before_at=123',{headers:bearer}));assert.equal(r.status,422);assert.equal(calls.length,0);
+});
