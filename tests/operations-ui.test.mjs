@@ -26,3 +26,16 @@ test('assembled finance page displays recorded zero and negative estimates disti
  assert.match(r.html,/هامش الربح التقديري<\/span><strong[^>]*>[\u200e\u061c]?-5%/);
  assert.match(r.html,/تفاح &amp; موز/);
 });
+test('product administration renders grouped sizes and confirms draft activation separately',async()=>{
+ const root={innerHTML:''};const listeners={};const calls=[];let consent=false;
+ const catalog={product_families:[{id:'family',name:'فاكهة'}],product_versions:[{id:'active-version',family_id:'family',version:1,title:'فاكهة',description:'',state:'active'},{id:'draft-version',family_id:'family',version:2,title:'فاكهة جديدة',description:'',state:'draft'}],offerings:[{id:'size-a',product_version_id:'active-version',size_label:'500 g',sale_unit:'kg',price_halalas:1200,active:true},{id:'size-b',product_version_id:'active-version',size_label:'1 kg',sale_unit:'kg',price_halalas:2200,active:true},{id:'draft-size',product_version_id:'draft-version',size_label:'2 kg',sale_unit:'kg',price_halalas:4000,active:false}]};
+ const context=vm.createContext({...common,document:{body:{dataset:{workspace:'admin'}},addEventListener:(type,fn)=>{listeners[type]=fn}},$:()=>root,setupConnectivity(){},identity:()=>new Promise(()=>{}),confirm:()=>consent,toast(){},get:async p=>{assert.equal(p,'/api/ops/catalog');return catalog},post:async p=>{calls.push(p);return {state:'active'}}});
+ vm.runInContext(bundle,context);await vm.runInContext("state.user={name:'Admin fixture',role:'admin'};state.page='catalog';render()",context);
+ assert.match(root.innerHTML,/500 g/);assert.match(root.innerHTML,/1 kg/);assert.match(root.innerHTML,/2 kg/);
+ assert.equal((root.innerHTML.match(/data-action="activate-product-version"/g)||[]).length,1);
+ assert.match(root.innerHTML,/data-action="activate-product-version" data-id="draft-version"/);
+ assert.doesNotMatch(root.innerHTML,/data-action="toggle-offering" data-id="draft-size"/);
+ const button={dataset:{action:'activate-product-version',id:'draft-version'},innerHTML:'Activate',isConnected:true};
+ await listeners.click({target:{closest:()=>button}});assert.equal(calls.length,0);
+ consent=true;await listeners.click({target:{closest:()=>button}});assert.deepEqual(calls,['/api/ops/product-versions/draft-version/activate']);
+});
