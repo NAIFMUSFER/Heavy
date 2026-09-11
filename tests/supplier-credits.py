@@ -16,7 +16,8 @@ def history(f,token=None,*cursor):return val(rpc('jana_supplier_credit_reconcili
 
 f,supplier=prepare();event=disposal(f);body=credit(f,f['atok'],'same-credit-retry',event)
 rows=successful(race([body]*16));assert len(rows)==16 and all(x==rows[0] for x in rows);record=rows[0]
-assert record['amount_halalas']==75 and record['credited_halalas']==75 and record['inventory_value_halalas']==100 and record['inventory_cost_basis']=='recorded'
+assert event['value_halalas']==10 and event['cost_basis']=='recorded'
+assert record['amount_halalas']==75 and record['credited_halalas']==75 and record['inventory_value_halalas']==event['value_halalas'] and record['inventory_cost_basis']==event['cost_basis']
 assert val('SELECT count(*) FROM supplier_credit_notes WHERE disposal_id='+literal(event['id'])+'::uuid;')==1
 assert val("SELECT count(*) FROM audit_log WHERE action='supplier_credit_recorded' AND entity_id="+literal(record['id'])+';')==1
 assert balance(f)['on_hand']==9900
@@ -26,7 +27,7 @@ fails(credit(f,f['atok'],'different-key',event,1),'supplier_credit_reference_exi
 assert val('SELECT count(*) FROM supplier_credit_notes;')==1
 passed('changed retry and duplicate supplier document cannot double-record credit')
 
-row=history(f)['items'][0];assert row['credit_count']==1 and row['credited_halalas']==75 and row['inventory_value_halalas']==100 and row['variance_to_inventory_cost_halalas']==-25
+row=history(f)['items'][0];assert row['credit_count']==1 and row['credited_halalas']==75 and row['inventory_value_halalas']==event['value_halalas'] and row['variance_to_inventory_cost_halalas']==75-event['value_halalas']
 assert row['credit_notes'][0]['reference']=='CREDIT-FIXTURE' and row['credit_notes'][0]['actor_name']
 passed('reconciliation keeps supplier evidence separate from reference inventory cost')
 fails('UPDATE supplier_credit_notes SET amount_halalas=76 WHERE id='+literal(record['id'])+'::uuid;','append_only')
