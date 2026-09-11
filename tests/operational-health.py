@@ -16,7 +16,7 @@ f=fixture();p=f['p'];q=val(quote(f,'operational-health-quote'))
 run('UPDATE sessions SET expires_at=(extract(epoch from now())*1000)::bigint+600000 WHERE user_id IN ('+','.join(literal(p+x) for x in ['u','a','c'])+');')
 baseline=observe(fresh)
 assert baseline['schema_version']==1 and baseline['scheduler_enabled'] is True
-assert baseline['ok'] is True and baseline['alert_count']==0 and len(baseline['jobs'])==2 and len(baseline['queues'])==3
+assert baseline['ok'] is True and baseline['alert_count']==0 and len(baseline['jobs'])==2 and len(baseline['queues'])==3,baseline
 assert all(x['status']=='ok' and x['age_ms']>=0 for x in baseline['jobs'])
 passed('healthy scheduled jobs and empty overdue queues are explicitly observed')
 

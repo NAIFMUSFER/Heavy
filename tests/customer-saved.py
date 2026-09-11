@@ -30,13 +30,19 @@ assert val("SELECT count(*) FROM notifications WHERE user_id="+literal(f['p']+'u
 val(write(f,'pause-reminder','recurring.save',{'plan_id':plan['id'],'changes':{'state':'paused','revision':plan['revision']}}));run('UPDATE recurring_plans SET next_at=1 WHERE id='+literal(plan['id'])+';');val('SELECT jana_recurring_reminders();');assert val("SELECT count(*) FROM notifications WHERE user_id="+literal(f['p']+'u')+" AND dedupe_key LIKE 'recurring-%';")==1;plan=plans(f)[0];fails(write(f,'resume-past-reminder','recurring.save',{'plan_id':plan['id'],'changes':{'state':'active','revision':plan['revision']}}),'invalid_reminder_date');val(write(f,'cancel-reminder','recurring.save',{'plan_id':plan['id'],'changes':{'state':'cancelled','revision':plan['revision']}}));plan=plans(f)[0];fails(write(f,'revive-cancelled-reminder','recurring.save',{'plan_id':plan['id'],'changes':{'state':'active','next_at':now()+3600000,'revision':plan['revision']}}),'plan_cancelled');passed('pause and cancellation stop reminders and reactivation cannot silently use an expired schedule')
 # The scheduler test changes cadence only inside the disposable localhost database.
 import time
-scheduled=val(write(f,'scheduled-reminder','recurring.save',{'changes':{**payload,'next_at':now()+200}}));val("SELECT cron.schedule('jana-recurring-reminders','2 seconds','SELECT public.jana_recurring_reminders();');")
-deadline=time.monotonic()+12
-while time.monotonic()<deadline:
- if val('SELECT count(*) FROM notifications WHERE dedupe_key LIKE '+literal('recurring-'+scheduled['id']+'-%')+';')==1:break
- time.sleep(0.5)
-else:raise AssertionError('Recurring pg_cron job did not deliver the in-app reminder')
-assert val("SELECT count(*) FROM cron.job_run_details d JOIN cron.job j USING(jobid) WHERE j.jobname='jana-recurring-reminders' AND d.status='succeeded';")>=1
+original_job=val("SELECT to_jsonb(j) FROM cron.job j WHERE jobname='jana-recurring-reminders';")
+scheduled=val(write(f,'scheduled-reminder','recurring.save',{'changes':{**payload,'next_at':now()+200}}))
+try:
+ val("SELECT cron.schedule('jana-recurring-reminders','2 seconds','SELECT public.jana_recurring_reminders();');")
+ deadline=time.monotonic()+12
+ while time.monotonic()<deadline:
+  if val('SELECT count(*) FROM notifications WHERE dedupe_key LIKE '+literal('recurring-'+scheduled['id']+'-%')+';')==1:break
+  time.sleep(0.5)
+ else:raise AssertionError('Recurring pg_cron job did not deliver the in-app reminder')
+ assert val("SELECT count(*) FROM cron.job_run_details d JOIN cron.job j USING(jobid) WHERE j.jobname='jana-recurring-reminders' AND d.status='succeeded';")>=1
+finally:
+ run('SELECT cron.alter_job('+str(original_job['jobid'])+',schedule:='+literal(original_job['schedule'])+',command:='+literal(original_job['command'])+');')
+ assert val("SELECT to_jsonb(j) FROM cron.job j WHERE jobname='jana-recurring-reminders';")==original_job
 passed('actual pg_cron execution delivers a due in-app reminder without external providers')
 assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname LIKE 'jana_%' AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE')); ")==0;assert not val("SELECT to_jsonb(has_function_privilege('service_role','public.jana_next_reminder(bigint,text,integer,integer)','EXECUTE')); ");passed('saved-data functions and scheduler are unavailable to direct client roles')
 print(json.dumps({'passed':len(checks),'checks':checks}))

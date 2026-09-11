@@ -16,7 +16,7 @@ test('operational page shows a stopped task and truthful capped backlog with nex
  assert.match(r.root.innerHTML,/data-operational-summary="attention"/);assert.match(r.root.innerHTML,/المهمة متوقفة/);assert.match(r.root.innerHTML,/أكثر من 1,000/);assert.match(r.root.innerHTML,/راجع المهمة المسؤولة/);assert.doesNotMatch(r.root.innerHTML,/<pre>|command|password|token/);
 });
 test('healthy operations are observed at a stated time with no claim of external alert delivery',async()=>{
- const r=harness(async()=>healthy());await r.render();assert.match(r.root.innerHTML,/data-operational-summary="ok"/);assert.match(r.root.innerHTML,/وقت الفحص/);assert.match(r.root.innerHTML,/تحتاج قناة تشغيل معتمدة/);assert.equal((r.root.innerHTML.match(/data-operational-job=/g)||[]).length,2);assert.equal((r.root.innerHTML.match(/data-operational-queue=/g)||[]).length,3);
+ const r=harness(async()=>healthy());await r.render();assert.match(r.root.innerHTML,/data-operational-summary="ok"/);assert.match(r.root.innerHTML,/وقت الفحص/);assert.match(r.root.innerHTML,/مضى 1 ثانية/);assert.match(r.root.innerHTML,/تحتاج قناة تشغيل معتمدة/);assert.equal((r.root.innerHTML.match(/data-operational-job=/g)||[]).length,2);assert.equal((r.root.innerHTML.match(/data-operational-queue=/g)||[]).length,3);
 });
 test('old or malformed operational evidence cannot be presented as healthy',async()=>{
  const samples=[{ok:true},healthy(),healthy(),healthy(),healthy()];samples[1].operations.jobs[0]=null;samples[2].operations.queues[0].count=2;samples[3].operations.alert_count=1;samples[4].operations.jobs[0].status='unexpected';
