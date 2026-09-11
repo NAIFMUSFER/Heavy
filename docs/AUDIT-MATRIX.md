@@ -36,3 +36,7 @@ This matrix describes implemented source. Exact release/deployment/build evidenc
 5. Before Riyadh/Jeddah or another warehouse: implement warehouse/location ownership, routing and stock segregation, approved basket component variance/substitution rules and supplier credit accounting.
 
 Supabase-owned PostGIS advisor findings remain documented platform limitations. Do not alter system-object ownership or invent policies to silence advisors. Service-only JANA application permissions are checked separately. Historical failed runs and recoveries stay in RELEASE-EVIDENCE.md.
+
+## Recovery regression extension — 11 September 2026
+
+An isolated populated-fixture backup/restore workflow and guard tests are implemented in the review branch; its first full execution is pending. See [RECOVERY-REHEARSAL.md](RECOVERY-REHEARSAL.md). Do not mark actual production backup recovery or RPO/RTO complete from this regression gate.

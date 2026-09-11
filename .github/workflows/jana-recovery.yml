@@ -1,0 +1,43 @@
+name: JANA Isolated Recovery Rehearsal
+on:
+  push:
+    branches: [jana-integrity, jana-live]
+    paths: ['supabase/**', 'tests/database-history/**', 'tests/database_support.py', 'tests/database-critical-writes.sql', 'tests/storefront_fixture.py', 'tests/database_recovery.py', 'tests/recovery_guard_test.py', 'scripts/bootstrap-test-database.py', 'scripts/start-test-database.sh', 'tests/postgres.Dockerfile', '.github/workflows/jana-recovery.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jana-recovery-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      JANA_TEST_DATABASE: disposable
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGDATABASE: jana_test
+      PGUSER: postgres
+      PGPASSWORD: disposable-ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check recovery target and comparison guards without a database
+        run: python3 -m unittest discover -s tests -p 'recovery_guard_test.py' -v
+      - name: Start fresh fixture-only PostgreSQL
+        run: bash scripts/start-test-database.sh
+      - name: Replay reviewed schema and isolated storefront fixture
+        run: python3 scripts/bootstrap-test-database.py
+      - name: Restore fixtures into a separate network-isolated database and verify integrity
+        run: python3 tests/database_recovery.py
+      - name: Retain only aggregate fixture recovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jana-fixture-recovery-evidence
+          path: evidence/local/recovery/rehearsal.json
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Remove disposable recovery and source containers and volumes
+        if: always()
+        run: docker rm -f -v jana-recovery-postgres jana-test-postgres
