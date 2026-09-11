@@ -297,6 +297,18 @@ test('custody business conflicts surface as actionable HTTP errors',async()=>{
  }
 });
 
+test('bin writes require idempotency and forward only canonical reference fields',async()=>{
+ calls=[];response={id:'bin-fixture',revision:1};const body={warehouse_id:'warehouse-a',code:'A-01',label:'Cold shelf',active:false,reason:'Physical shelf verified',actor_id:'ignored',balance:999};
+ let r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/bins',{method:'POST',headers:bearer,body:JSON.stringify(body)}));assert.equal(r.status,422);assert.equal(calls.length,0);
+ r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/bins',{method:'POST',headers:{...bearer,'idempotency-key':'bin-create-fixture'},body:JSON.stringify(body)}));assert.equal(r.status,201);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_inventory_bin_write'));assert.equal(calls[0].body.p_operation,'bin.save');assert.deepEqual(calls[0].body.p_payload,{id:null,revision:null,reason:body.reason,changes:{warehouse_id:body.warehouse_id,code:body.code,label:body.label,active:false}});
+ calls=[];response={stock_id:'stock-a',bin_id:'bin-a'};r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/stock/stock-a/bin',{method:'POST',headers:{...bearer,'idempotency-key':'bin-assign-fixture'},body:JSON.stringify({stock_id:'foreign',bin_id:'bin-a',reason:'Shelf assignment',quantity:999})}));assert.equal(r.status,200);assert.deepEqual(calls[0].body.p_payload,{stock_id:'stock-a',bin_id:'bin-a',reason:'Shelf assignment'});
+});
+test('bin conflicts surface as actionable HTTP errors',async()=>{
+ for(const [message,status,code] of [['bin_validation',422,'BIN_VALIDATION'],['bin_not_found',404,'BIN_NOT_FOUND'],['bin_changed',409,'BIN_CHANGED'],['bin_assigned',409,'BIN_ASSIGNED'],['bin_inactive',409,'BIN_INACTIVE'],['bin_code_exists',409,'BIN_CODE_EXISTS']]){
+  calls=[];response={_error:message,status};const r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/bins/bin-a',{method:'PATCH',headers:{...bearer,'idempotency-key':'bin-error-fixture'},body:'{"revision":1,"reason":"Fixture change"}'}));assert.equal(r.status,status);assert.equal((await r.json()).error.code,code);
+ }
+});
+
 for(const [route,operation]of [['draft','draft.save'],['publish','profile.publish'],['intake','intake.set']])test(`store ${operation} requires idempotency and forwards the canonical operation`,async()=>{
  calls=[];response={revision:1};const path='/api/ops/storefront/'+route,body={revision:0,profile:{}};
  let r=await handlers['jana-api'](request('jana-api',path,{method:'POST',headers:bearer,body:JSON.stringify(body)}));assert.equal(r.status,422);assert.equal(calls.length,0);

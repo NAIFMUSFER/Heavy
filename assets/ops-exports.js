@@ -48,11 +48,12 @@ export function inventoryReviewCsv(catalog={},generatedAt=Date.now()){
   if(lot?.id)linked.add(lot.id);
   rows.push([
    t(generated),t(item?.id||lot?.stock_id||''),t(item?.name||''),t(item?.base_unit||''),t(item?.active===true?'نشط':item?'متوقف':''),
+   t(item?.bin_code||''),t(item?.bin_label||''),t(item?.bin_warehouse_id||''),
    n(Number.isSafeInteger(item?.on_hand_base)?item.on_hand_base:null),n(Number.isSafeInteger(item?.reserved_base)?item.reserved_base:null),n(Number.isSafeInteger(item?.available_base)?item.available_base:null),n(Number.isSafeInteger(item?.sellable_base)?item.sellable_base:null),n(Number.isSafeInteger(item?.reorder_base)?item.reorder_base:null),t(item?.stock_status||''),
    t(lot?.id||''),t(lot?.supplier_id?suppliers.get(lot.supplier_id)?.name||'':''),t(lot?.receipt_reference||''),n(Number.isSafeInteger(lot?.received_base)?lot.received_base:null),n(Number.isSafeInteger(lot?.on_hand_base)?lot.on_hand_base:null),n(Number.isSafeInteger(lot?.reserved_base)?lot.reserved_base:null),t(lot?.inspection_state||''),t(iso(lot?.expires_at))
   ]);
  };
  for(const item of stocks){const current=lots.filter(x=>x.stock_id===item.id);if(current.length)current.forEach(x=>add(item,x));else add(item)}
  for(const lot of lots)if(!linked.has(lot.id))add(null,lot);
- return csv(['تاريخ_التصدير_UTC','معرف_المخزون','اسم_المخزون','وحدة_الأساس','حالة_الصنف','الموجود_الإجمالي','المحجوز_الإجمالي','غير_المحجوز','الصالح_للبيع','حد_إعادة_الطلب','حالة_الرصيد','معرف_الدفعة','المورد','مرجع_الاستلام','الكمية_المستلمة','موجود_الدفعة','محجوز_الدفعة','حالة_الفحص','انتهاء_الصلاحية_UTC'],rows);
+ return csv(['تاريخ_التصدير_UTC','معرف_المخزون','اسم_المخزون','وحدة_الأساس','حالة_الصنف','رمز_الموقع_المرجعي','وصف_الموقع','معرف_المستودع','الموجود_الإجمالي','المحجوز_الإجمالي','غير_المحجوز','الصالح_للبيع','حد_إعادة_الطلب','حالة_الرصيد','معرف_الدفعة','المورد','مرجع_الاستلام','الكمية_المستلمة','موجود_الدفعة','محجوز_الدفعة','حالة_الفحص','انتهاء_الصلاحية_UTC'],rows);
 }

@@ -44,6 +44,8 @@ The supported first-market topology is one active launch warehouse. Its owner-en
 
 Commercial readiness counts only available slots whose zone belongs to the active warehouse, reports unlinked available slots separately and refuses opening when the route is incomplete. While intake is open the active warehouse cannot be deactivated. This protects the initial single-hub order journey; it does not partition stock balances, FEFO lots or assignments across multiple warehouses. A second active hub remains blocked until that wider model is implemented and accepted.
 
+Within that single active warehouse, operations may define inactive-by-default physical bin codes and assign one preferred bin to each stock item. The assignment is a finding aid only: it never moves or reserves stock, changes a lot, or implies that quantities were counted in that bin. Activating a bin requires the active launch warehouse, and an assigned bin cannot be stopped until its stock references are removed. Actual codes and assignments remain owner-entered; no production location is guessed. Per-bin or per-hub quantities and FEFO allocation remain a separate multiwarehouse requirement.
+
 ## Password change
 
 `POST /api/auth/password` requires the current password and the existing cookie CSRF protection. Replacements require at least 12 Unicode characters and at most 72 UTF-8 bytes. The database locks the account, revalidates the session after locking, changes the hash and revokes **every** account session, including the caller. Login already holds a shared account lock, so concurrent login/rotation cannot leave an old-password session alive. Audit metadata contains no credentials.
