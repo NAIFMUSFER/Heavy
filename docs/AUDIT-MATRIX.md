@@ -2,7 +2,7 @@
 
 This matrix describes implemented source. Exact release/deployment/build evidence and historical failures are retained in RELEASE-EVIDENCE.md and the release handoff. A passing build is not physical operating acceptance or a signed store release.
 
-Latest verified web release: **0dc5784e0fac03b668203668a1ef231aa40fd3e4**, LIVE **11 September 2026 at 10:03:23 UTC** via Render **dep-daht3jbm8hqs73d9hj70**. Exact-commit [public smoke](https://github.com/NAIFMUSFER/Heavy/actions/runs/34587134163) passed 26 checks. Supabase has **89 migrations**, ACTIVE **jana-api v32**, jana-critical v6 and jana-ops-extra v22. Admin operational observations are published, including stopped/stale jobs and overdue work. Older dated checkpoints below retain historical states.
+Latest verified web release: **f0a92d8b11b5e93b64b77c281bb656f6bb78cd38**, LIVE **11 September 2026 at 10:47:22 UTC** via Render **dep-dahto7ad0e5s738teiag**. Exact-commit [public smoke](https://github.com/NAIFMUSFER/Heavy/actions/runs/34590772038) passed **27 checks**. This release passed **310 Node tests**, **76 browser checks** and isolated capacity; Supabase remains at **89 migrations**, ACTIVE **jana-api v32**, jana-critical v6 and jana-ops-extra v22. The owner/team link hub, bookmarked setup center and merchant-draft protection are published alongside prior operational observations. All 48 monitored commercial/configuration table counts and hashes are unchanged. Older dated checkpoints below retain historical states.
 
 **Commercial launch is not complete.** Store admission remains closed until actual merchant information, policies, inventory, geography and operating acceptance pass the existing readiness gate. No invented percentage represents readiness.
 
