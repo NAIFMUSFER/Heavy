@@ -144,18 +144,37 @@ passed('rejection preserves the measured shortage original basket terms and rese
 
 f=setup();replacement=replacement_stock(f,'بديل منتهي');val(record(f,payload(f,1999,6)));before=current(f);stocks=selected_stock(f['p']+'st',f['piece'],replacement)
 proposal=val(rpc('jana_picking_write',f['atok'],'component-sub-expire-propose','component.substitution.propose',dict(order_id=f['order'],line_id=f['line'],component_id=f['p']+'st',replacement_stock_id=replacement)))
-run('BEGIN; ALTER TABLE substitutions DISABLE TRIGGER jana_substitution_history_guard; UPDATE substitutions SET expires_at=0 WHERE id='+literal(proposal['id'])+'; ALTER TABLE substitutions ENABLE TRIGGER jana_substitution_history_guard; COMMIT;')
+fails('UPDATE substitutions SET expires_at=0 WHERE id='+literal(proposal['id'])+';','immutable_substitution_history')
+# Time-travel fixture is inserted with a past expiry; immutable history stays enabled.
+val(rpc('jana_picking_write',f['t'],'component-expiry-setup-reject','substitution.decide',dict(substitution_id=proposal['id'],accept=False)))
+expired='sub-'+uuid.uuid4().hex
+run('INSERT INTO substitutions(id,order_id,line_id,component_id,proposed,default_action,state,expires_at,actor_id,created_at) SELECT '+literal(expired)+",order_id,line_id,component_id,proposed,default_action,'pending',1,actor_id,1 FROM substitutions WHERE id="+literal(proposal['id'])+'; UPDATE orders SET fulfillment_state=\'awaiting_customer\' WHERE id='+literal(f['order'])+';')
 assert val('SELECT jana_expire_substitutions();')==1
-assert current(f)['snapshot']==before['snapshot'] and selected_stock(f['p']+'st',f['piece'],replacement)==stocks and val('SELECT state FROM substitutions WHERE id='+literal(proposal['id'])+';')=='expired'
+assert current(f)['snapshot']==before['snapshot'] and selected_stock(f['p']+'st',f['piece'],replacement)==stocks and val('SELECT to_jsonb(state) FROM substitutions WHERE id='+literal(expired)+';')=='expired'
+assert val("SELECT count(*) FROM order_events WHERE order_id="+literal(f['order'])+" AND event='component_substitution_expired';")==1
+fails(finish(f),'basket_components_unresolved')
 passed('expiry records a distinct component event without implicit consent or inventory change')
 
 f=setup();replacement=replacement_stock(f,'بديل تحقق');piece_replacement=replacement_stock(f,'بديل قطع','piece',100);before=current(f)
 request=lambda key,component,repl:rpc('jana_picking_write',f['atok'],key,'component.substitution.propose',dict(order_id=f['order'],line_id=f['line'],component_id=component,replacement_stock_id=repl))
 fails(request('component-no-check',f['p']+'st',replacement),'basket_components_unresolved')
 val(record(f,payload(f,1999,6)))
+before=current(f)
 for key,component,repl in [('component-same','x',replacement),('component-unit',f['p']+'st',piece_replacement),('component-present',f['p']+'st',f['piece']),('component-self',f['p']+'st',f['p']+'st')]:fails(request(key,component,repl),'invalid_substitution')
-assert current(f)['snapshot']==before['snapshot'] or current(f)['snapshot']['lines'][0]['component_check']['items'][0]['actual_base']==1999
+assert current(f)==before
 passed('component replacement rejects missing shortage wrong component unit self and duplicate basket stock')
+
+f=setup(qty=1);other=setup(qty=1);replacement=replacement_stock(f,'بديل مشترك محدود',amount=1000)
+decisions=[];snapshots=[]
+for item in [f,other]:
+ val(record(item,payload(item,500,3)))
+ proposal=val(rpc('jana_picking_write',item['atok'],'component-last-stock-propose','component.substitution.propose',dict(order_id=item['order'],line_id=item['line'],component_id=item['p']+'st',replacement_stock_id=replacement)))
+ snapshots.append(current(item));decisions.append(rpc('jana_picking_write',item['t'],'component-last-stock-accept','substitution.decide',dict(substitution_id=proposal['id'],accept=True)))
+attempts=race(decisions);assert len(successful(attempts))==1 and all(r['ok'] or 'insufficient_stock' in r['error'] for r in attempts),attempts
+for n,item in enumerate([f,other]):
+ if not attempts[n]['ok']:assert current(item)==snapshots[n] and balance(item)['reserved']==1000
+assert val('SELECT reserved_base FROM stock_balances WHERE stock_id='+literal(replacement)+';')==1000
+passed('competing component approvals cannot reserve the last replacement twice and losing consent rolls back the complete original order')
 
 assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('jana_picker_record_components','jana_basket_components_match','jana_order_picking_revision','jana_issue_picking_revision','jana_propose_component_substitution') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE'));")==0
 assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('jana_basket_components_match','jana_order_picking_revision','jana_issue_picking_revision','jana_reallocate_order') AND has_function_privilege('service_role',oid,'EXECUTE');")==0

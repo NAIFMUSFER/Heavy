@@ -348,6 +348,46 @@ try{
  const completeBasket=await change(admin,'/api/ops/orders/'+basketOrder.id+'/components',()=>admin.locator('[data-components] button').click());assert.ok(completeBasket.matches);await admin.getByText('تم تسجيل جميع المكونات بالكميات المطلوبة',{exact:true}).waitFor();
  await change(admin,'/api/ops/orders/'+basketOrder.id+'/finalize',()=>admin.locator('[data-finalize]').click());assert.deepEqual(stock(),{on_hand:5861,reserved:0});assert.equal(Number(sql('SELECT on_hand_base FROM stock_balances WHERE stock_id='+literal(basketPiece.id)+';')),94);assert.equal(Number(sql('SELECT total_halalas FROM orders WHERE id='+literal(basketOrder.id)+';')),4000);
  pass('corrected gram and piece measurements permit exact FEFO consumption at the customer-approved basket price');
+
+ phase='customer-approved basket component replacement';
+ const componentStock=await fixturePost(inventory,'/api/ops/stock',{name:'بديل مكوّن اختبار المتصفح',base_unit:'gram'});
+ const componentLot=await fixturePost(inventory,'/api/ops/lots',{stock_id:componentStock.id,received_base:4000,total_cost_halalas:800,expires_at:Date.now()+3*86400000,receipt_reference:'E2E-COMPONENT-REPLACEMENT'});
+ await fixturePost(inventory,'/api/ops/lots/'+componentLot.id+'/inspect',{state:'accepted',note:'فحص بديل المكون'});
+ const componentBalance=()=>value('SELECT jsonb_build_object(\'on_hand\',on_hand_base,\'reserved\',reserved_base) FROM stock_balances WHERE stock_id='+literal(componentStock.id)+';');
+ await closeModal(customer);await customer.locator('[data-view=shop]:visible').first().click();await customer.locator('[data-add="'+basketVersion.offerings[0].id+'"]').click();await customer.locator('[data-action=cart]').first().click();await customer.locator('#checkout').click();await customer.locator('[data-address]').first().click();
+ await change(customer,'/api/quotes',()=>customer.locator('[data-slot="'+fixture.slot_id+'"]').click());
+ const componentOrder=await change(customer,'/api/orders',()=>customer.locator('#confirm-order').click());
+ await admin.locator('[data-page=orders]').click();await change(admin,'/api/ops/orders/'+componentOrder.id+'/start',()=>admin.locator('[data-action=start][data-id="'+componentOrder.id+'"]').click());await admin.locator('[data-action=open-pick][data-id="'+componentOrder.id+'"]').click();
+ await admin.locator('[data-components] [name=component_0]').fill('0');await admin.locator('[data-components] [name=component_1]').fill('3');await admin.locator('[data-components] [name=measured]').check();
+ await change(admin,'/api/ops/orders/'+componentOrder.id+'/components',()=>admin.locator('[data-components] button').click());
+ const componentBefore=value('SELECT to_jsonb(snapshot) FROM orders WHERE id='+literal(componentOrder.id)+';'),originalBalance=stock();
+ async function proposeComponent(){
+  await admin.locator('[data-component-sub="'+fixture.stock_id+'"]').click();
+  const form=admin.locator('#component-substitution-form');await form.waitFor();
+  const available=await form.locator('option').evaluateAll(nodes=>nodes.map(n=>n.value));assert.ok(available.includes(componentStock.id));assert.ok(!available.includes(fixture.stock_id)&&!available.includes(basketPiece.id));
+  await form.locator('[name=replacement_stock_id]').selectOption(componentStock.id);
+  return change(admin,'/api/ops/orders/'+componentOrder.id+'/component-substitution',()=>form.locator('button').click());
+ }
+ const rejectedComponent=await proposeComponent();assert.equal(rejectedComponent.proposed.action,'replace_component');assert.equal(rejectedComponent.proposed.total_halalas,2000);assert.equal(rejectedComponent.proposed.price_difference_halalas,0);
+ assert.deepEqual(stock(),originalBalance);assert.deepEqual(componentBalance(),{on_hand:4000,reserved:0});assert.deepEqual(value('SELECT to_jsonb(snapshot) FROM orders WHERE id='+literal(componentOrder.id)+';'),componentBefore);
+ pass('picker component button opens matching stock choices and proposal preserves the full snapshot and reservations');
+ await closeModal(customer);await customer.setViewportSize({width:390,height:844});await customer.locator('[data-view=orders]:visible').first().click();await customer.locator('[data-order="'+componentOrder.id+'"]').click();
+ await customer.getByRole('heading',{name:'اقتراح استبدال مكوّن في السلة'}).waitFor();assert.ok(await customer.locator('[data-sub="'+rejectedComponent.id+'"][data-accept=true]').isEnabled());
+ await change(customer,'/api/substitutions/'+rejectedComponent.id+'/decision',()=>customer.locator('[data-sub="'+rejectedComponent.id+'"][data-accept=false]').click());
+ await change(admin,'/api/ops/orders/'+componentOrder.id+'/picking',()=>admin.locator('[data-pick-refresh]').click(),'GET');await admin.locator('[data-components]').waitFor();assert.ok(await admin.locator('[data-finalize]').isDisabled());assert.deepEqual(stock(),originalBalance);assert.deepEqual(componentBalance(),{on_hand:4000,reserved:0});
+ pass('customer rejects a component proposal on phone width and the original shortage remains blocked without inventory change');
+ const approvedComponent=await proposeComponent();
+ await change(customer,'/api/orders/'+componentOrder.id,()=>customer.locator('#refresh-order').click(),'GET');await customer.locator('[data-sub="'+approvedComponent.id+'"][data-accept=true]').waitFor();
+ assert.ok(await customer.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await customer.screenshot({path:output+'/component-consent-phone.png',fullPage:false});
+ const componentDecision=await change(customer,'/api/substitutions/'+approvedComponent.id+'/decision',()=>customer.locator('[data-sub="'+approvedComponent.id+'"][data-accept=true]').click());assert.equal(componentDecision.action,'replace_component');assert.equal(componentDecision.total_halalas,2000);
+ assert.deepEqual(stock(),{on_hand:5861,reserved:0});assert.deepEqual(componentBalance(),{on_hand:4000,reserved:1000});
+ await change(admin,'/api/ops/orders/'+componentOrder.id+'/picking',()=>admin.locator('[data-pick-refresh]').click(),'GET');await admin.locator('[data-components]').waitFor();assert.equal(await admin.locator('[name=component_0]').inputValue(),'');assert.equal(await admin.locator('[name=component_1]').inputValue(),'');assert.ok(await admin.locator('[data-finalize]').isDisabled());
+ pass('explicit phone consent reallocates the replacement once at the frozen total and requires fresh measurements');
+ await admin.locator('[name=component_0]').fill('1000');await admin.locator('[name=component_1]').fill('3');await admin.locator('[name=measured]').check();
+ await change(admin,'/api/ops/orders/'+componentOrder.id+'/components',()=>admin.locator('[data-components] button').click());await admin.getByText('تم تسجيل جميع المكونات بالكميات المطلوبة',{exact:true}).waitFor();
+ await change(admin,'/api/ops/orders/'+componentOrder.id+'/finalize',()=>admin.locator('[data-finalize]').click());assert.deepEqual(stock(),{on_hand:5861,reserved:0});assert.deepEqual(componentBalance(),{on_hand:3000,reserved:0});assert.equal(Number(sql('SELECT on_hand_base FROM stock_balances WHERE stock_id='+literal(basketPiece.id)+';')),91);
+ assert.equal(Number(sql('SELECT total_halalas FROM orders WHERE id='+literal(componentOrder.id)+';')),2000);
+ pass('preparation consumes only the approved component composition and preserves the agreed basket price');
  phase='external notification state';
  const channelState=await change(admin,'/api/ops/notification-jobs',()=>admin.locator('[data-page=notification-jobs]').click(),'GET');assert.ok(channelState.channels.every(x=>!x.enabled));assert.equal(channelState.items.length,0);assert.ok(Number(sql('SELECT count(*) FROM notifications;'))>0);assert.equal(Number(sql('SELECT count(*) FROM notification_outbox;')),0);await admin.getByText('لا توجد محاولات إرسال خارجية').waitFor();pass('core in-app notifications persist while all external channels and outbound jobs remain disabled');
 
