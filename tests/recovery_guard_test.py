@@ -99,6 +99,14 @@ class RecoveryGuardTests(unittest.TestCase):
         expected = "CHECK (state = ANY (ARRAY[('owner''s'::character varying)::text]))"
         self.assertEqual(expected,module.canonical_constraint(original))
 
+    def test_partial_index_casts_preserve_columns_order_and_predicate(self):
+        original = "CREATE INDEX tasks ON public.orders USING btree (picker_id, created_at DESC, id DESC) WHERE (((status)::text = 'active'::text) AND ((fulfillment_state)::text = ANY ((ARRAY['queued'::character varying, 'picking'::character varying])::text[])))"
+        restored = original.replace("((ARRAY['queued'::character varying, 'picking'::character varying])::text[])", "(ARRAY[('queued'::character varying)::text, ('picking'::character varying)::text])")
+        canonical = module.canonical_constraint(original)
+        self.assertEqual(canonical,module.canonical_constraint(restored))
+        for before,after in [('picker_id','courier_id'),('DESC','ASC'),("'active'","'cancelled'"),("'picking'","'ready'")]:
+            self.assertNotEqual(canonical,module.canonical_constraint(restored.replace(before,after)))
+
 
 if __name__ == '__main__':
     unittest.main()

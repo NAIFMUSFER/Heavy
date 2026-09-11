@@ -16,7 +16,7 @@ def all_pages(token,first=None):
 
 def staff(f,suffix,role):
  token=secrets.token_hex(32);uid=f['p']+suffix
- run("INSERT INTO users(id,email,name,password_hash,role,active,created_at) VALUES("+','.join(map(literal,[uid,uid+'@example.invalid','Paging fixture','unused',role]))+",true,(extract(epoch FROM clock_timestamp())*1000)::bigint); INSERT INTO sessions(token_hash,user_id,csrf_hash,expires_at,created_at) VALUES(encode(extensions.digest("+literal(token)+",'sha256'),'hex'),"+literal(uid)+",'unused',(extract(epoch FROM clock_timestamp())*1000)::bigint+600000,(extract(epoch FROM clock_timestamp())*1000)::bigint);")
+ run("INSERT INTO users(id,email,name,password_hash,role,verified_phone,active,created_at) VALUES("+','.join(map(literal,[uid,uid+'@example.invalid','Paging fixture','unused',role]))+",false,true,(extract(epoch FROM clock_timestamp())*1000)::bigint); INSERT INTO sessions(token_hash,user_id,csrf_hash,expires_at,created_at) VALUES(encode(extensions.digest("+literal(token)+",'sha256'),'hex'),"+literal(uid)+",'unused',(extract(epoch FROM clock_timestamp())*1000)::bigint+600000,(extract(epoch FROM clock_timestamp())*1000)::bigint);")
  return token,uid
 
 f=fixture(stock=30000,capacity=30);p=f['p']

@@ -329,7 +329,7 @@ try{
 
  phase='staff order pagination and failed page retry';
  const expectedStaff=Number(sql('SELECT count(*) FROM orders;'));
- await closeModal(admin);await admin.setViewportSize({width:390,height:844});
+ if(await admin.locator('dialog[open] [data-close]').count())await closeModal(admin);await admin.setViewportSize({width:390,height:844});
  await change(admin,'/api/ops/orders',()=>admin.locator('[data-page=orders]').click(),'GET');
  await admin.locator('[data-action=orders-more]').waitFor();assert.equal(await admin.locator('[data-action=detail]').count(),50);
  await admin.route('**/api/ops/orders?*',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:{code:'FIXTURE_UNAVAILABLE',message:'تعذر تحميل الصفحة التجريبية'}})}));

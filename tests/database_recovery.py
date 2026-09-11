@@ -158,6 +158,9 @@ def snapshot(container):
         rows = records(container, query)
         if category == 'constraints':
             rows = [dict(row,definition=canonical_constraint(row['definition'])) for row in rows]
+        elif category == 'indexes':
+            # Partial-index predicates use the same literal-array cast reparse.
+            rows = [dict(row,indexdef=canonical_constraint(row['indexdef'])) for row in rows]
         result['metadata'][category] = {'rows': len(rows), 'sha256': digest(rows)}
     sequences = records(container, """SELECT n.nspname,c.relname FROM pg_class c
         JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -283,6 +286,14 @@ def main():
         passed('full custom-format schema and data archive restored atomically; archive removed')
 
         after = snapshot(TARGET)
+        original_indexes = records(SOURCE, METADATA['indexes'])
+        restored_indexes = records(TARGET, METADATA['indexes'])
+        if original_indexes != restored_indexes:
+            # Schema definitions only. Retain exact evidence even if the narrowly
+            # normalized literal casts compare equal; any other drift still fails.
+            changed_indexes = {'source_only':[r for r in original_indexes if r not in restored_indexes],
+                               'restored_only':[r for r in restored_indexes if r not in original_indexes]}
+            print('Index metadata differences: ' + json.dumps(changed_indexes),flush=True)
         if before['metadata']['constraints'] != after['metadata']['constraints']:
             original = records(SOURCE, METADATA['constraints'])
             restored = records(TARGET, METADATA['constraints'])
