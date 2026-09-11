@@ -1,4 +1,27 @@
-# Release evidence — 10 September 2026
+# Release evidence — JANA
+
+## Supplier pickup directory published — 12 September 2026 (Saudi Arabia)
+
+**Published source:** `e9c0b2cabc978becd0b1d66854094a4153d77a42` on `jana-live`. Render **dep-dai8q1id0e5s73foivfg** became LIVE on **11 September 2026 at 23:22:04 UTC** (12 September in Saudi Arabia). The public smoke log confirmed that exact commit and **30 successful checks** at 23:22:20 UTC, including consistent release identity, dependency health and the public assets. No automatic deployment appeared after promotion. The existing public-clone configuration was reverified in Render's build logs; after checking that no deploy was pending/running, one manual deploy followed the documented OPERATIONS-RUNBOOK procedure. No service setting, plan or unrelated resource changed.
+
+**Implemented:** phase 1 of the owner's no-warehouse model, not a renamed inventory workflow. Existing suppliers can have multiple audited pickup locations with draft/reviewed activation, revision conflict protection and idempotent saves. Admin/operations maintain them; the picker sees active locations with explicit navigation/contact links. Arabic/Persian coordinates work on phone-width web forms. This directory creates no inventory, purchase, order or financial record. The owner handoff, launch guidance and ongoing work instructions now prioritize supplier procurement. Legacy records and interfaces are retained, not deleted.
+
+**Tests on the released commit:**
+
+- [Verification and public smoke 34657501205](https://github.com/NAIFMUSFER/Heavy/actions/runs/34657501205): **353 Node tests, zero failed**, and **30 production checks**.
+- [Browser 34657501100](https://github.com/NAIFMUSFER/Heavy/actions/runs/34657501100): **86 PASS checks**, including supplier address entry with Arabic coordinates and the picker's active-only read/navigation on isolated fixtures.
+- [Database 34657501048](https://github.com/NAIFMUSFER/Heavy/actions/runs/34657501048): complete disposable PostgreSQL replay/integrity suite, including **six supplier-directory groups** covering retry, concurrent revision edits, roles, activation, paging, private grants, audit and unchanged business fingerprints.
+- [Recovery 34657501141](https://github.com/NAIFMUSFER/Heavy/actions/runs/34657501141) and [capacity 34657501118](https://github.com/NAIFMUSFER/Heavy/actions/runs/34657501118): successful isolated rehearsals. Existing warehouse journeys are retained compatibility regressions, not acceptance of warehouse-free procurement.
+
+Review source `1e8652d381c5c8135a0b11885d26ee77c4a35c70` first passed verification/database/recovery/capacity. Its [browser run 34656869224](https://github.com/NAIFMUSFER/Heavy/actions/runs/34656869224) failed because one handoff assertion still expected the old inventory link. The assertion was corrected to the supplier directory without weakening it; [review browser 34657021477](https://github.com/NAIFMUSFER/Heavy/actions/runs/34657021477) then passed on `e9c0b2ca` before promotion. The earlier failure is not counted as a pass.
+
+**Applied backend:** Supabase **97 migrations**; `jana_supplier_pickup_sites` applied as actual version **20260911231328** from the byte-identical tested file `supabase/migrations/20260911224904_jana_supplier_pickup_sites.sql` (planned repository timestamp retained; this is one migration, not two). SQL Git blob **2a013b3f1a8e81479d8298793acfd4ae7f45a180**. **jana-ops-extra v27** is ACTIVE from the released source with unchanged `http.ts`; **jana-api v33** and **jana-critical v6** were not redeployed. Custom sessions and intentional `verify_jwt:false` are preserved.
+
+**Production safety:** all **12** observed business-table counts/hashes matched before migration, after backend application and after web publication. Pickup-site count is **zero**; no supplier, warehouse, stock, order, purchase or cash fixture was created. New-table RLS is enabled; direct anon/authenticated table access and new-RPC EXECUTE are denied, while service-role RPC execution is allowed. Intake remains **false** and deep health is **true**, with zero stock/reservation/slot/duplicate-order/cash violations. Render error-level logs were empty from 23:21:40 through the post-publication check. Existing platform-owned security findings are unchanged; the new private RLS table adds only the expected [no-policy informational notice](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy). No newly unindexed pickup foreign key was reported.
+
+**Still incomplete:** warehouse-free catalog availability/quote/order admission, assigned multi-supplier purchasing, collected quantities and actual cost/document evidence, customer-approved shortages, courier handover and supplier/employee settlement. Retail prices are not recalculated from purchase cost and no margin/fee policy is invented. No native source changed, no native build was rerun, and no physical-device or signed store acceptance is claimed. Keep intake closed until that replacement is implemented, tested and accepted. The owner can provide real supplier addresses, retail catalog/prices, delivery coverage and financial operating rules now; no warehouse or fictitious balance is required.
+
+The damaged prior documentation was restored and regression-protected in this release. Subsequent evidence-only updates remain on `jana-integrity`; verify remote blob hashes and readable content, not merely an upload success response.
 
 ## Supplier-pickup model correction and directory candidate — 12 September 2026 (Saudi Arabia)
 

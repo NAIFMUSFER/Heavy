@@ -6,7 +6,7 @@
 
 The commercial intake remains closed during this transition. Do not bypass the current stock/route guards or open sales merely because pickup addresses have been entered. A location directory does not implement order procurement.
 
-## Implemented candidate: supplier locations
+## Implemented phase 1: supplier locations
 
 - Existing supplier IDs remain authoritative; each supplier/retailer can have multiple pickup locations. No suppliers, locations or balances are seeded.
 - Admin and the existing `inventory` operations role maintain draft/active locations with an explicit reason, optimistic revision, durable idempotency and an audit trail. Technical role identifiers remain unchanged to preserve sessions and permissions.
@@ -31,6 +31,6 @@ Real supplier/shop names and pickup contacts/addresses, approved catalog and ret
 
 ## Evidence and safety
 
-The candidate adds schema/RPC, Edge routing, web forms and regression tests. Refer to [RELEASE-EVIDENCE.md](RELEASE-EVIDENCE.md) for actual CI/application/publication results; source alone is not deployment. The disposable database suite verifies revision races, active/draft filtering, paging, role scope and unchanged warehouse/stock/order/cash/slot fingerprints. Existing legacy tests remain regression protection and are not acceptance of the new business flow.
+Phase 1 adds schema/RPC, Edge routing, web forms and regression tests. Refer to [RELEASE-EVIDENCE.md](RELEASE-EVIDENCE.md) for actual CI/application/publication results; source alone is not deployment. The disposable database suite verifies revision races, active/draft filtering, paging, role scope and unchanged warehouse/stock/order/cash/slot fingerprints. Existing legacy tests remain regression protection and are not acceptance of the new business flow.
 
 Custom-session authentication and intentional `verify_jwt:false` are preserved. Do not create commercial fixtures in production or erase historical records to make a check pass.
