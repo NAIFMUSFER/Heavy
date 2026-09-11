@@ -54,6 +54,9 @@ try{
  assert.equal(await owner.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);await owner.screenshot({path:output+'/owner-launch-phone.png',fullPage:true});
  pass('owner portal preserves the launch bookmark across login and reload on phone width without changing commerce');
  await owner.getByRole('link',{name:'مراجعة المنتجات',exact:true}).click();await owner.locator('[data-action=new-product]').waitFor();assert.equal(new URL(owner.url()).hash,'#catalog');
+ const catalogDownloadEvent=owner.waitForEvent('download');await owner.locator('[data-action=download-catalog-review]').click();const catalogDownload=await catalogDownloadEvent;
+ assert.equal(catalogDownload.suggestedFilename(),'jana-catalog-review.csv');const catalogReview=await fs.readFile(await catalogDownload.path(),'utf8');assert.equal(catalogReview.charCodeAt(0),0xfeff);assert.match(catalogReview,/عنوان_الإصدار/);assert.deepEqual(handoffSnapshot(),handoffBefore);
+ pass('owner can download the current catalog review for Excel without changing commerce');
  await owner.locator('[data-action=import-catalog]').click();const csvHeader='product_key,title,kind,category,description,emoji,image_url,sellable_key,size_label,sale_unit,price_sar,weight_under_percent,weight_over_percent,stock_id,base_qty,list_price_sar';
  const csvRow=['owner-csv','منتج CSV للمراجعة','sized','fruit','','','','one-kg','1 كجم','kg','١٢٫٩٥','','',fixture.stock_id,'1000','٩٫٠٠'].join(',');
  await owner.locator('[data-catalog-file]').setInputFiles({name:'jana-owner-review.csv',mimeType:'text/csv',buffer:Buffer.from(csvHeader+'\r\n'+csvRow)});await owner.locator('[data-catalog-preview]').filter({hasText:/1 منتج.*1 حجم بيع.*1 مكوّن/}).waitFor();
@@ -77,6 +80,9 @@ try{
  const workLink=inventory.getByRole('link',{name:'فتح واجهة التشغيل'});assert.equal(await workLink.getAttribute('href'),'/admin.html');
  await workLink.click();await inventory.locator('.ops-user').waitFor();
  pass('inventory account returns from the storefront to its actual operations workspace');
+ const inventoryDownloadEvent=inventory.waitForEvent('download');await inventory.locator('[data-action=download-inventory-review]').click();const inventoryDownload=await inventoryDownloadEvent;
+ assert.equal(inventoryDownload.suggestedFilename(),'jana-inventory-review.csv');const inventoryReview=await fs.readFile(await inventoryDownload.path(),'utf8');assert.equal(inventoryReview.charCodeAt(0),0xfeff);assert.match(inventoryReview,/الصالح_للبيع/);assert.deepEqual(stock(),{on_hand:1,reserved:0});
+ pass('warehouse can download a read-only physical review file before receiving stock');
  await inventory.locator('[data-action=new-supplier]').click();await inventory.locator('#supplier-form [name=name]').fill('مورد اختبار المتصفح');
  const supplier=await change(inventory,'/api/ops/suppliers',()=>inventory.locator('#supplier-form button').click());
  await inventory.locator('[data-action=new-lot]').click();
