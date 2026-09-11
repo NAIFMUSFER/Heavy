@@ -120,8 +120,8 @@ assert selected_stock(f['p']+'st',f['piece'],replacement)==stocks and movements(
 passed('component proposal requires recorded shortage and freezes same-unit quantity and unchanged basket total without reserving stock')
 
 decision=rpc('jana_picking_write',f['t'],'component-sub-accept','substitution.decide',dict(substitution_id=proposal['id'],accept=True))
-attempts=race([decision]*12);rows=successful(attempts)
-assert len(rows)==12 and all(x==rows[0] for x in rows) and rows[0]['action']=='replace_component',attempts
+attempts=race([decision]*16);rows=successful(attempts)
+assert len(rows)==16 and all(x==rows[0] for x in rows) and rows[0]['action']=='replace_component',attempts
 after=current(f);line=after['snapshot']['lines'][0];assert after['total_halalas']==before['total_halalas'] and after['original_snapshot']==before['original_snapshot']
 assert 'component_check' not in line and replacement in [c['stock_id'] for c in line['components']] and f['p']+'st' not in [c['stock_id'] for c in line['components']]
 assert val('SELECT reserved_base FROM stock_balances WHERE stock_id='+literal(f['p']+'st')+';')==0

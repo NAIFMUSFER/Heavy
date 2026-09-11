@@ -133,7 +133,7 @@ BEGIN
     IF jsonb_array_length(newlines)<1 THEN RAISE EXCEPTION 'cannot_remove_last_line';END IF;
     allocations=public.jana_reallocate_order(o.id,newlines,u.id,'line_removal');
    ELSIF component_swap THEN
-    SELECT jsonb_agg(CASE WHEN l->>'line_id'=s.line_id THEN s.proposed->'replacement_line' ELSE l END ORDER BY n) INTO newlines FROM jsonb_array_elements(o.snapshot::jsonb->'lines') WITH ORDINALITY e(l,n);
+    SELECT jsonb_agg(CASE WHEN l->>'line_id'=s.line_id THEN s.proposed::jsonb->'replacement_line' ELSE l END ORDER BY n) INTO newlines FROM jsonb_array_elements(o.snapshot::jsonb->'lines') WITH ORDINALITY e(l,n);
     IF newlines IS NULL OR NOT EXISTS(SELECT 1 FROM jsonb_array_elements(newlines) l WHERE l->>'line_id'=s.line_id) THEN RAISE EXCEPTION 'invalid_substitution';END IF;
     allocations=public.jana_reallocate_order(o.id,newlines,u.id,'component_substitution');
    ELSE
