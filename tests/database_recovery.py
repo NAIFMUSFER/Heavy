@@ -266,6 +266,13 @@ def main():
         passed('full custom-format schema and data archive restored atomically; archive removed')
 
         after = snapshot(TARGET)
+        if before['metadata']['constraints'] != after['metadata']['constraints']:
+            original = records(SOURCE, METADATA['constraints'])
+            restored = records(TARGET, METADATA['constraints'])
+            changed = {'source_only':[r for r in original if r not in restored],
+                       'restored_only':[r for r in restored if r not in original]}
+            # Structural constraint definitions only; no table contents or credentials.
+            print('Constraint metadata differences: ' + json.dumps(changed),flush=True)
         compare_snapshots(before, after)
         passed('every public table row count and content fingerprint matches')
         passed('RLS policies object ownership RPC definitions and effective grants match')
