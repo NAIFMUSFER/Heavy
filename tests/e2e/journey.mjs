@@ -38,6 +38,31 @@ async function login(role){
 const closeModal=page=>page.locator('dialog[open] [data-close]').first().click();
 const nextSaudiDate=()=>new Date(Date.now()+2*86400000+3*3600000).toISOString().slice(0,16);
 try{
+ phase='owner handoff and bookmarked launch setup';
+ const handoffSnapshot=()=>value("SELECT jsonb_build_object('store',(SELECT to_jsonb(s) FROM storefront_state s WHERE singleton),'profiles',(SELECT count(*) FROM storefront_profiles),'orders',(SELECT count(*) FROM orders),'quotes',(SELECT count(*) FROM quotes),'stock',(SELECT jsonb_agg(to_jsonb(b) ORDER BY stock_id) FROM stock_balances b),'movements',(SELECT count(*) FROM stock_movements));");
+ const handoffBefore=handoffSnapshot();const owner=await pageFor('owner-handoff','/start.html');await owner.setViewportSize({width:390,height:844});
+ assert.equal(await owner.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
+ const roleLinks=await owner.locator('.handoff-grid a').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('href')));assert.deepEqual(roleLinks,['/','/admin.html#inventory','/picker.html#orders','/courier.html#orders','/admin.html#finance','/admin.html#support']);
+ await owner.screenshot({path:output+'/owner-links-phone.png',fullPage:true});await owner.getByRole('link',{name:'فتح مركز إعداد الإطلاق'}).click();await owner.locator('#ops-login').waitFor();assert.equal(new URL(owner.url()).hash,'#launch');
+ await owner.locator('#ops-login').click();await owner.locator('#auth-form [name=email]').fill(fixture.accounts.admin);await owner.locator('#auth-form [name=password]').fill(password);
+ await change(owner,'/api/auth/login',()=>owner.locator('#auth-form button[type=submit]').click());await owner.locator('[data-launch-center]').waitFor();assert.equal(await owner.locator('[data-launch-check]').count(),7);
+ assert.equal(await owner.locator('[data-launch-state]').getAttribute('data-launch-state'),handoffBefore.store.accepting_orders?'open':'closed');
+ await owner.reload();await owner.locator('[data-launch-center]').waitFor();assert.equal(new URL(owner.url()).hash,'#launch');assert.deepEqual(handoffSnapshot(),handoffBefore);
+ assert.equal(await owner.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);await owner.screenshot({path:output+'/owner-launch-phone.png',fullPage:true});
+ pass('owner portal preserves the launch bookmark across login and reload on phone width without changing commerce');
+ await owner.getByRole('link',{name:'مراجعة المنتجات',exact:true}).click();await owner.locator('[data-action=new-product]').waitFor();assert.equal(new URL(owner.url()).hash,'#catalog');
+ await owner.goBack();await owner.locator('[data-launch-center]').waitFor();await owner.goForward();await owner.locator('[data-action=new-product]').waitFor();
+ await owner.locator('.ops-menu [data-page=launch]').click();await owner.getByRole('link',{name:'إكمال بيانات المتجر'}).click();await owner.locator('#store-draft').waitFor();
+ owner.removeAllListeners('dialog');let discardOwnerDraft=false;owner.on('dialog',d=>discardOwnerDraft?d.accept():d.dismiss());
+ const ownerName=owner.locator('#store-draft [name=display_name]');await ownerName.fill('مسودة غير محفوظة لاختبار التسليم');await owner.locator('.ops-menu [data-page=launch]').click();
+ assert.equal(await ownerName.inputValue(),'مسودة غير محفوظة لاختبار التسليم');assert.equal(new URL(owner.url()).hash,'#storefront');assert.deepEqual(handoffSnapshot(),handoffBefore);
+ discardOwnerDraft=true;await owner.locator('.ops-menu [data-page=launch]').click();await owner.locator('[data-launch-center]').waitFor();assert.deepEqual(handoffSnapshot(),handoffBefore);
+ pass('owner section links support browser history and cancelled navigation preserves the unsaved merchant draft');
+ const failLaunchRead=route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:{code:'FIXTURE_OFFLINE',message:'Fixture read failed'}})});
+ await owner.route('**/api/ops/storefront',failLaunchRead);await owner.locator('[data-action=refresh]').click();await owner.locator('[data-launch-state=unknown]').waitFor();
+ await owner.unroute('**/api/ops/storefront',failLaunchRead);await owner.locator('[data-action=refresh]').click();await owner.locator('[data-launch-state="'+(handoffBefore.store.accepting_orders?'open':'closed')+'"]').waitFor();assert.deepEqual(handoffSnapshot(),handoffBefore);
+ pass('launch refresh reports an unavailable admission read and recovers without altering seller approval or stock');
+
  phase='warehouse receipt and inspection';
  const inventory=await login('inventory');
  await inventory.goto(origin+'/');await inventory.locator('[data-view=account]').first().click();
@@ -115,7 +140,12 @@ try{
  phase='merchant policies and intake administration';
  await admin.locator('[data-page=storefront]').click();await admin.locator('#store-draft').waitFor();
  await admin.locator('#store-draft [name=display_name]').fill('متجر اختبار السياسات');
- await change(admin,'/api/ops/storefront/draft',()=>admin.locator('#store-draft button[type=submit]').click());
+ let releaseDraftSave,observeDraftSave;const draftRequestSeen=new Promise(resolve=>{observeDraftSave=resolve}),draftRequestRelease=new Promise(resolve=>{releaseDraftSave=resolve});
+ const delayDraftSave=async route=>{observeDraftSave();await draftRequestRelease;await route.fallback()};await admin.route('**/api/ops/storefront/draft',delayDraftSave);
+ const draftSaving=change(admin,'/api/ops/storefront/draft',()=>admin.locator('#store-draft button[type=submit]').click());await draftRequestSeen;
+ try{assert.equal(await admin.locator('#store-draft [name=display_name]').isDisabled(),true)}finally{releaseDraftSave()}
+ await draftSaving;await admin.unroute('**/api/ops/storefront/draft',delayDraftSave);assert.equal(await admin.locator('#store-draft [name=display_name]').isEnabled(),true);
+ pass('merchant fields stay fixed while their saved revision is in flight and become editable after the actual save');
  await admin.locator('#store-publish-confirm').check();
  const merchant=await change(admin,'/api/ops/storefront/publish',()=>admin.locator('#store-publish').click());assert.equal(merchant.published.profile.display_name,'متجر اختبار السياسات');
  await admin.locator('#store-intake [name=accepting_orders]').selectOption('false');await admin.locator('#store-intake [name=message]').fill('توقف استقبال الطلبات لاختبار التشغيل');await admin.locator('#store-intake [name=reason]').fill('اختبار إيقاف استقبال الطلبات');
@@ -220,7 +250,10 @@ try{
  assert.equal(order().collected,1800);assert.equal(order().settled,0);pass('separate courier collection creates cash liability');
 
  phase='finance settlement';
- const finance=await login('finance');await finance.locator('[data-action=settle]').click();await finance.locator('#settlement-form [name=reference]').fill('E2E-DEPOSIT-001');
+ const finance=await login('finance');const deniedLaunchReads=[];finance.on('request',r=>{if(['/api/ops/storefront','/api/ops/deep-health'].includes(new URL(r.url()).pathname))deniedLaunchReads.push(r.url())});
+ await finance.goto(origin+'/admin.html#launch');await finance.locator('.stat-grid').first().waitFor();assert.equal(new URL(finance.url()).hash,'#dashboard');assert.deepEqual(deniedLaunchReads,[]);assert.equal(await finance.locator('[data-launch-center]').count(),0);
+ await finance.locator('.ops-menu [data-page=orders]').click();await finance.locator('[data-action=settle]').click();await finance.locator('#settlement-form [name=reference]').fill('E2E-DEPOSIT-001');
+ pass('a finance bookmark cannot request the admin launch data and returns to its permitted workspace');
  await change(finance,'/api/ops/orders/'+confirmed.id+'/settle',()=>finance.locator('#settlement-form button').click());assert.equal(order().settled,1800);pass('finance settlement records actual reference and clears liability');
 
  phase='customer support and staff response';

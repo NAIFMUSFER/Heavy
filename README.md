@@ -2,6 +2,8 @@
 
 Arabic RTL produce commerce and operations. **Commercial launch is not yet verified.** Current catalog and inventory include explicitly marked preview records. See [audit matrix](docs/AUDIT-MATRIX.md) for evidence and remaining work.
 
+Owner setup and team links: [handoff portal](https://jana-fresh-app.onrender.com/start.html), [admin launch setup](https://jana-fresh-app.onrender.com/admin.html#launch), and the [Arabic owner handoff guide](docs/OWNER-HANDOFF-ar.md). The release evidence distinguishes implemented candidates from published links; neither opening the portal nor reading setup observations enables sales.
+
 ## Canonical deployment
 
 - Source: `NAIFMUSFER/Heavy`, branch `jana-live` only.
@@ -56,7 +58,7 @@ The full product definition is not complete. Outstanding commercial acceptance, 
 
 ## Transaction and release verification
 
-The isolated PostgreSQL CI gate runs 34 regression checks, ten groups of 16-client concurrency checks, and ten coupon lifecycle/pricing groups. Address ownership/default and actual pg_cron execution tests also pass. Successful database run: 34400862608. The JavaScript suite now has 163 passing tests. See [release evidence](docs/RELEASE-EVIDENCE.md) for current deployment, database, browser and mobile results.
+The isolated PostgreSQL CI gate includes transactional regressions, 16-client concurrency, coupon lifecycle/pricing, address ownership/default and actual pg_cron execution, followed by the later product and operating suites. See [release evidence](docs/RELEASE-EVIDENCE.md) for the current exact-source Node, database, browser, recovery, capacity and mobile results; earlier counts are historical checkpoints.
 
 Coupons support fixed amounts and percentage basis points. Their usage is reserved with stock and delivery capacity, released on quote cancellation/expiry, and redeemed once on confirmation. Confirmed-order cancellation does not restore a redeemed usage. Immutable sold coupon terms govern weight adjustments. A coupon may expire sooner than the usual fifteen-minute quote window. VAT configuration remains outstanding.
 

@@ -2,6 +2,8 @@
 
 Web and Expo share `assets/order.js` / `mobile/order.mjs`; an executable equality test allows only the address-module import extension to differ.
 
+Owner onboarding and team entry points are in [the Arabic handoff guide](OWNER-HANDOFF-ar.md). The web operations portal preserves role-permitted section bookmarks across sign-in/reload and warns before discarding an unsaved merchant draft. The launch center only reads existing setup/health endpoints; it does not create an order, activate intake or attest physical operations. Native customer flows are unchanged by this handoff feature.
+
 ## History and details
 
 `GET /api/orders?limit=25` returns `items` and `next: {before_at,before_id} | null`. Pass both cursor fields to continue. The service-only database function reads at most limit+1 orders in the authenticated account, ordered by `(created_at DESC,id DESC)` using a customer/time/id index. New orders arriving while browsing do not shift later pages. Legacy offset/next_offset requests remain supported with a bounded offset; new clients use the cursor. Invalid or mixed cursor/offset inputs are rejected.

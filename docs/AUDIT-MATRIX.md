@@ -11,6 +11,7 @@ Latest verified web release: **0dc5784e0fac03b668203668a1ef231aa40fd3e4**, LIVE 
 | Isolation/backend | Dedicated JANA Supabase/Render/branches; Node → custom authenticated Edge → transactional PostgreSQL/PostGIS | Dedicated JANA staging and actual operating acceptance |
 | Identity/staff | Email or Saudi phone sign-in; hashed sessions, CSRF/SecureStore; password change/all-session revocation; audited roles, assignment and cash/task safeguards | Verified recipient/recovery flow; actual staff acceptance |
 | Commercial storefront | Private versioned draft, immutable published policies, reviewed intake open/close, frozen seller terms | Actual merchant identity/contacts/tax status and approved policies |
+| Owner handoff | Public team-link portal; role-scoped bookmarked setup sections; read-only launch observations; unsaved merchant draft protection | Owner completes and accepts the [handoff steps](OWNER-HANDOFF-ar.md); current publication evidence below |
 | Catalog | Families, versions, offerings, units, fixed/custom baskets, paginated catalog, images | Actual approved products, prices, photographs; replace preview catalog |
 | Customer web/mobile | Catalog/cart/quote/COD, durable local cart and recovery, exact localized amounts, native account retry, resumed checkout/uncertain-confirmation recovery, server-clock expiry, frozen order details/history/paging, recorded-location tracking | Real customer/device acceptance; signed mobile distribution |
 | Saved data | Profiles, address/default management, favorites, lists, explicit account-saved cart, validated serialized device persistence with retry/reset, recurring reminders with revision/consent | External reminder channels disabled; no automatic cross-tab/device merge |
@@ -30,6 +31,8 @@ Latest verified web release: **0dc5784e0fac03b668203668a1ef231aa40fd3e4**, LIVE 
 | CI/operations | Node/PostgreSQL/recovery/browser/Expo/Android/iOS simulator gates, exact-commit smoke, fixture-only capacity/overload regression, recovery/rotation runbooks; [admin observations](OPERATIONAL-HEALTH.md) for stopped/stale scheduled jobs and overdue queues | Owner-approved staging load, dedicated staging, unattended monitoring/external alert delivery, measured production-backup restore and signed releases |
 
 ## Work order before commercial sales
+
+Start with the [Arabic owner handoff guide and exact role links](OWNER-HANDOFF-ar.md). The setup center preserves actual admission state and separates recorded observations from manual operating acceptance; it neither declares commercial completion nor changes admission.
 
 1. Owner provides actual merchant identity, contacts, registrations/tax status, policies, catalog/prices and intended Jazan geography. Publish reviewed terms without inferring these values.
 2. Operations records actual inspected stock and capacity, creates real staff accounts and accepts the customer → warehouse → courier → cash/refund journey.

@@ -7,6 +7,6 @@ try {
   const target=path.join(tmp,prefix+'.mjs');fs.writeFileSync(target,files.map(f=>fs.readFileSync(f,'utf8')).join(''));
   execFileSync(process.execPath,['--check',target],{stdio:'inherit'});
  }
- for(const f of ['index.html','admin.html','picker.html','courier.html','manifest.webmanifest','sw.js'])if(!fs.statSync(f).isFile())throw Error('Missing public file '+f);
+ for(const f of ['index.html','admin.html','picker.html','courier.html','start.html','manifest.webmanifest','sw.js'])if(!fs.statSync(f).isFile())throw Error('Missing public file '+f);
  console.log('Gateway and browser bundles checked');
 }finally{fs.rmSync(tmp,{recursive:true,force:true})}
