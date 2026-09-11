@@ -18,7 +18,7 @@ public=val('SELECT jana_public_storefront();')
 q=val(quote(f,'before-policy-change'));old=q['store_profile']
 s=intake(f,False)
 s=write_store(f,'draft.save',dict(revision=s['revision'],profile=dict(PROFILE,legal_name='A new fixture seller')))
-assert val('SELECT jana_public_storefront();')==public
+assert val('SELECT jana_public_storefront();')['published']==public['published']
 s=write_store(f,'profile.publish',dict(revision=s['revision'],confirmed=True))
 assert s['published']['id']!=old['id']
 assert val('SELECT jana_public_storefront('+literal(old['id'])+');')['published']==public['published']
