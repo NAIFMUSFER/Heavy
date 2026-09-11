@@ -76,6 +76,13 @@ test('disposal history and lot disposal routes use the trusted operations Edge',
 });
 
 test('stock movement reads use the canonical operations Edge',async t=>{const f=await fixture(t);const r=await fetch(f.base+'/api/ops/movements?reason=waste');assert.equal(r.status,200);assert.ok(f.calls.at(-1)[0].includes('/jana-ops-extra/api/ops/movements?reason=waste'))});
+test('reference bin writes use the operations Edge and redact identifiers',async t=>{
+ const f=await fixture(t),{routeLabel}=require('../server.js');
+ for(const [path,method] of [['/api/ops/bins','POST'],['/api/ops/bins/private-bin','PATCH'],['/api/ops/stock/private-stock/bin','POST']]){
+  const r=await fetch(f.base+path,{method,headers:{'content-type':'application/json'},body:'{}'});
+  assert.equal(r.status,200);assert.ok(f.calls.at(-1)[0].includes('/jana-ops-extra'+path));assert.ok(!routeLabel(path).includes('private'));
+ }
+});
 
 test('customer return routes preserve operations requests while omitting document identifiers from logs',async t=>{
  const f=await fixture(t);
