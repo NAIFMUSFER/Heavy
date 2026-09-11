@@ -36,7 +36,7 @@ JSON mutations use `Content-Type: application/json`. Critical writes send a stab
 | Courier | POST `/api/ops/orders/:id/dispatch`, `/deliver`, `/fail`, `/collect` | Assigned courier; proof, failure reason and cash are separate events |
 | Recorded courier location | POST `/api/ops/orders/:id/location`; GET `/api/orders/:id/tracking` | Explicit foreground location, assignment/active-attempt checks, recorded time; no automatic background publishing |
 | Finance | GET `/api/ops/finance`; POST `/api/ops/orders/:id/settle`; refund completion routes | Authorized finance/admin; explicit source/reference; liability limits |
-| Reports | GET `/api/ops/reports`, `/api/ops/deep-health` | Authorized summaries; unknown cost is not converted into invented profit |
+| Reports | GET `/api/ops/reports`, `/api/ops/deep-health` | Authorized summaries; unknown cost is not converted into invented profit. Admin deep health also returns versioned read-only scheduled-job and overdue-queue observations |
 
 For rows grouping an operational family, the actual supported methods and payloads are defined in the Edge entrypoints and their PostgreSQL RPC signature contracts. This table does not authorize arbitrary verbs or suffixes. The gateway has a fixed upstream/path allowlist.
 

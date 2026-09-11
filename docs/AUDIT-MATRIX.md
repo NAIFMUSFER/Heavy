@@ -27,7 +27,7 @@ Latest verified web release: **bd9d224754e7755c0e07da31dbc566fde0b49ebe**, LIVE 
 | Notifications | Transactional in-app notifications; guarded outbox/leases/retries/uncertainty, Resend adapter and monitoring | Dedicated worker, verified destinations/consent/domain and approved channel activation |
 | Providers/analytics | Server-only provider boundaries, privacy-minimized events, fail-closed flags | Concrete SMS/push/payment/media integrations as selected; dedicated PostHog ingestion verification |
 | Database assurance | Recovered replay, populated fixture backup/restore gate, disposable concurrency tests, immutable ledgers, service-only application RPCs | Real backup restore/recovery timing; supported PostGIS platform-advisor remediation |
-| CI/operations | Node/PostgreSQL/recovery/browser/Expo/Android/iOS simulator gates, exact-commit smoke, fixture-only capacity/overload regression, recovery/rotation runbooks | Owner-approved staging load, dedicated staging, alerts, measured production-backup restore and signed releases |
+| CI/operations | Node/PostgreSQL/recovery/browser/Expo/Android/iOS simulator gates, exact-commit smoke, fixture-only capacity/overload regression, recovery/rotation runbooks; admin observations for stopped/stale scheduled jobs and overdue queues | Owner-approved staging load, dedicated staging, unattended monitoring/external alert delivery, measured production-backup restore and signed releases |
 
 ## Work order before commercial sales
 

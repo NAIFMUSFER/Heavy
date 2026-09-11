@@ -1,9 +1,13 @@
 async function dashboard(){
- const reports=await get('/api/ops/reports');state.reports=reports;
+ const user=state.user,generation=++state.dashboardGeneration;
+ if(user.role==='admin')shell(healthSummary(null,true)+'<p role="status">جار تحديث تقارير التشغيل…</p>');
+ const [reports,health]=await Promise.all([get('/api/ops/reports'),user.role==='admin'?get('/api/ops/deep-health').catch(()=>null):Promise.resolve(null)]);
+ if(state.user!==user||state.page!=='dashboard'||state.dashboardGeneration!==generation)return;
+ state.reports=reports;
  const stat=(label,value)=>`<div class="stat-card"><span>${esc(label)}</span><strong class="stat-value">${esc(value)}</strong></div>`;
  const rows=(items,render,head)=>`<div class="table-wrap"><table class="data-table"><thead>${head}</thead><tbody>${items.map(render).join('')||'<tr><td colspan="3">لا توجد سجلات</td></tr>'}</tbody></table></div>`;
  const costLabel=({recorded:'تكلفة البضاعة مسجلة',estimated:'تتضمن تكاليف مقدرة',unknown:'تكلفة البضاعة غير مكتملة'})[reports.cost_status]||'لم تتحدد جودة بيانات التكلفة';
- shell(`<div class="page-heading"><h1>نظرة على التشغيل</h1><p>آخر 7 أيام بتوقيت السعودية. تُحتسب المبيعات للطلبات المسلّمة.</p></div><div class="stat-grid">${stat('طلبات اليوم',number(reports.today_orders??0))}${stat('مبيعات اليوم',money(reports.today_sales_halalas))}${stat('مبيعات 7 أيام',money(reports.sales_7d_halalas))}${stat('طلبات مكتملة',number(reports.completed_7d??0))}${stat('متوسط الطلب',money(reports.avg_completed_order_halalas))}${stat('استردادات مسجلة',money(reports.refunds_7d_halalas))}${stat('عهدة غير مسواة',money(reports.cash_unsettled_halalas))}${stat('قيمة المخزون ذي التكلفة المعروفة',money(reports.inventory_value_halalas))}</div>
+ shell(`<div class="page-heading"><h1>نظرة على التشغيل</h1><p>آخر 7 أيام بتوقيت السعودية. تُحتسب المبيعات للطلبات المسلّمة.</p></div>${user.role==='admin'?healthSummary(health,true):''}<div class="stat-grid">${stat('طلبات اليوم',number(reports.today_orders??0))}${stat('مبيعات اليوم',money(reports.today_sales_halalas))}${stat('مبيعات 7 أيام',money(reports.sales_7d_halalas))}${stat('طلبات مكتملة',number(reports.completed_7d??0))}${stat('متوسط الطلب',money(reports.avg_completed_order_halalas))}${stat('استردادات مسجلة',money(reports.refunds_7d_halalas))}${stat('عهدة غير مسواة',money(reports.cash_unsettled_halalas))}${stat('قيمة المخزون ذي التكلفة المعروفة',money(reports.inventory_value_halalas))}</div>
  <section class="panel stack"><div class="row between wrap"><h2>التكلفة والربحية</h2><span class="badge ${reports.cost_status==='unknown'?'danger':'neutral'}">${esc(costLabel)}</span></div><div class="stat-grid">${stat('تكلفة بضاعة مسجلة',money(reports.recorded_cogs_7d_halalas))}${stat('تكلفة بضاعة مقدرة',money(reports.estimated_cogs_7d_halalas))}${stat('تكاليف مباشرة مسجلة',money(reports.recorded_direct_costs_7d_halalas))}${stat('الربح التقديري',money(reports.gross_profit_7d_halalas))}${stat('هامش الربح التقديري',Number.isInteger(reports.gross_margin_bps)?number(reports.gross_margin_bps/100)+'%':'غير متاح')}</div><p class="notice">${esc(reports.profit_note||'')}${reports.orders_with_unknown_cost?` توجد ${number(reports.orders_with_unknown_cost)} طلبات بتكلفة غير مكتملة؛ لا يُحسب لها ربح افتراضي.`:''}</p><p>دفعات بتكلفة مجهولة: ${number(reports.inventory_unknown_cost_lots??0)} · دفعات بتكلفة مقدرة: ${number(reports.inventory_estimated_cost_lots??0)}</p></section>
  <section class="panel ops-section"><h2>المبيعات اليومية</h2>${rows(reports.daily||[],d=>`<tr><td>${esc(d.report_day)}</td><td>${number(d.order_count)}</td><td>${money(d.sales_halalas)}</td></tr>`,'<tr><th>اليوم</th><th>الطلبات</th><th>المبيعات</th></tr>')}</section>
  <div class="two-col ops-section"><section class="panel"><h2>حالات الطلبات</h2>${(reports.status_distribution||[]).map(x=>`<div class="component-row">${badge(x.status)}<strong>${number(x.count)}</strong></div>`).join('')||'<p>لا توجد طلبات خلال الفترة.</p>'}</section><section class="panel"><h2>الأصناف الأكثر مبيعًا</h2>${(reports.top_items||[]).map(x=>`<div class="component-row"><span>${esc(x.item_name)}</span><strong>${number(x.qty)}</strong></div>`).join('')||'<p>لا توجد مبيعات مكتملة خلال الفترة.</p>'}</section></div>
@@ -37,7 +41,44 @@ function paidRefundDialog(o,refund=null){
  const amount=refund?.amount_halalas;const d=modal(refund?'تسجيل إرجاع مبلغ الاسترداد':'تسجيل مبلغ أُعيد للعميل',`<form id="paid-refund-form" class="stack">${refund?`<p>${esc(refund.order_number)} · ${money(amount)}</p>`:`${field('amount','المبلغ المعاد بالريال')}${field('reason','سبب الاسترداد')}`}${selectField('payment_source','من أين دُفع المبلغ؟',[['','اختر مصدر المبلغ'],['finance','أموال الشركة'],['courier','النقد الذي لدى المندوب']])}${field('reference','مرجع الدفع الفعلي')}<p class="notice">هذا الإجراء يسجّل مبلغًا أُعيد بالفعل. لا يُجري تحويلًا ماليًا. اختر نقد المندوب فقط إذا أُعيد المبلغ من عهدته.</p><button class="btn primary">تأكيد تسجيل المبلغ المعاد</button></form>`);
  $('#paid-refund-form',d).onsubmit=e=>{e.preventDefault();busy($('button',e.target),async()=>{const x=formData(e.target);const value=refund?amount:parseMoney(x.amount);if(!confirm(`هل أُعيد ${money(value)} للعميل فعلًا بالمرجع ${x.reference}؟`))return;await post(refund?'/api/ops/refunds/'+refund.id+'/complete':'/api/ops/orders/'+o.id+'/refunds',{reference:x.reference,payment_source:x.payment_source,...(refund?{}:{amount_halalas:value,reason:x.reason})});closeModal();toast('تم تسجيل الاسترداد ومصدر المبلغ');await render()}).catch(()=>{})};
 }
-async function healthPage(){const h=await get('/api/ops/deep-health');shell(`<div class="panel"><div class="row between"><h2>فحص قاعدة JANA</h2><span class="badge ${h.ok===true?'success':'danger'}">${h.ok===true?'الفحوص ناجحة':'تحتاج مراجعة'}</span></div><pre>${esc(JSON.stringify(h,null,2))}</pre></div>`)}
+const operationalJobs={quote_expiry:'تحرير الحجوزات وإنهاء مهلة البدائل',recurring_reminders:'تذكيرات قوائم الشراء'};
+const operationalQueues={expired_quotes:'حجوزات انتهت ولم تتحرر',expired_substitutions:'بدائل انتهت ولم تُغلق',overdue_reminders:'تذكيرات تجاوزت موعدها'};
+const jobStates={ok:'تعمل ضمن المهلة',scheduler_disabled:'التشغيل المجدول متوقف',missing_job:'المهمة غير مسجلة',misconfigured:'إعداد المهمة يحتاج تصحيحًا',disabled:'المهمة متوقفة',missing_heartbeat:'لم تُسجل دورة ناجحة',invalid_heartbeat:'وقت آخر نجاح غير صالح',stale:'تأخر آخر نجاح',unknown:'الحالة غير مؤكدة'};
+function operationalData(h){
+ const o=h?.operations;
+ if(!o||o.schema_version!==1||!Number.isSafeInteger(o.checked_at)||o.checked_at<=0||typeof o.ok!=='boolean'||!Number.isSafeInteger(o.alert_count)||o.alert_count<0||!Array.isArray(o.jobs)||!Array.isArray(o.queues))return null;
+ if(o.jobs.length!==2||o.queues.length!==3||Object.keys(operationalJobs).some(code=>o.jobs.filter(j=>j?.code===code&&Object.hasOwn(jobStates,j.status)).length!==1)||Object.keys(operationalQueues).some(code=>o.queues.filter(q=>q?.code===code&&['ok','backlog'].includes(q.status)&&Number.isSafeInteger(q.count)&&q.count>=0&&q.count<=1000&&typeof q.capped==='boolean'&&(!q.capped||q.count===1000)&&(q.status==='ok'?q.count===0&&!q.capped:q.count>0)).length!==1))return null;
+ const alerts=o.jobs.filter(j=>j.status!=='ok').length+o.queues.filter(q=>q.status!=='ok').length;
+ if(o.alert_count!==alerts||o.ok!==(alerts===0))return null;
+ return o;
+}
+function healthSummary(h,link=false){
+ const o=operationalData(h),known=!!o&&typeof h?.ok==='boolean',ok=known&&h.ok&&o.ok;
+ const title=h?.ok===false?'سلامة الأرصدة تحتاج مراجعة':!known?'تعذر تأكيد حالة التشغيل':ok?'لا توجد تنبيهات في هذا الفحص':'توجد تنبيهات تحتاج متابعة';
+ return `<section class="panel stack ops-section" data-operational-summary="${!known?'unknown':ok?'ok':'attention'}" role="status"><div class="row between wrap"><h2>سلامة التشغيل</h2><span class="badge ${ok?'success':'danger'}">${title}</span></div><p>${known?'وقت الفحص: '+date(o.checked_at)+' · التنبيهات: '+number(o.alert_count+(h.ok?0:1)):'لم يصل فحص مكتمل. أعد المحاولة للتحقق؛ لا تُعد الحالة سليمة قبل نجاح الفحص.'}</p>${link?'<button class="btn outline" data-page="health">مراجعة تنبيهات التشغيل</button>':''}</section>`;
+}
+function healthDetails(h){
+ const o=operationalData(h);if(!o)return '';
+ const duration=ms=>Number.isSafeInteger(ms)&&ms>=0?number(Math.ceil(ms/60000))+' دقيقة':'غير مسجل';
+ const issues=[['negative_stock','أرصدة مخزون سالبة'],['reserved_gt_on_hand','حجوزات تتجاوز المخزون'],['overbooked_slots','مواعيد تتجاوز السعة'],['duplicate_quote_orders','طلبات مكررة للحجز نفسه'],['cash_ledger_mismatches','عدم تطابق سجل النقد'],['cash_invariant_violations','مخالفات الأرصدة النقدية']];
+ return `<section class="panel stack ops-section"><h2>المهام المجدولة</h2><p>تعمل كل دقيقة. يظهر التنبيه إذا لم تنجح دورة خلال ثلاث دقائق أو توقف إعداد التشغيل.</p>${o.jobs.map(j=>`<article class="panel stack" data-operational-job="${esc(j.code)}"><div class="row between wrap"><strong>${operationalJobs[j.code]}</strong><span class="badge ${j.status==='ok'?'success':'danger'}">${jobStates[j.status]}</span></div><p>آخر نجاح: ${j.last_success_at>0?date(j.last_success_at):'لم يُسجل'} · مضى ${duration(j.age_ms)}</p>${j.status==='ok'?'':'<p class="notice warning">يلزم فحص تشغيل المهمة وسجل أخطائها. حدّث الصفحة بعد نجاح دورة جديدة؛ لا تُحرر الحجوزات أو تسجّل نجاحًا يدويًا.</p>'}</article>`).join('')}</section>
+ <section class="panel stack ops-section"><h2>مهام تجاوزت المهلة</h2><p>يشمل التنبيه ما تأخر دقيقتين بعد موعده. تعرض الأعداد ألف سجل كحد أقصى لكل نوع.</p>${o.queues.map(q=>`<article class="panel" data-operational-queue="${esc(q.code)}"><div class="row between wrap"><strong>${operationalQueues[q.code]}</strong><span class="badge ${q.status==='ok'?'success':'danger'}">${q.capped?'أكثر من ':''}${number(q.count)}</span></div>${q.count?`<p>أقدم تأخر: ${duration(q.oldest_delay_ms)} · موعده ${date(q.oldest_due_at)}</p><p class="notice warning">راجع المهمة المسؤولة والحجوزات العالقة قبل اعتماد عودة التشغيل. الفحص لا يغيّر الطلبات أو المخزون.</p>`:'<p>لا توجد سجلات تجاوزت المهلة في هذا الفحص.</p>'}</article>`).join('')}</section>
+ <section class="panel stack ops-section"><h2>سلامة الأرصدة والمعاملات</h2><div class="stat-grid">${issues.map(([key,label])=>`<div class="stat-card"><span>${label}</span><strong>${Number.isSafeInteger(h[key])?number(h[key]):'غير متاح'}</strong></div>`).join('')}</div><p>الفحص يعرض حالة هذه اللحظة. التنبيهات الخارجية والمراقبة أثناء إغلاق اللوحة تحتاج قناة تشغيل معتمدة.</p></section>`;
+}
+async function healthPage(){
+ const user=state.user,generation=++state.healthGeneration;
+ if(user?.role!=='admin')throw Error('هذه الصفحة متاحة للمدير فقط');
+ shell('<section class="panel" role="status" data-operational-loading>جار فحص المهام والأرصدة…</section>');
+ try{
+  const h=await get('/api/ops/deep-health');
+  if(state.user!==user||state.page!=='health'||state.healthGeneration!==generation)return;
+  shell(healthSummary(h)+healthDetails(h));
+ }catch(error){
+  if(state.user!==user||state.page!=='health'||state.healthGeneration!==generation)return;
+  if(error.code==='AUTH_REQUIRED'){state.user=null;login();return}
+  shell(healthSummary(null));
+ }
+}
 async function loadCatalog(){state.catalog=await get('/api/ops/catalog');return state.catalog}
 async function catalogPage(){
  const c=await loadCatalog();const stateName={draft:'مسودة',active:'مفعّل',retired:'إصدار سابق'};

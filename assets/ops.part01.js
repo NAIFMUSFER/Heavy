@@ -1,5 +1,5 @@
 import {substitutionReview,qty,$,$$,esc,money,number,parseMoney,date,badge,empty,get,getAll,post,patch,modal,closeModal,toast,busy,formData,identity,loginDialog,setupConnectivity,field,selectField,ticketCategories,ticketThread} from './common.js'; import {zoneMapMarkup,mountZoneMap} from './zone-map.js'; import {orderLinks} from './order.js'; import {locationFailure} from './address.js';
-const root=$('#ops-app'),workspace=document.body.dataset.workspace;const state={user:null,page:'orders',orders:[],ordersNext:null,ordersGeneration:0,ordersLoading:null,reports:null,staff:[],catalog:null};
+const root=$('#ops-app'),workspace=document.body.dataset.workspace;const state={user:null,page:'orders',orders:[],ordersNext:null,ordersGeneration:0,ordersLoading:null,healthGeneration:0,dashboardGeneration:0,reports:null,staff:[],catalog:null};
 const staffRoles=[['admin','مدير'],['inventory','المستودع'],['picker','التجهيز'],['courier','التوصيل'],['support','الدعم'],['finance','المالية']];
 const staffRoleName=role=>staffRoles.find(x=>x[0]===role)?.[1]||role;
 const roleTitle={admin:'لوحة التشغيل',picker:'التجهيز',courier:'التوصيل',finance:'المالية',support:'خدمة العملاء',inventory:'المستودع'};

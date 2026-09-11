@@ -32,6 +32,8 @@ For application failure, create a new reviewed commit restoring the last known-c
 
 If checkout failures increase, inspect structured request IDs, status/latency, Render logs, Edge errors and PostgreSQL invariants. Avoid repeating orders or cash operations to diagnose health. Inspect `worker_runs` and `cron.job_run_details` if quote/substitution expiration stalls. Failed or rejected cash operations must not be recorded as successful externally.
 
+The admin dashboard now summarizes scheduled-job and overdue-queue observations and links to **سلامة النظام**. Review the last successful cycle, oldest overdue work and database invariants there; refresh after correcting a verified cause. A failed refresh is unknown, not recovered. The page performs no repair or business write. See [OPERATIONAL-HEALTH.md](OPERATIONAL-HEALTH.md) for thresholds, scope and the remaining external-alert delivery requirement.
+
 Rotate secrets only inside JANA-owned configuration. Keep service-role credentials out of the browser, mobile and gateway. Validate Edge dependencies after rotation and revoke the previous credential after successful cutover. Custom session revocation is performed through JANA session records; do not assume rotating a Supabase API key invalidates opaque customer sessions. Never print secrets in logs or commit them.
 
 ## Configuration still required

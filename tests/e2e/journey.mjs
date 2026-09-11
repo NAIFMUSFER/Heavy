@@ -391,6 +391,33 @@ try{
  phase='external notification state';
  const channelState=await change(admin,'/api/ops/notification-jobs',()=>admin.locator('[data-page=notification-jobs]').click(),'GET');assert.ok(channelState.channels.every(x=>!x.enabled));assert.equal(channelState.items.length,0);assert.ok(Number(sql('SELECT count(*) FROM notifications;'))>0);assert.equal(Number(sql('SELECT count(*) FROM notification_outbox;')),0);await admin.getByText('لا توجد محاولات إرسال خارجية').waitFor();pass('core in-app notifications persist while all external channels and outbound jobs remain disabled');
 
+ phase='operational monitoring';
+ const scheduleBefore=value("SELECT jsonb_agg(jsonb_build_object('id',jobid,'active',active)) FROM cron.job WHERE jobname='jana-quote-expiry';");
+ const monitoredBusiness=()=>value("SELECT jsonb_build_object('orders',(SELECT count(*) FROM orders),'stock',(SELECT jsonb_agg(to_jsonb(b) ORDER BY stock_id) FROM stock_balances b),'slots',(SELECT jsonb_agg(jsonb_build_object('id',id,'booked',booked) ORDER BY id) FROM delivery_slots));");
+ try{
+  sql("SELECT cron.alter_job(jobid,active:=false) FROM cron.job WHERE jobname='jana-quote-expiry';");
+  const monitoredBefore=monitoredBusiness();await admin.setViewportSize({width:390,height:844});
+  const health=await change(admin,'/api/ops/deep-health',()=>admin.locator('[data-page=health]').click(),'GET');
+  assert.equal(health.operations.jobs.find(j=>j.code==='quote_expiry').status,'disabled');
+  await admin.locator('[data-operational-summary=attention]').waitFor();await admin.locator('[data-operational-job=quote_expiry]').getByText('المهمة متوقفة',{exact:true}).waitFor();
+  assert.deepEqual(monitoredBusiness(),monitoredBefore);assert.ok(await admin.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await admin.screenshot({path:output+'/operational-alert-phone.png',fullPage:true});
+  pass('phone operations page reveals a disabled expiry job and preserves real order stock and slot data');
+  await admin.route('**/api/ops/deep-health',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:{code:'UNAVAILABLE',message:'Fixture monitor unavailable'}})}));
+  await admin.locator('[data-action=refresh]').click();await admin.locator('[data-operational-summary=unknown]').waitFor();
+  assert.equal(await admin.locator('[data-operational-job]').count(),0);assert.deepEqual(monitoredBusiness(),monitoredBefore);
+  await admin.unroute('**/api/ops/deep-health');
+  pass('failed monitoring refresh clears the previous status and reports uncertainty without writing data');
+ }finally{
+  await admin.unroute('**/api/ops/deep-health');
+  for(const j of scheduleBefore)sql('SELECT cron.alter_job('+j.id+',active:='+j.active+');');
+ }
+ sql('SELECT public.jana_expiry_worker();SELECT public.jana_recurring_reminders();');
+ await change(admin,'/api/ops/deep-health',()=>admin.locator('[data-action=refresh]').click(),'GET');await admin.locator('[data-operational-summary=ok]').waitFor();
+ const customerHealth=await customer.evaluate(()=>fetch('/api/ops/deep-health').then(r=>r.status));assert.equal(customerHealth,403);
+ await admin.setViewportSize({width:1365,height:1000});
+ pass('successful worker recovery refreshes the monitor and customer access remains denied');
+
  phase='customer order history pagination';
  const historyPrefix=fixture.prefix.slice(0,14)+'h';
  sql("INSERT INTO quotes SELECT clone.* FROM quotes q CROSS JOIN generate_series(1,115)n CROSS JOIN LATERAL jsonb_populate_record(NULL::quotes,to_jsonb(q)||jsonb_build_object('id',"+literal(historyPrefix)+"||'q'||lpad(n::text,3,'0'),'snapshot','{}'::json))clone WHERE q.id="+literal(confirmed.quote_id||sql('SELECT quote_id FROM orders WHERE id='+literal(confirmed.id)+';'))+';');
