@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import subprocess
 import tempfile
 import time
@@ -62,6 +63,20 @@ def digest(value):
 def records(container, query):
     return value(container, "SELECT coalesce(jsonb_agg(to_jsonb(q) ORDER BY "
                  "to_jsonb(q)::text COLLATE \"C\"),'[]'::jsonb) FROM (" + query + ") q;")
+
+
+def canonical_constraint(definition):
+    """Normalize only PostgreSQL's equivalent literal-varchar-array text casts.
+
+    pg_dump reparsing can distribute a text[] cast across literal varchar elements.
+    Preserve every literal, constraint flag and all other expression text.
+    """
+    literal = r"'(?:[^']|'')*'::character varying"
+    pattern = r"\(\(ARRAY\[((?:" + literal + r")(?:, " + literal + r")*)\]\)::text\[\]\)"
+    def expand(match):
+        elements = re.findall(literal, match.group(1))
+        return '(ARRAY[' + ', '.join('(' + item + ')::text' for item in elements) + '])'
+    return re.sub(pattern, expand, definition)
 
 
 METADATA = {
@@ -141,6 +156,8 @@ def snapshot(container):
             'sha256'),'hex')) FROM """ + relation + " r;")
     for category, query in METADATA.items():
         rows = records(container, query)
+        if category == 'constraints':
+            rows = [dict(row,definition=canonical_constraint(row['definition'])) for row in rows]
         result['metadata'][category] = {'rows': len(rows), 'sha256': digest(rows)}
     sequences = records(container, """SELECT n.nspname,c.relname FROM pg_class c
         JOIN pg_namespace n ON n.oid=c.relnamespace

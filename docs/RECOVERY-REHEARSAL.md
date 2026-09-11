@@ -8,7 +8,7 @@ The new `JANA Isolated Recovery Rehearsal` workflow restores **disposable fixtur
 
 ## What is checked
 
-1. Eight pure unit tests check fixed loopback source guards, alternative libpq routing refusal, and comparison failures on missing/extra objects, changed content, privileges or sequence state.
+1. Twelve pure unit tests check fixed loopback source guards, alternative libpq routing refusal, and comparison failures on missing/extra objects, changed content, privileges or sequence state.
 2. Replay the reviewed schema into a new disposable database and create a real fixture order through quote, confirmation, picking, dispatch, delivery, COD collection, partial settlement and refund RPCs. Session expiry is extended only for these fixtures to allow the rehearsal.
 3. Pause the disposable source scheduler without deleting or rewriting job definitions.
 4. Take a complete custom-format `pg_dump` and restore it with `pg_restore --single-transaction --exit-on-error` into a fresh same-image container.
@@ -18,7 +18,7 @@ The new `JANA Isolated Recovery Rehearsal` workflow restores **disposable fixtur
 
 The destination has Docker network mode `none`, no published ports and scheduled execution disabled from startup. External providers are not invoked. Cluster-level fixture roles are explicitly preprovisioned because a database dump does not include global roles/passwords. Cron runtime logs and their sequence counters are not claimed as recovery evidence; job definitions and application sequence state are.
 
-## Evidence and execution
+### Constraint representation\n\nThe first restore detected 16 CHECK constraints whose equivalent varchar-literal-array casts are serialized differently after PostgreSQL reparses the dump. Comparison now normalizes only that exact literal-only cast form; values, flags, names, other types, functions and expressions remain strict. Regression cases include all 16 observed pairs, changed values, escaped literals and nonmatching casts. The raw difference diagnostics remain available for a real mismatch. No production constraint was changed.\n\n## Evidence and execution
 
 Use the workflow on `jana-integrity` or `jana-live`. It uses existing reviewed PostgreSQL 17/PostGIS/pg_cron test infrastructure. No production URL, service key, customer credential or billable recovery project is needed.
 
