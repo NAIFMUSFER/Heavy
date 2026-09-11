@@ -28,7 +28,11 @@ BEGIN
   AND a.detail::jsonb->'payload'->'accepting_orders'='true'::jsonb
   AND a.detail::jsonb->'payload'->'reviewed'='{"catalog":true,"inventory":true,"coverage":true,"tax":true,"operations":true}'::jsonb
   AND jsonb_typeof(a.detail::jsonb->'payload'->'reference')='string'
- ORDER BY a.created_at DESC,a.id DESC
+ ORDER BY CASE
+   WHEN jsonb_typeof(a.detail::jsonb->'after_revision')='number'
+    AND a.detail::jsonb->>'after_revision'~'^[0-9]{1,15}$'
+   THEN (a.detail::jsonb->>'after_revision')::bigint ELSE -1
+  END DESC,a.created_at DESC,a.id DESC
  LIMIT 1;
 
  RETURN r||jsonb_build_object(

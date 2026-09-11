@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 23480)
+Total output lines: 546
+
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
@@ -165,6 +168,8 @@ try{
 
  phase='merchant policies and intake administration';
  await admin.locator('[data-page=storefront]').click();await admin.locator('#store-draft').waitFor();
+ await admin.locator('#store-intake [name=accepting_orders]').selectOption('false');await admin.locator('#store-intake [name=message]').fill('توقف استقبال الطلبات لاختبار التشغيل');await admin.locator('#store-intake [name=reason]').fill('اختبار إيقاف استقبال الطلبات');
+ const paused=await change(admin,'/api/ops/storefront/intake',()=>admin.locator('#store-intake button[type=submit]').click());assert.equal(paused.accepting_orders,false);
  await admin.locator('#store-draft [name=display_name]').fill('متجر اختبار السياسات');
  let releaseDraftSave,observeDraftSave;const draftRequestSeen=new Promise(resolve=>{observeDraftSave=resolve}),draftRequestRelease=new Promise(resolve=>{releaseDraftSave=resolve});
  const delayDraftSave=async route=>{observeDraftSave();await draftRequestRelease;await route.fallback()};await admin.route('**/api/ops/storefront/draft',delayDraftSave);
@@ -174,11 +179,9 @@ try{
  pass('merchant fields stay fixed while their saved revision is in flight and become editable after the actual save');
  await admin.locator('#store-publish-confirm').check();
  const merchant=await change(admin,'/api/ops/storefront/publish',()=>admin.locator('#store-publish').click());assert.equal(merchant.published.profile.display_name,'متجر اختبار السياسات');
- await admin.locator('#store-intake [name=accepting_orders]').selectOption('false');await admin.locator('#store-intake [name=message]').fill('توقف استقبال الطلبات لاختبار التشغيل');await admin.locator('#store-intake [name=reason]').fill('اختبار إيقاف استقبال الطلبات');
- const paused=await change(admin,'/api/ops/storefront/intake',()=>admin.locator('#store-intake button[type=submit]').click());assert.equal(paused.accepting_orders,false);
  const guest=await pageFor('store-guest');await guest.locator('#announcement').filter({hasText:'توقف استقبال الطلبات'}).waitFor();await guest.locator('[data-action=store-info]').click();await guest.locator('dialog[open]').getByText('متجر اختبار السياسات',{exact:true}).waitFor();await closeModal(guest);
  await admin.locator('#store-intake [name=accepting_orders]').selectOption('true');await admin.locator('#store-intake [name=message]').fill('المتجر الاختباري يستقبل الطلبات');await admin.locator('#store-intake [name=reason]').fill('اكتمال اختبار تشغيل المتجر');await admin.locator('#store-intake [name=reference]').fill('E2E-OPERATIONS-APPROVAL');for(const k of ['catalog','inventory','coverage','tax','operations'])await admin.locator('#store-intake [name='+k+']').check();
- const opened=await change(admin,'/api/ops/storefront/intake',()=>admin.locator('#store-intake button[type=submit]').click());assert.equal(opened.accepting_orders,true);pass('admin publishes versioned merchant policies and guest sees intake state before operations reopen');
+ const opened=await change(admin,'/api/ops/storefront/intake',()=>admin.locator('#store-intake button[type=submit]').click());assert.equal(opened.accepting_orders,true);await admin.locator('[data-opening-review=current]').filter({hasText:'E2E-OPERATIONS-APPROVAL'}).waitFor();pass('admin closes intake before policy publication and sees the immutable opening approval after operations reopen');
 
  phase='customer account and saved preferences';
  const customerNetwork={};const customer=await pageFor('customer','/',customerNetwork);await customer.locator('[data-view=account]').first().click();await customer.locator('[data-register]').click();
@@ -250,81 +253,7 @@ try{
  await picker.locator('[data-action=open-pick]').click();await picker.locator('[data-actual] [name=actual_base]').fill('900');
  await change(picker,'/api/ops/orders/'+confirmed.id+'/actual',()=>picker.locator('[data-actual] button').click());
  assert.equal(order().total,1800);
- await change(picker,'/api/ops/orders/'+confirmed.id+'/finalize',()=>picker.locator('[data-finalize]').click());
- assert.equal(order().fulfillment,'ready');assert.deepEqual(stock(),{on_hand:9101,reserved:0});pass('assigned picker records actual weight and consumes FEFO inventory');
-
- phase='delivery proof and separate cash collection';
- await assign('courier');const courier=await login('courier');
- await change(courier,'/api/ops/orders/'+confirmed.id+'/dispatch',()=>courier.locator('[data-action=dispatch]').click());
- const directions=new URL(await courier.locator('[data-delivery-directions]').getAttribute('href'));assert.equal(directions.origin,'https://www.google.com');assert.equal(directions.searchParams.get('destination'),'16.5,42.5');assert.match(await courier.locator('[data-delivery-phone]').getAttribute('href'),/^tel:\+9665\d{8}$/);
- pass('assigned courier can open the exact delivery destination and validated recipient telephone');
- await courier.context().grantPermissions(['geolocation'],{origin});await courier.context().setGeolocation({latitude:16.51,longitude:42.51,accuracy:15});await change(courier,'/api/ops/orders/'+confirmed.id+'/location',()=>courier.locator('[data-action=share-location]').click());
- await customer.locator('[data-order="'+confirmed.id+'"]').click();const tracked=await change(customer,'/api/orders/'+confirmed.id+'/tracking',()=>customer.locator('#refresh-tracking').click(),'GET');assert.equal(tracked.location_state,'recent');
- await customer.locator('#order-tracking').getByText(/آخر موقع مسجل للمندوب/).waitFor();assert.match(await customer.locator('#order-tracking a').getAttribute('href'),/16.51%2C42.51/);await closeModal(customer);
- pass('customer tracking displays a real recorded point and its timestamp without a fabricated live route');
-
- await change(courier,'/api/ops/orders/'+confirmed.id+'/fail',()=>courier.locator('[data-action=fail]').click());assert.equal(order().delivery,'failed');assert.equal(order().collected,0);assert.equal(order().settled,0);assert.deepEqual(stock(),{on_hand:9101,reserved:0});
- const failedEvent=value('SELECT jsonb_build_object(\'actor_id\',actor_id,\'reason\',reason,\'created_at\',created_at) FROM order_events WHERE order_id='+literal(confirmed.id)+" AND event='delivery_failed';");assert.equal(failedEvent.actor_id,sql('SELECT id FROM users WHERE email='+literal(fixture.accounts.courier)+';'));assert.equal(failedEvent.reason,'تم التحقق في اختبار المستودع');assert.ok(failedEvent.created_at>0);
- await change(courier,'/api/ops/orders/'+confirmed.id+'/dispatch',()=>courier.locator('[data-action=dispatch]').click());pass('failed delivery preserves reason actor time and consumed stock without collecting cash before a real retry');
- await courier.locator('[data-action=deliver]').click();await courier.locator('#deliver-form [name=code]').fill(code);
- await change(courier,'/api/ops/orders/'+confirmed.id+'/deliver',()=>courier.locator('#deliver-form button').click());
- assert.equal(order().delivery,'delivered');assert.equal(order().collected,0);assert.equal(order().settled,0);pass('delivery proof never collects or settles cash automatically');
- await customer.locator('[data-order="'+confirmed.id+'"]').click();const endedTracking=await change(customer,'/api/orders/'+confirmed.id+'/tracking',()=>customer.locator('#refresh-tracking').click(),'GET');assert.equal(endedTracking.latitude,null);await customer.locator('#order-tracking').getByText(/انتهت مشاركة موقع/).waitFor();assert.equal(await customer.locator('#order-tracking a').count(),0);await closeModal(customer);
- pass('completed delivery removes location sharing while uncollected cash remains distinguishable');
-
- await change(courier,'/api/ops/orders/'+confirmed.id+'/collect',()=>courier.locator('[data-action=collect]').click());
- assert.equal(order().collected,1800);assert.equal(order().settled,0);
- await customer.locator('[data-order="'+confirmed.id+'"]').click();await customer.getByText('إيصال التحصيل النقدي',{exact:true}).waitFor();assert.equal(await customer.getByText(/ليس فاتورة ضريبية/).count(),1);
- const receiptDownload=customer.waitForEvent('download');await customer.locator('#download-cash-receipt').click();const downloaded=await receiptDownload;assert.match(downloaded.suggestedFilename(),/^jana-cash-receipt-/);const receiptHtml=await fs.readFile(await downloaded.path(),'utf8');assert.match(receiptHtml,/إيصال تحصيل نقدي/);assert.match(receiptHtml,/ليس فاتورة ضريبية/);assert.match(receiptHtml,/متجر اختبار السياسات/);assert.doesNotMatch(receiptHtml,/<script/);await closeModal(customer);
- pass('separate courier collection creates cash liability and a printable customer-safe non-tax receipt');
-
- phase='finance settlement';
- const finance=await login('finance');const deniedLaunchReads=[];finance.on('request',r=>{if(['/api/ops/storefront','/api/ops/deep-health'].includes(new URL(r.url()).pathname))deniedLaunchReads.push(r.url())});
- await finance.goto(origin+'/admin.html#launch');await finance.locator('.stat-grid').first().waitFor();assert.equal(new URL(finance.url()).hash,'#dashboard');assert.deepEqual(deniedLaunchReads,[]);assert.equal(await finance.locator('[data-launch-center]').count(),0);
- await finance.locator('.ops-menu [data-page=orders]').click();await finance.locator('[data-action=settle]').click();await finance.locator('#settlement-form [name=reference]').fill('E2E-DEPOSIT-001');
- pass('a finance bookmark cannot request the admin launch data and returns to its permitted workspace');
- await change(finance,'/api/ops/orders/'+confirmed.id+'/settle',()=>finance.locator('#settlement-form button').click());assert.equal(order().settled,1800);pass('finance settlement records actual reference and clears liability');
-
- phase='customer support and staff response';
- await customer.locator('[data-order="'+confirmed.id+'"]').click();await customer.locator('[data-support="'+confirmed.id+'"]').click();
- await customer.locator('#ticket [name=category]').selectOption('product');await customer.locator('#ticket [name=subject]').fill('مراجعة جودة الطلب');await customer.locator('#ticket [name=message]').fill('أحتاج مراجعة صنف من الطلب المسلم');
- const ticket=await change(customer,'/api/tickets',()=>customer.locator('#ticket button').click());
- const support=await login('support');await support.locator('[data-page=support]').click();await support.locator('details summary').first().click();
- const reply=support.locator('form[data-support-ticket]');await reply.locator('[name=message]').fill('تمت مراجعة طلبك وتوثيق النتيجة');await reply.locator('[name=state]').selectOption('closed');
- const ticketId=await reply.getAttribute('data-support-ticket');assert.ok(ticketId);
- await change(support,'/api/ops/support/'+ticketId,()=>reply.locator('button[type=submit]').click());
- await closeModal(customer);await customer.locator('[data-view=account]').first().click();await customer.locator('[data-action=tickets]').click();await customer.getByText('تمت مراجعة طلبك وتوثيق النتيجة',{exact:true}).waitFor();pass('customer order-linked support message reaches staff and reply reaches customer');
-
- phase='requested refund and finance cash source';
- await closeModal(customer);await customer.locator('[data-view=orders]').first().click();await customer.locator('[data-order="'+confirmed.id+'"]').click();await customer.locator('[data-refund-order]').click();await customer.locator('#refund-request [name=amount]').fill('1');await customer.locator('#refund-request [name=reason]').fill('مراجعة جودة موثقة');
- await change(customer,'/api/orders/'+confirmed.id+'/refunds',()=>customer.locator('#refund-request button').click());assert.equal(order().refunded,0);
- await finance.locator('[data-page=finance]').click();await finance.locator('[data-action=complete-refund]').click();await finance.locator('#paid-refund-form [name=payment_source]').selectOption('finance');await finance.locator('#paid-refund-form [name=reference]').fill('E2E-REFUND-001');
- const refundId=sql('SELECT id FROM refunds WHERE order_id='+literal(confirmed.id)+';');
- await change(finance,'/api/ops/refunds/'+refundId+'/complete',()=>finance.locator('#paid-refund-form button').click());
- assert.equal(order().refunded,100);assert.equal(order().courier_refunded,0);assert.equal(order().collected-order().settled-order().courier_refunded,0);pass('refund request becomes recorded company-funded refund without changing settled courier liability');
- await finance.screenshot({path:output+'/finance-ledger.png',fullPage:true});
-
- phase='saved lists and consented reminders';
- await closeModal(customer);await customer.locator('[data-view=account]').first().click();await customer.locator('[data-action=shopping-lists]').click();await customer.locator('[data-new-list]').click();await customer.locator('#saved-list-form [name=name]').fill('احتياجات الأسبوع');await customer.locator('[data-list-item]').first().fill('1');
- await change(customer,'/api/shopping-lists',()=>customer.locator('#saved-list-form button').click());await customer.locator('[data-remind-list]').click();await customer.locator('#reminder-form [name=next_at]').fill(nextSaudiDate());await customer.locator('#reminder-form [name=consent]').check();
- const reminder=await change(customer,'/api/recurring',()=>customer.locator('#reminder-form button').click());
- await change(customer,'/api/recurring/'+reminder.id,()=>customer.locator('[data-plan-state][data-state=paused]').click(),'PATCH');
- assert.equal(sql('SELECT state FROM recurring_plans WHERE id='+literal(reminder.id)+';'),'paused');assert.equal(Number(sql('SELECT count(*) FROM orders;')),1);assert.deepEqual(stock(),{on_hand:9101,reserved:0});pass('saved lists and explicit recurring reminder consent do not create or charge orders');
- await customer.screenshot({path:output+'/customer-reminders.png',fullPage:true});
-
- phase='optional email account';
- const phoneCustomer=await pageFor('phone_customer');await phoneCustomer.locator('[data-view=account]').first().click();await phoneCustomer.locator('[data-register]').click();await phoneCustomer.locator('#auth-form [name=name]').fill('عميل تسجيل الجوال');await phoneCustomer.locator('#auth-form [name=phone]').fill('0500000002');await phoneCustomer.locator('#auth-form [name=password]').fill(password);const phoneLogin=await change(phoneCustomer,'/api/auth/login',()=>phoneCustomer.locator('#auth-form button[type=submit]').click());assert.equal(phoneLogin.user.email,null);assert.equal(phoneLogin.user.verified_phone,false);await phoneCustomer.locator('[data-action=profile]').waitFor();await change(phoneCustomer,'/api/auth/logout',()=>phoneCustomer.locator('[data-action=logout]').click());await phoneCustomer.locator('[data-login]').click();await phoneCustomer.locator('#auth-form [name=email]').fill('+966500000002');await phoneCustomer.locator('#auth-form [name=password]').fill(password);const restoredPhone=await change(phoneCustomer,'/api/auth/login',()=>phoneCustomer.locator('#auth-form button[type=submit]').click());assert.equal(restoredPhone.user.id,phoneLogin.user.id);pass('customer registers without email and signs in using either phone format without false verification');
-
- phase='administrator customer review';
- await admin.locator('[data-page=customers]').click();await admin.locator('#customer-search [name=q]').fill('عميل رحلة جنى');await change(admin,'/api/ops/customers',()=>admin.locator('#customer-search button').click(),'GET');const customerId=sql('SELECT id FROM users WHERE email='+literal(fixture.prefix+'browser@example.invalid')+';');const review=await change(admin,'/api/ops/customers/'+customerId,()=>admin.locator('[data-action=customer-detail][data-id="'+customerId+'"]').click(),'GET');assert.equal(review.orders_count,1);assert.equal(review.orders[0].total_halalas,1800);assert.equal(review.orders[0].refunded_halalas,100);assert.ok(Number(sql("SELECT count(*) FROM audit_log WHERE action='customer_record_viewed' AND entity_id="+literal(customerId)+';'))>=1);pass('administrator searches real customers and reviews audited order activity');
-
- phase='versioned weight policy and picking';
- await closeModal(admin);await admin.locator('[data-page=catalog]').click();await admin.locator('[data-action=new-product]').click();const productForm=admin.locator('#product-version-form');
- await productForm.locator('[name=title]').fill('فاكهة بحدود وزن الاختبار');await productForm.locator('[name=size_label]').fill('1 كجم');await productForm.locator('[name=price]').fill('20');await productForm.locator('[name=image_url]').fill(origin+'/assets/icon.svg');await productForm.locator('[name=stock_id]').selectOption(fixture.stock_id);await productForm.locator('[name=base_qty]').fill('1000');await productForm.locator('[name=weight_under]').fill('20');await productForm.locator('[name=weight_over]').fill('20');
- const weightVersion=await change(admin,'/api/ops/products',()=>productForm.locator('button[type=submit]').click());assert.equal(weightVersion.offerings[0].weight_over_bps,2000);assert.equal(weightVersion.offerings[0].weight_under_bps,2000);
- await admin.locator('details').filter({has:admin.locator('[data-action=activate-product-version][data-id="'+weightVersion.id+'"]')}).locator('summary').click();
- await change(admin,'/api/ops/product-versions/'+weightVersion.id+'/activate',()=>admin.locator('[data-action=activate-product-version][data-id="'+weightVersion.id+'"]').click());pass('administrator creates and activates an immutable sellable weight policy');
- await customer.reload();const publishedImage=customer.locator('[data-product="'+weightVersion.offerings[0].id+'"] img');await publishedImage.waitFor();await publishedImage.scrollIntoViewIfNeeded();await publishedImage.evaluate(img=>img.decode());assert.ok(await publishedImage.evaluate(img=>img.naturalWidth>0));pass('configured product image is rendered and decoded on the real storefront');await customer.locator('[data-add="'+weightVersion.offerings[0].id+'"]').click();await customer.locator('[data-action=cart]').first().click();await customer.locator('#checkout').click();await customer.locator('[data-address]').first().click();
+ await change(picker,'/api/ops/orders/'+confirmed.id+'/finalize',()=>picker.locator(…3480 tokens truncated…=>img.decode());assert.ok(await publishedImage.evaluate(img=>img.naturalWidth>0));pass('configured product image is rendered and decoded on the real storefront');await customer.locator('[data-add="'+weightVersion.offerings[0].id+'"]').click();await customer.locator('[data-action=cart]').first().click();await customer.locator('#checkout').click();await customer.locator('[data-address]').first().click();
  const weightQuote=await change(customer,'/api/quotes',()=>customer.locator('[data-slot="'+fixture.slot_id+'"]').click());assert.equal(weightQuote.lines[0].weight_policy.max_base,1200);await customer.getByText(/الزيادة المسموحة مجانًا/).waitFor();
  const weightOrder=await change(customer,'/api/orders',()=>customer.locator('#confirm-order').click());assert.deepEqual(stock(),{on_hand:9101,reserved:1000});
  await admin.locator('[data-page=orders]').click();await change(admin,'/api/ops/orders/'+weightOrder.id+'/start',()=>admin.locator('[data-action=start][data-id="'+weightOrder.id+'"]').click());await admin.locator('[data-action=open-pick][data-id="'+weightOrder.id+'"]').click();

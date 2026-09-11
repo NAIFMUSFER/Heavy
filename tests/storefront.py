@@ -15,15 +15,16 @@ for profile in [None,[],dict(PROFILE,tax_status='unspecified'),dict(PROFILE,term
 assert get_store(f)['revision']==s['revision']
 passed('invalid typed or oversized profiles leave the saved revision unchanged')
 public=val('SELECT jana_public_storefront();')
+q=val(quote(f,'before-policy-change'));old=q['store_profile']
+s=intake(f,False)
 s=write_store(f,'draft.save',dict(revision=s['revision'],profile=dict(PROFILE,legal_name='A new fixture seller')))
 assert val('SELECT jana_public_storefront();')==public
-q=val(quote(f,'before-policy-change'));old=q['store_profile']
 s=write_store(f,'profile.publish',dict(revision=s['revision'],confirmed=True))
 assert s['published']['id']!=old['id']
 assert val('SELECT jana_public_storefront('+literal(old['id'])+');')['published']==public['published']
 assert val('SELECT snapshot::jsonb FROM quotes WHERE id='+literal(q['id'])+';')['store_profile']==old
 passed('drafts remain private and new policy publication preserves old public versions and reserved quote terms')
-intake(f,False);before=balance(f)
+before=balance(f)
 fails(quote(f,'new-quote-after-closure'),'storefront_closed');assert balance(f)==before
 assert val(quote(f,'before-policy-change'))==q
 order=val(rpc('jana_critical_write',f['t'],'confirm-after-closure','order.confirm',dict(quote_id=q['id'])))
