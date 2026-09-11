@@ -44,3 +44,7 @@ The review-branch populated-fixture backup/restore workflow passed run 345489829
 ## Staff list continuation — 11 September 2026
 
 Operations order pagination is implemented in the review source: indexed database selection, older-page controls, retry preservation, refresh/session guards and the existing courier cash-task lifecycle. Candidate 40e0780 passed 245 Node tests, 56 browser checks, full disposable database integrity and recovery. Migration 20260911015144 and jana-api v30 are applied; web ca1f650 is live through dep-dahm129594qs73fj9h70, with 23 post-deployment checks passed. Full evidence is in RELEASE-EVIDENCE.md. This removes the first-100-orders UI ceiling; it does not complete field acceptance, a signed mobile release or any commercial activation prerequisite.
+
+## Checkout continuity — 11 September 2026
+
+The next candidate addresses a verified web/native gap: quote IDs were not used to restore the review, and native confirmation lost its UI after process restart. The shared recovery controller, server-clock expiry, explicit reservation release and read-only recovery of an existing order are implemented. Local Node checks are green; exact CI, database application, web deployment and native build status are recorded below in RELEASE-EVIDENCE.md. This does not open sales, configure a paid provider, sign a store release or establish physical-device acceptance. Real merchant/catalog/stock/operating approval and the remaining capacity, recovery and supplier/basket acceptance work remain outstanding.

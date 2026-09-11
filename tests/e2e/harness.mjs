@@ -19,5 +19,5 @@ export async function attachBrowser(context,base,control={}){
  // Every browser request is fulfilled by the real local gateway/Edge/PostgreSQL.
  // Retain the canonical browser origin to exercise Secure cookies, CSRF and CSP.
  // There is no route.continue fallback, so this cannot reach production.
- await context.route('**/*',async route=>{const u=new URL(route.request().url());if(u.origin!=='https://jana-fresh-app.onrender.com')return route.abort('blockedbyclient');const response=await route.fetch({url:base+u.pathname+u.search,maxRedirects:0,timeout:20000});await control.beforeResponse?.(u);await route.fulfill({response})});
+ await context.route('**/*',async route=>{const u=new URL(route.request().url());if(u.origin!=='https://jana-fresh-app.onrender.com')return route.abort('blockedbyclient');const response=await route.fetch({url:base+u.pathname+u.search,maxRedirects:0,timeout:20000});const decision=await control.beforeResponse?.(u,response,route.request());if(decision==='disconnect')return route.abort('connectionreset');await route.fulfill({response})});
 }

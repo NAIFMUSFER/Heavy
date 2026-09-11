@@ -1,13 +1,17 @@
+import {createCheckoutSession,quoteState,quoteRemaining,cartMatchesQuote} from './checkout.js';
 import {orderFacts,orderLinks,trackingView,orderPageUrl,appendOrderPage,passwordProblem} from './order.js';
 import {addressPayload,googleMapsLink,googleMapsSearch,parseMapLocation,locationPoint,locationFailure} from './address.js';
 import {productImage,substitutionReview,qty,$,$$,esc,money,number,date,badge,empty,get,getAll,request,post,patch,remove,modal,closeModal,toast,busy,formData,identity,loginDialog,setupConnectivity,field,parseMoney,ticketCategories,ticketThread,selectField} from './common.js';
 const cartKey='jana.live.cart';
+let checkoutIdentity=0;
 const state={ready:false,loading:false,loadError:null,user:null,config:null,catalog:[],cart:[],view:'shop',category:'all',addresses:[],favorites:new Set()};
+const checkoutSession=createCheckoutSession({storage:{getItem:key=>sessionStorage.getItem(key),setItem:(key,value)=>sessionStorage.setItem(key,value),removeItem:key=>sessionStorage.removeItem(key)},call:request,getSession:()=>state.user?{owner:state.user.id,token:String(checkoutIdentity)}:null,onChange:()=>{updateCheckoutBanner();updateQuoteControls?.()}});
+let updateQuoteControls;
 try{state.cart=JSON.parse(localStorage.getItem(cartKey)||'[]')}catch{state.cart=[]}
 const save=()=>{localStorage.setItem(cartKey,JSON.stringify(state.cart));const c=$('#cart-count');if(c)c.textContent=state.cart.reduce((n,x)=>n+x.quantity,0)};
 const product=id=>state.catalog.find(x=>x.id===id);
 const line=id=>state.cart.find(x=>x.offering_id===id);
-const needCustomer=async cb=>{if(!state.ready)throw Error(state.loading?'جارٍ تحميل الحساب. حاول بعد اكتمال التحميل.':'تعذر تحميل الحساب. أعد المحاولة.');if(!state.user){loginDialog(async u=>{state.user=u;await loadFavorites();await cb?.()});return false}if(state.user.role!=='customer'){toast('استخدم حساب عميل منفصل للشراء',true);return false}return true};
+const needCustomer=async cb=>{if(!state.ready)throw Error(state.loading?'جارٍ تحميل الحساب. حاول بعد اكتمال التحميل.':'تعذر تحميل الحساب. أعد المحاولة.');if(!state.user){loginDialog(async u=>{state.user=u;checkoutIdentity++;await checkoutSession.load();await loadFavorites();await cb?.()});return false}if(state.user.role!=='customer'){toast('استخدم حساب عميل منفصل للشراء',true);return false}return true};
 function add(id,d=1){const p=product(id),l=line(id);if(d>0){if(!l&&state.cart.length>=40)throw Error('الحد الأقصى للسلة 40 صنفًا');if(!p||p.available_units<1)throw Error('الصنف غير متاح حاليًا');if((l?.quantity||0)>=Math.min(20,p.available_units))throw Error('لا تتوفر كمية إضافية');if(l)l.quantity++;else state.cart.push({offering_id:p.id,quantity:1,name:p.name,price_halalas:p.price_halalas,emoji:p.emoji,size_label:p.size_label,family_id:p.family_id})}else if(l){l.quantity--;state.cart=state.cart.filter(x=>x.quantity>0)}save();if(state.view==='shop')renderShop()}
 function nav(view){
  state.view=view;$$('[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===view));

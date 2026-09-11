@@ -141,6 +141,9 @@ try{
  assert.equal(quote.total_halalas,2000);assert.deepEqual(stock(),{on_hand:10001,reserved:1000});assert.equal(Number(sql('SELECT booked FROM delivery_slots WHERE id='+literal(fixture.slot_id)+';')),1);
  assert.equal(Number(sql('SELECT count(*) FROM orders;')),0);pass('quote reserves stock and zone capacity before any permanent order');
  assert.equal(quote.store_profile.id,merchant.published.id);await customer.locator('#quote-store-policies').getByText('متجر اختبار السياسات',{exact:true}).waitFor();pass('checkout loads the immutable published merchant policy before enabling confirmation');
+ await customer.reload();await customer.locator('[data-resume-checkout]').waitFor();
+ const restoredQuote=await change(customer,'/api/quotes/'+quote.id,()=>customer.locator('[data-resume-checkout]').click(),'GET');assert.equal(restoredQuote.id,quote.id);assert.ok(restoredQuote.server_now>=restoredQuote.created_at);assert.equal(Number(sql('SELECT count(*) FROM orders;')),0);assert.deepEqual(stock(),{on_hand:10001,reserved:1000});
+ await customer.locator('#quote-store-policies').getByText('متجر اختبار السياسات',{exact:true}).waitFor();pass('page reload restores the same quote and policies without another reservation or an automatic order');
  const confirmed=await change(customer,'/api/orders',()=>customer.locator('#confirm-order').click());
  const code=(await customer.locator('.delivery-code').innerText()).trim();assert.match(code,/^\d{6}$/);assert.equal(order().id,confirmed.id);assert.equal(order().total,2000);pass('reviewed COD confirmation creates one immutable commercial order');
  await customer.screenshot({path:output+'/order-confirmed.png',fullPage:true});
@@ -343,6 +346,24 @@ try{
  await change(admin,'/api/ops/orders',()=>admin.locator('[data-action=refresh]').click(),'GET');await admin.locator('[data-action=orders-more]').waitFor();assert.equal(await admin.locator('[data-action=detail]').count(),50);
  await admin.screenshot({path:output+'/staff-order-pages-phone.png',fullPage:false});
  pass('staff refresh resets the history cursor and loaded count to the current first page');
+
+ phase='checkout expiry and lost confirmation recovery';
+ const checkoutBalance=stock(),checkoutBooked=Number(sql('SELECT booked FROM delivery_slots WHERE id='+literal(fixture.slot_id)+';'));
+ await customer.locator('[data-view=shop]:visible').first().click();await customer.locator('[data-add="'+basketVersion.offerings[0].id+'"]').click();await customer.locator('[data-action=cart]').first().click();await customer.locator('#checkout').click();await customer.locator('[data-address]').first().click();
+ const expiredQuote=await change(customer,'/api/quotes',()=>customer.locator('[data-slot="'+fixture.slot_id+'"]').click());await customer.locator('#quote-state').waitFor();
+ sql('UPDATE quotes SET expires_at=1 WHERE id='+literal(expiredQuote.id)+';');await change(customer,'/api/quotes/'+expiredQuote.id,()=>customer.locator('#refresh-quote').click(),'GET');await customer.locator('#quote-state').filter({hasText:/انتهت مهلة/}).waitFor();assert.ok(await customer.locator('#confirm-order').isDisabled());
+ await change(customer,'/api/quotes/'+expiredQuote.id,()=>customer.locator('#cancel-quote').click(),'DELETE');await customer.locator('#checkout').waitFor();assert.deepEqual(stock(),checkoutBalance);assert.equal(Number(sql('SELECT booked FROM delivery_slots WHERE id='+literal(fixture.slot_id)+';')),checkoutBooked);pass('expired quote disables confirmation and explicit release returns stock and capacity with the cart intact');
+ await customer.locator('#checkout').click();await customer.locator('[data-address]').first().click();const recoveryQuote=await change(customer,'/api/quotes',()=>customer.locator('[data-slot="'+fixture.slot_id+'"]').click());await customer.locator('#quote-state').waitFor();
+ let recoveredOrder;
+ customerNetwork.beforeResponse=async(u,response,request)=>{if(u.pathname==='/api/orders'&&request.method()==='POST'){recoveredOrder=await response.json();delete customerNetwork.beforeResponse;return 'disconnect'}};
+ await customer.locator('#confirm-order').click();await customer.locator('#quote-error').filter({hasText:/انقطع الاتصال/}).waitFor();assert.ok(recoveredOrder?.id);assert.equal(Number(sql('SELECT count(*) FROM orders WHERE quote_id='+literal(recoveryQuote.id)+';')),1);
+ await customer.reload();await customer.locator('[data-resume-checkout]').waitFor();
+ customerNetwork.beforeResponse=async u=>{if(u.pathname==='/api/quotes/'+recoveryQuote.id)return 'disconnect'};
+ await customer.locator('[data-resume-checkout]').click();await customer.locator('#quote-error').filter({hasText:/انقطع الاتصال/}).waitFor();assert.ok(await customer.evaluate(()=>!!sessionStorage.getItem('jana.checkout.v1')));delete customerNetwork.beforeResponse;
+ const resolvedQuote=await change(customer,'/api/quotes/'+recoveryQuote.id,()=>customer.locator('#refresh-quote').click(),'GET');assert.equal(resolvedQuote.order.id,recoveredOrder.id);await customer.locator('.success-view').getByText(recoveredOrder.number,{exact:true}).waitFor();assert.equal(await customer.locator('.delivery-code').count(),0);
+ assert.equal(await customer.evaluate(()=>sessionStorage.getItem('jana.checkout.v1')),null);assert.equal(Number(sql('SELECT count(*) FROM orders WHERE quote_id='+literal(recoveryQuote.id)+';')),1);assert.ok(await customer.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+ await customer.screenshot({path:output+'/checkout-recovered-phone.png',fullPage:false});pass('lost confirmation and a failed recovery read survive reload and resolve the single existing order without exposing its delivery code');
+ await customer.locator('.success-view [data-view=orders]').click();await customer.locator('[data-order="'+recoveredOrder.id+'"]').click();await change(customer,'/api/orders/'+recoveredOrder.id+'/cancel',()=>customer.locator('[data-cancel="'+recoveredOrder.id+'"]').click());assert.deepEqual(stock(),checkoutBalance);assert.equal(Number(sql('SELECT booked FROM delivery_slots WHERE id='+literal(fixture.slot_id)+';')),checkoutBooked);
 
  phase='customer password change and session invalidation';
  const secondPhone=await pageFor('phone_second');await secondPhone.locator('[data-view=account]').first().click();await secondPhone.locator('[data-login]').click();await secondPhone.locator('#auth-form [name=email]').fill('0500000002');await secondPhone.locator('#auth-form [name=password]').fill(password);await change(secondPhone,'/api/auth/login',()=>secondPhone.locator('#auth-form button[type=submit]').click());

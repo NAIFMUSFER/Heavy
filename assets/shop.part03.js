@@ -1,4 +1,51 @@
-async function createQuote(address_id,slot_id,coupon_code=''){const q=await post('/api/quotes',{address_id,slot_id,coupon_code,lines:state.cart.map(x=>({offering_id:x.offering_id,quantity:x.quantity}))});sessionStorage.setItem('jana.pendingQuote',q.id);const d=modal('مراجعة الطلب',`<div class="stack"><div class="panel">${(q.lines||[]).map(x=>`<div class="component-row"><span>${esc(x.name)} × ${x.qty}${x.weight_policy?`<small>الوزن المسموح ${number(x.weight_policy.min_base)}–${number(x.weight_policy.max_base)} جرام. النقص يخفض السعر والزيادة المسموحة مجانًا.</small>`:''}</span><strong>${money(x.line_total_halalas)}</strong></div>`).join('')}</div><div class="summary"><div><span>المنتجات</span><strong>${money(q.subtotal_halalas)}</strong></div>${q.discount_halalas?`<div><span>خصم ${esc(q.coupon?.code||'')}</span><strong>−${money(q.discount_halalas)}</strong></div>`:''}<div><span>التوصيل</span><strong>${money(q.delivery_fee_halalas)}</strong></div><div class="total"><span>الإجمالي</span><strong>${money(q.total_halalas)}</strong></div></div>${storeVersionMarkup(q.store_profile)}<div id="quote-store-policies"></div><p class="notice">الدفع عند الاستلام. الضغط على التأكيد ينشئ طلبًا فعليًا ويعني الموافقة على شروط البيع المعروضة.</p><button class="btn primary wide" id="confirm-order" disabled>تأكيد الطلب والموافقة على شروط البيع</button></div>`);loadQuotePolicies(d,q);$('#confirm-order',d).onclick=()=>busy($('#confirm-order',d),async()=>{const o=await post('/api/orders',{quote_id:q.id});state.cart=[];save();sessionStorage.removeItem('jana.pendingQuote');modal('تم تأكيد طلبك',`<div class="success-view"><div class="success-symbol">✓</div><h2>${esc(o.number)}</h2><p>احتفظ برمز التسليم ولا تشاركه إلا عند استلام الطلب.</p>${o.delivery_code?`<div class="delivery-code">${esc(o.delivery_code)}</div>`:''}<strong class="price">${money(o.total_halalas)}</strong><button class="btn primary" data-view="orders">متابعة الطلب</button></div>`,'small-modal')})}
+function updateCheckoutBanner(){
+ const box=$('#pending-checkout');if(!box)return;const pending=checkoutSession.snapshot.pending;
+ box.hidden=!pending||!state.user;
+ box.innerHTML=box.hidden?'':`<div class="panel row between"><span>لديك مراجعة طلب معلّقة. تحقق من نتيجتها قبل بدء طلب آخر.</span><button class="btn outline" data-resume-checkout ${checkoutSession.snapshot.busy?'disabled':''}>متابعة مراجعة الطلب</button></div>`;
+ const button=$('[data-resume-checkout]',box);if(button)button.onclick=()=>resumeCheckout().catch(e=>toast(e.message,true));
+}
+async function createQuote(address_id,slot_id,coupon_code=''){
+ try{const q=await checkoutSession.create({address_id,slot_id,coupon_code,lines:state.cart.map(x=>({offering_id:x.offering_id,quantity:x.quantity}))});if(q)await showCheckout()}
+ catch(e){if(checkoutSession.snapshot.pending)await showCheckout();throw e}
+}
+async function resumeCheckout(){
+ if(!state.user)return;
+ try{await checkoutSession.refresh()}catch{/* The saved reference and error remain visible for retry. */}
+ if(checkoutSession.snapshot.pending)await showCheckout();
+}
+async function finishCheckout(){
+ const user=state.user;let cartKept=false;
+ const order=await checkoutSession.acknowledge(q=>{if(q.order.status!=='cancelled'&&cartMatchesQuote(state.cart,q)){localStorage.setItem(cartKey,'[]');state.cart=[];save()}else cartKept=state.cart.length>0});
+ if(!order||state.user!==user)return;
+ if(order.status==='cancelled'){await showOrder(order.id);return}
+ modal('تم تأكيد طلبك',`<div class="success-view"><div class="success-symbol">✓</div><h2>${esc(order.number)}</h2>${cartKept?'<p class="notice">تغيرت سلتك بعد عرض السعر، فاحتفظنا بها. راجعها قبل شراء جديد.</p>':''}<p>طلبك مسجل. احتفظ برمز التسليم ولا تشاركه إلا عند الاستلام.</p>${order.delivery_code?`<div class="delivery-code">${esc(order.delivery_code)}</div>`:'<p>يمكنك متابعة الطلب وطلب رمز تسليم جديد من تفاصيله عند الحاجة.</p>'}<strong class="price">${money(order.total_halalas)}</strong><button class="btn primary" data-view="orders">متابعة الطلب</button></div>`,'small-modal');
+}
+async function showCheckout(){
+ const snap=checkoutSession.snapshot,q=snap.quote;if(!snap.pending)return;
+ if(q?.order?.id){await finishCheckout();return}
+ const d=modal('مراجعة الطلب',`<div class="stack"><p id="quote-error" class="notice" role="alert"></p>${snap.pending.attempted?'<p class="notice">سبق الضغط على التأكيد. تحقق من نتيجة هذا الحجز قبل بدء طلب آخر.</p>':''}${q?`<div class="panel">${(q.lines||[]).map(x=>`<div class="component-row"><span>${esc(x.name)} × ${number(x.qty)}${x.weight_policy?`<small>الوزن المسموح ${number(x.weight_policy.min_base)}–${number(x.weight_policy.max_base)} جرام. النقص يخفض السعر والزيادة المسموحة مجانًا.</small>`:''}</span><strong>${money(x.line_total_halalas)}</strong></div>`).join('')}</div><div class="summary"><div><span>المنتجات</span><strong>${money(q.subtotal_halalas)}</strong></div>${q.discount_halalas?`<div><span>خصم ${esc(q.coupon?.code||'')}</span><strong>−${money(q.discount_halalas)}</strong></div>`:''}<div><span>التوصيل</span><strong>${money(q.delivery_fee_halalas)}</strong></div><div class="total"><span>الإجمالي</span><strong>${money(q.total_halalas)}</strong></div></div>${storeVersionMarkup(q.store_profile)}`:''}<p id="quote-state" class="notice"></p><div id="quote-store-policies"></div><p>الدفع عند الاستلام. الضغط على التأكيد ينشئ طلبًا فعليًا ويعني الموافقة على شروط البيع المعروضة.</p><button class="btn primary wide" id="confirm-order" disabled>تأكيد الطلب والموافقة على شروط البيع</button><button class="btn outline" id="refresh-quote">التحقق من حالة الحجز ونتيجة الطلب</button><button class="btn outline" id="quote-signin" hidden>تسجيل الدخول لاستكمال المراجعة</button><button class="btn outline" id="cancel-quote">إلغاء الحجز والعودة للسلة</button></div>`);
+ let readyPolicy=null;const reference=snap.pending.quote_id;
+ const controls=()=>{
+  if(!d.open||!$('#quote-state',d)||checkoutSession.snapshot.pending?.quote_id!==reference)return;
+  const s=checkoutSession.snapshot,status=quoteState(s.quote,checkoutSession.elapsed()),seconds=quoteRemaining(s.quote,checkoutSession.elapsed());
+  $('#quote-state',d).textContent=status==='active'?`متبقي لحجز السعر والمخزون ${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`:status==='expired'?'انتهت مهلة الحجز. تحقق من نتيجة الطلب أو ألغِ الحجز للعودة للسلة.':status==='ordered'?'طلبك مسجل. أكمل التحقق لعرضه.':status==='cancelled'?'أُلغي هذا الحجز. عد إلى السلة.':'حدّث حالة الحجز للمتابعة.';
+  $('#quote-error',d).textContent=s.error;$('#quote-signin',d).hidden=s.errorCode!=='AUTH_REQUIRED';
+  $('#confirm-order',d).disabled=s.busy||status!=='active'||!s.quote?.store_profile?.id||readyPolicy!==s.quote.store_profile.id;
+  $('#refresh-quote',d).disabled=s.busy;$('#cancel-quote',d).disabled=s.busy||status==='ordered';
+ };
+ updateQuoteControls=controls;controls();
+ const timer=setInterval(()=>{if(!d.open||!$('#quote-state',d)||updateQuoteControls!==controls){clearInterval(timer);return}controls()},1000);
+ const act=async fn=>{try{await fn()}catch(e){toast(e.message,true)}finally{controls()}};
+ $('#quote-signin',d).onclick=()=>loginDialog(async u=>{state.user=u;checkoutIdentity++;await checkoutSession.load();await resumeCheckout()});
+ $('#refresh-quote',d).onclick=()=>act(async()=>{await checkoutSession.refresh();await showCheckout()});
+ $('#cancel-quote',d).onclick=()=>act(async()=>{
+  if(!confirm('إلغاء حجز هذا العرض؟ إن كان قد تحول إلى طلب فسيظهر الطلب دون إلغائه.'))return;
+  await checkoutSession.cancel();if(checkoutSession.snapshot.pending)await showCheckout();else await showCart();
+ });
+ $('#confirm-order',d).onclick=()=>act(async()=>{const order=await checkoutSession.confirm(readyPolicy);if(order)await finishCheckout()});
+ if(q?.store_profile?.id&&quoteState(q,checkoutSession.elapsed())==='active')loadQuotePolicies(d,q,id=>{if(updateQuoteControls!==controls)return;readyPolicy=id;controls()});
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&$('#app-dialog')?.open&&$('#quote-state')&&!checkoutSession.snapshot.busy)resumeCheckout().catch(e=>toast(e.message,true))});
 function orderCard(o){return `<button class="order-card" data-order="${o.id}"><div class="row between"><strong>${esc(o.number)}</strong>${badge(o.status)}</div><div class="row wrap">${badge(o.fulfillment_state)} ${badge(o.delivery_state)} ${badge(o.payment_state)}</div><div class="row between"><span>${date(o.created_at)}</span><strong>${money(o.total_halalas)}</strong></div></button>`}
 let orderGeneration=0;
 async function renderOrders(){
