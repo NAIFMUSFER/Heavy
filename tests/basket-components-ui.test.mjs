@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-const common=await import('data:text/javascript;base64,'+Buffer.from(readFileSync(new URL('../assets/common.js',import.meta.url),'utf8')).toString('base64'));
+const common=await import('../assets/common.js');
 const bundle=[1,2,3,4].map(n=>readFileSync(new URL(`../assets/ops.part0${n}.js`,import.meta.url),'utf8')).join('\n').replace(/^import .*?;\n/,'');
 async function fixture(items){
  const line={line_id:'line-fixture',name:'سلة',qty:2,components:[{stock_id:'grams',name:'تفاح <واحد>',base_qty:1000,base_unit:'gram'},{stock_id:'pieces',name:'عبوة & اثنان',base_qty:3,base_unit:'piece'}],...(items?{component_check:{items}}:{})};

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {productImageUrl as nativeImageUrl} from '../mobile/catalog.mjs';
-const {productImageUrl,productImage,productImageFailed}=await import('data:text/javascript;base64,'+Buffer.from(readFileSync(new URL('../assets/common.js',import.meta.url),'utf8')).toString('base64'));
+const {productImageUrl,productImage,productImageFailed}=await import('../assets/common.js');
 test('web and native product photos accept HTTPS metadata and reject credentials and other schemes',()=>{
  for(const parse of [productImageUrl,nativeImageUrl]){
   assert.equal(parse('https://images.example.invalid/fruit.jpg'),'https://images.example.invalid/fruit.jpg');

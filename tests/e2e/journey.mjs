@@ -40,15 +40,42 @@ const nextSaudiDate=()=>new Date(Date.now()+2*86400000+3*3600000).toISOString().
 try{
  phase='warehouse receipt and inspection';
  const inventory=await login('inventory');
+ await inventory.goto(origin+'/');await inventory.locator('[data-view=account]').first().click();
+ const workLink=inventory.getByRole('link',{name:'فتح واجهة التشغيل'});assert.equal(await workLink.getAttribute('href'),'/admin.html');
+ await workLink.click();await inventory.locator('.ops-user').waitFor();
+ pass('inventory account returns from the storefront to its actual operations workspace');
  await inventory.locator('[data-action=new-supplier]').click();await inventory.locator('#supplier-form [name=name]').fill('مورد اختبار المتصفح');
  const supplier=await change(inventory,'/api/ops/suppliers',()=>inventory.locator('#supplier-form button').click());
  await inventory.locator('[data-action=new-lot]').click();
  const lotForm=inventory.locator('#lot-form');await lotForm.locator('[name=stock_id]').selectOption(fixture.stock_id);await lotForm.locator('[name=supplier_id]').selectOption(supplier.id);
- await lotForm.locator('[name=receipt_reference]').fill('E2E-RECEIPT');await lotForm.locator('[name=received_base]').fill('10000');await lotForm.locator('[name=cost]').fill('100');await lotForm.locator('[name=expires_at]').fill(nextSaudiDate());
+ await lotForm.locator('[name=receipt_reference]').fill('E2E-RECEIPT');await lotForm.locator('[name=received_base]').fill('10000');await lotForm.locator('[name=cost]').fill('١٠٠٫٠٠');await lotForm.locator('[name=expires_at]').fill(nextSaudiDate());
  const lot=await change(inventory,'/api/ops/lots',()=>lotForm.locator('button').click());
+ assert.equal(Number(sql('SELECT total_cost_halalas FROM inventory_lots WHERE id='+literal(lot.id)+';')),10000);pass('Arabic decimal receipt cost reaches the database as exact integer halalas');
  assert.deepEqual(stock(),{on_hand:1,reserved:0});pass('warehouse receipt remains unavailable pending inspection');
  await change(inventory,'/api/ops/lots/'+lot.id+'/inspect',()=>inventory.locator('[data-action=inspect-lot][data-id="'+lot.id+'"][data-state=accepted]').click());
  assert.deepEqual(stock(),{on_hand:10001,reserved:0});pass('accepted warehouse lot increases usable stock once');
+
+ phase='local cart storage recovery';
+ const storagePage=await pageFor('storage-customer');await storagePage.locator('#products').waitFor();
+ await storagePage.evaluate(()=>localStorage.setItem('jana.live.cart','[null]'));await storagePage.reload();
+ await storagePage.locator('#cart-storage').getByText(/تعذر قراءة السلة المحفوظة/).waitFor();await storagePage.locator('#products').waitFor();
+ assert.equal(await storagePage.evaluate(()=>localStorage.getItem('jana.live.cart')),'[null]');
+ await storagePage.setViewportSize({width:390,height:844});
+ assert.equal(await storagePage.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
+ await storagePage.screenshot({path:output+'/cart-recovery-phone.png',fullPage:true});
+ await storagePage.locator('[data-cart-storage-reset]').click();await storagePage.locator('#cart-storage').waitFor({state:'hidden'});
+ assert.equal(await storagePage.evaluate(()=>localStorage.getItem('jana.live.cart')),'[]');
+ pass('damaged local cart preserves storage, keeps the phone storefront usable and resets only on explicit confirmation');
+ const cartAdd=storagePage.locator('[data-add="'+fixture.offering_id+'"]');
+ await cartAdd.click();await storagePage.locator('#cart-count').getByText('1',{exact:true}).waitFor();
+ const savedCart=await storagePage.evaluate(()=>localStorage.getItem('jana.live.cart'));
+ await storagePage.evaluate(()=>{const original=Storage.prototype.setItem;window.cartWriteFailure=true;Storage.prototype.setItem=function(key,value){if(key==='jana.live.cart'&&window.cartWriteFailure)throw new DOMException('Fixture storage full','QuotaExceededError');return original.call(this,key,value)}});
+ await cartAdd.click();await storagePage.locator('#cart-storage').getByText(/لم يُحفظ التعديل/).waitFor();
+ assert.equal(await storagePage.evaluate(()=>localStorage.getItem('jana.live.cart')),savedCart);assert.equal(await storagePage.locator('#cart-count').innerText(),'1');
+ await storagePage.evaluate(()=>{window.cartWriteFailure=false});await cartAdd.click();await storagePage.locator('#cart-count').getByText('2',{exact:true}).waitFor();
+ await storagePage.reload();await storagePage.locator('#cart-count').getByText('2',{exact:true}).waitFor();
+ pass('failed local cart write changes neither persisted nor visible quantities, then retry survives reload');
+
 
  phase='delivery administration';
  const admin=await login('admin');await admin.locator('[data-page=logistics]').click();await admin.locator('[data-action=new-zone]').click();

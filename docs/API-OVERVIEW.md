@@ -10,14 +10,17 @@ JSON mutations use `Content-Type: application/json`. Critical writes send a stab
 | Public configuration | GET `/api/config`, `/api/features` | Provider availability and guarded feature evaluation; no private keys |
 | Catalog | GET `/api/catalog?limit=50&offset=0&q=&category=` | Bounded PostgreSQL pagination; canonical current availability/prices |
 | Identity | POST `/api/auth/register`, `/api/auth/login`, `/api/auth/logout`; GET `/api/auth/me` | Name/password and email or Saudi phone; phone ownership is not SMS-verified |
+| Password change | POST `/api/auth/password` | Current password, validated replacement, all account sessions revoked; see ORDER-JOURNEY.md |
 | Profile | GET `/api/profile`; PATCH `/api/profile` | Authenticated customer; contact/preferences allowlist and identity safeguards |
 | Addresses | GET/POST `/api/addresses`; PATCH/DELETE `/api/addresses/:id`; PATCH `/api/addresses/:id/default` | Ownership, typed coordinates, structured address fields |
 | Coverage | GET `/api/coverage/:addressId` | PostGIS polygon lookup and real slot availability |
+| Map pin import | POST `/api/maps/resolve` | Authenticated, bounded supported Google Maps pin resolution; no embedded API key |
 | Saved cart | GET/PUT `/api/cart` | Customer-only, revision check and persisted retry key on writes |
 | Favorites | GET/POST `/api/favorites`; DELETE `/api/favorites/:familyId` | Stable sellable lineage; authenticated ownership |
 | Shopping lists | GET/POST `/api/shopping-lists`; PATCH/DELETE `/api/shopping-lists/:id` | Revision-controlled canonical selections; no implicit reservation |
 | Reminders | GET/POST `/api/recurring`; PATCH/DELETE `/api/recurring/:id` | Explicit reminder consent; does not create or charge an order |
 | Quotes | POST `/api/quotes` | Key required; atomic stock, lot, slot and configured coupon reservation |
+| Quote recovery/release | GET/DELETE `/api/quotes/:id` | Owned read with server time/existing-order summary; explicit reservation release |
 | Orders | GET/POST `/api/orders`; GET `/api/orders/:id` | POST confirms an owned, unexpired quote once; original terms retained |
 | Cancellation | POST `/api/orders/:id/cancel` | Reason, allowed business state, transactional resource release |
 | Substitution | POST `/api/substitutions/:id/decision` | Owner's explicit boolean decision and stable key |
@@ -31,6 +34,7 @@ JSON mutations use `Content-Type: application/json`. Critical writes send a stab
 | Delivery settings | POST `/api/ops/zones`, `/api/ops/slots`; PATCH item paths | Admin-only reason, revision, valid geometry and locked capacity |
 | Picking | POST `/api/ops/orders/:id/start`, `/actual`, `/finalize`; GET `/picking` | Assigned picker/admin; sold weight limits, issues, FEFO and audited consumption |
 | Courier | POST `/api/ops/orders/:id/dispatch`, `/deliver`, `/fail`, `/collect` | Assigned courier; proof, failure reason and cash are separate events |
+| Recorded courier location | POST `/api/ops/orders/:id/location`; GET `/api/orders/:id/tracking` | Explicit foreground location, assignment/active-attempt checks, recorded time; no automatic background publishing |
 | Finance | GET `/api/ops/finance`; POST `/api/ops/orders/:id/settle`; refund completion routes | Authorized finance/admin; explicit source/reference; liability limits |
 | Reports | GET `/api/ops/reports`, `/api/ops/deep-health` | Authorized summaries; unknown cost is not converted into invented profit |
 
@@ -58,4 +62,4 @@ Warehouse outbound events: `GET /api/ops/lots/:id/disposal` returns current cano
 
 Optional notification monitoring: `GET /api/ops/notification-jobs` is authenticated admin/support only and returns redacted channel states, state counts and the last 50 jobs. It cannot enable channels or send messages. See NOTIFICATION-OUTBOX.md.
 
-Customer-return candidate (not yet deployed): exact shipment lookup, physical quarantined receipt, one quality decision and role-filtered history under `/api/ops/customer-returns`. See CUSTOMER-RETURNS.md for methods, invariants and limitations.
+Customer returns: exact shipment lookup, physical quarantined receipt, quality decision, rejected-custody disposition and role-filtered history under `/api/ops/customer-returns`. See CUSTOMER-RETURNS.md for methods, invariants and limitations; RELEASE-EVIDENCE.md records the deployed source.

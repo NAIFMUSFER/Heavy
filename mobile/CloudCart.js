@@ -17,7 +17,7 @@ export default function CloudCart({call,cart,catalog,onRestore,ui}){
  }
  async function restore(){
   if(cart.length&&!await confirm('استبدال سلة هذا الجهاز بالنسخة المحفوظة والأسعار الحالية؟'))return;
-  const fresh=await loadCatalog(call),next=mergeSavedCart([],saved.items,fresh);onRestore(next,fresh);
+  const fresh=await loadCatalog(call),next=mergeSavedCart([],saved.items,fresh);await onRestore(next,fresh);
  }
  const unavailable=saved?.items.some(x=>!x.available);
  return <ScrollView contentContainerStyle={s.list}><Text style={s.pageTitle}>السلة المحفوظة في حسابي</Text><Text>احفظ نسخة من اختياراتك واستعدها على جهاز آخر. الحفظ لا يحجز الأصناف، وتُراجع الأسعار والتوفر عند الطلب.</Text>{error!==''&&<Card><Text accessibilityRole="alert">{error}</Text></Card>}<Btn title="تحديث النسخة المحفوظة" kind="outline" disabled={pending} onPress={()=>run(load)}/>{saved&&<><Text>آخر حفظ: {saved.updated_at?when(saved.updated_at):'لم تحفظ سلة بعد'}</Text>{saved.items.map(x=><Card key={x.offering_family_id}><Text>{x.name} · {x.size_label} × {x.quantity}</Text><Text>{money(x.price_halalas)} · {x.available?'متاح حاليًا':'غير متاح حاليًا'}</Text></Card>)}{!saved.items.length&&<Card><Text>لا توجد أصناف محفوظة.</Text></Card>}<Btn title="حفظ سلة هذا الجهاز في حسابي" disabled={pending||!cart.length} onPress={()=>run(()=>save())}/><Btn title="استعادة النسخة المحفوظة لهذا الجهاز" kind="outline" disabled={pending||!saved.items.length||unavailable} onPress={()=>run(restore)}/><Btn title="مسح النسخة المحفوظة" kind="outline" disabled={pending||!saved.items.length} onPress={()=>run(()=>save(true))}/>{unavailable&&<Text>توجد أصناف غير متاحة. تبقى محفوظة حتى تتوفر أو تحفظ اختيارًا جديدًا.</Text>}</>}</ScrollView>;

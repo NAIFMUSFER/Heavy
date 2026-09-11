@@ -1,7 +1,8 @@
 import React,{useEffect,useState} from 'react';
 import {Alert,ScrollView,Text,View,Switch} from 'react-native';
 import {loadCatalog} from './catalog.mjs';
-import {mergeSavedCart,saudiReminderDate} from './saved-cart.mjs';
+import {integerValue} from './input.mjs';
+import {saudiReminderDate} from './saved-cart.mjs';
 
 export default function CustomerSaved({call,initialTab='lists',cart,onCart,onProfile,ui}){
  const {Card,Btn,Input,s,money,when}=ui;
@@ -11,15 +12,15 @@ export default function CustomerSaved({call,initialTab='lists',cart,onCart,onPro
  useEffect(()=>{run(load)},[]);
  function begin(kind,item={}){setEditor({kind,item});setForm({name:item.name||'',items:Object.fromEntries((item.items||[]).map(x=>[x.offering_family_id,String(x.quantity)])),cadence:item.cadence||'weekly',address_id:item.address_id||data?.addresses[0]?.id||'',next_at:item.next_at?new Date(item.next_at+10800000).toISOString().slice(0,16).replace('T',' '):'',consent:false,...(kind==='profile'?{name:data.profile.name,phone:data.profile.phone||'',marketing_opt_in:data.profile.preferences?.marketing_opt_in===true}:{})})}
  const set=(k,v)=>setForm(old=>({...old,[k]:v}));
- const items=()=>Object.entries(form.items||{}).map(([offering_family_id,q])=>({offering_family_id,quantity:Number(q)})).filter(x=>x.quantity>0);
+ const items=()=>Object.entries(form.items||{}).map(([offering_family_id,q])=>({offering_family_id,quantity:integerValue(q,{min:0,max:20})})).filter(x=>x.quantity>0);
  async function save(){
   const {kind,item}=editor;
   if(kind==='profile'){const p=await call('/api/profile',{method:'PATCH',body:{name:form.name,phone:form.phone,preferences:{language:'ar',marketing_opt_in:!!form.marketing_opt_in}}});onProfile(p)}
-  else if(kind==='list'){if(Object.values(form.items||{}).some(x=>!/^\d{1,2}$/.test(String(x))||Number(x)>20))throw Error('أدخل كميات صحيحة من 0 إلى 20');await call('/api/shopping-lists'+(item.id?'/'+item.id:''),{method:item.id?'PATCH':'POST',body:{name:form.name,items:items(),...(item.id?{revision:item.revision}:{})}})}
+  else if(kind==='list'){await call('/api/shopping-lists'+(item.id?'/'+item.id:''),{method:item.id?'PATCH':'POST',body:{name:form.name,items:items(),...(item.id?{revision:item.revision}:{})}})}
   else{if(!form.consent)throw Error('أكد رغبتك في التذكير فقط');if(!form.address_id)throw Error('أضف عنوانًا محفوظًا من صفحة الحساب أولًا');await call('/api/recurring'+(item.id?'/'+item.id:''),{method:item.id?'PATCH':'POST',body:{name:form.name,address_id:form.address_id,cadence:form.cadence,next_at:saudiReminderDate(form.next_at),state:'active',items:(item.items||[]).map(x=>({offering_family_id:x.offering_family_id,quantity:x.quantity})),...(item.id?{revision:item.revision}:{})}});setTab('plans')}
   await load();setEditor(null);
  }
- async function use(items){const r=await loadCatalog(call);onCart(mergeSavedCart(cart,items,r),r)}
+ async function use(items){const r=await loadCatalog(call);await onCart(items,r)}
  async function planState(item,state){await call('/api/recurring/'+item.id,{method:'PATCH',body:{revision:item.revision,state}});await load()}
  const summary=items=>(items||[]).map((x,i)=><Text key={x.offering_family_id||String(i)}>{x.name||'صنف محفوظ'} · {x.size_label||''} × {x.quantity} — {x.available?money(x.price_halalas):'الكمية غير متاحة الآن'}</Text>);
  const tabName={lists:'قوائم التسوق',plans:'تذكيرات التسوق',profile:'بياناتي'};

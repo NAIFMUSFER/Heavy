@@ -5,7 +5,7 @@ function updateCheckoutBanner(){
  const button=$('[data-resume-checkout]',box);if(button)button.onclick=()=>resumeCheckout().catch(e=>toast(e.message,true));
 }
 async function createQuote(address_id,slot_id,coupon_code=''){
- try{const q=await checkoutSession.create({address_id,slot_id,coupon_code,lines:state.cart.map(x=>({offering_id:x.offering_id,quantity:x.quantity}))});if(q)await showCheckout()}
+ try{await cartStore.flush();const q=await checkoutSession.create({address_id,slot_id,coupon_code,lines:state.cart.map(x=>({offering_id:x.offering_id,quantity:x.quantity}))});if(q)await showCheckout()}
  catch(e){if(checkoutSession.snapshot.pending)await showCheckout();throw e}
 }
 async function resumeCheckout(){
@@ -15,7 +15,7 @@ async function resumeCheckout(){
 }
 async function finishCheckout(){
  const user=state.user;let cartKept=false;
- const order=await checkoutSession.acknowledge(q=>{if(q.order.status!=='cancelled'&&cartMatchesQuote(state.cart,q)){localStorage.setItem(cartKey,'[]');state.cart=[];save()}else cartKept=state.cart.length>0});
+ const order=await checkoutSession.acknowledge(q=>cartStore.update(items=>{if(state.user!==user)return items;if(q.order.status!=='cancelled'&&cartMatchesQuote(items,q))return [];cartKept=items.length>0;return items;}));
  if(!order||state.user!==user)return;
  if(order.status==='cancelled'){await showOrder(order.id);return}
  modal('تم تأكيد طلبك',`<div class="success-view"><div class="success-symbol">✓</div><h2>${esc(order.number)}</h2>${cartKept?'<p class="notice">تغيرت سلتك بعد عرض السعر، فاحتفظنا بها. راجعها قبل شراء جديد.</p>':''}<p>طلبك مسجل. احتفظ برمز التسليم ولا تشاركه إلا عند الاستلام.</p>${order.delivery_code?`<div class="delivery-code">${esc(order.delivery_code)}</div>`:'<p>يمكنك متابعة الطلب وطلب رمز تسليم جديد من تفاصيله عند الحاجة.</p>'}<strong class="price">${money(order.total_halalas)}</strong><button class="btn primary" data-view="orders">متابعة الطلب</button></div>`,'small-modal');
