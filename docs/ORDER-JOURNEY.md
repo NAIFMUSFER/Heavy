@@ -1,5 +1,9 @@
 # Customer order journeys and password sessions
 
+## Operating-model correction — 12 September 2026 (Saudi Arabia)
+
+The owner confirmed **no warehouses**: staff collect/purchase goods from suppliers and shops for each customer order, then hand over to delivery. [SUPPLIER-PICKUP.md](SUPPLIER-PICKUP.md) supersedes the warehouse topology below. The first candidate is a supplier pickup-address directory only; it does not yet convert quote reservation, purchase assignments or actual collection. Keep admission closed until the full replacement journey is tested. Existing warehouse-dependent routes remain for historical compatibility, not owner setup requirements.
+
 Web and Expo share `assets/order.js` / `mobile/order.mjs`; an executable equality test allows only the address-module import extension to differ.
 
 Owner onboarding and team entry points are in [the Arabic handoff guide](OWNER-HANDOFF-ar.md). The web operations portal preserves role-permitted section bookmarks across sign-in/reload and warns before discarding an unsaved merchant draft. The launch center only reads existing setup/health endpoints; it does not create an order, activate intake or attest physical operations. Native customer flows are unchanged by this handoff feature.
@@ -38,7 +42,7 @@ Courier directions use the order snapshot coordinates in an official keyless Goo
 
 Native order details include refresh, cancellation while active/queued/unassigned, code renewal during delivery, support, substitutions, refunds and the existing review. Cancellation/renewal require confirmation and authoritative server checks. Renewal invalidates the previous code; the new code stays only in the current screen.
 
-## Launch warehouse ownership
+## Legacy launch warehouse ownership — superseded as a business requirement
 
 The supported first-market topology is one active launch warehouse. Its owner-entered name, city, operational address and coordinates are private operations data; activation requires all fields and an explicit audited reason. Every delivery zone saved through the operations boundary is linked atomically to that active warehouse, and new delivery slots require the same live route. Existing production zones are not assigned automatically because the application must not guess a real location.
 

@@ -12,6 +12,7 @@ globalThis.fetch=async(url,init)=>{
  calls++;return Response.json({id:'fixture-response'});
 };
 const cases=[
+ ['GET','/pickup-sites?limit=50'],['POST','/pickup-sites',{supplier_id:'fixture',name:'Fixture shop',active:false,reason:'Fixture site'}],['PATCH','/pickup-sites/pup-11111111111111111111111111111111',{revision:1,city:'Fixture city',reason:'Fixture update'}],
  ['GET','/supplier-credits'],['POST','/disposals/11111111-1111-4111-8111-111111111111/supplier-credits',{amount_halalas:100,reference:'Fixture credit note',note:'Fixture supplier reconciliation'}],
  ['GET','/customer-returns/11111111-1111-1111-1111-111111111111/dispositions'],['POST','/customer-returns/11111111-1111-1111-1111-111111111111/dispositions',{kind:'destroyed',quantity_base:1,reference:'Fixture disposal',note:'Fixture actual disposal',recipient:null}],
  ['GET','/customer-returns'],['GET','/customer-returns/context?number=JANA-fixture'],['POST','/customer-returns',{source_movement_id:'fixture-movement',quantity_base:10,reference:'Fixture document',reason:'Fixture actual return'}],['POST','/customer-returns/11111111-1111-1111-1111-111111111111/inspection',{accepted_base:5,note:'Fixture inspected'}],

@@ -2,7 +2,7 @@ name: JANA Database Integrity
 on:
   push:
     branches: [jana-live, jana-integrity]
-    paths: ['supabase/**', 'tests/database*', 'tests/coupons.py', 'tests/addresses.py', 'tests/database-history/**', 'scripts/bootstrap-test-database.py', 'scripts/start-test-database.sh', 'tests/postgres.Dockerfile', 'tests/scheduler.py', 'tests/operational-health.py', 'tests/costs.py', 'tests/products.py', 'tests/support.py', 'tests/finance.py', 'tests/substitutions.py', 'tests/inventory-counts.py', 'tests/staff.py', 'tests/customer-saved.py', 'tests/delivery-admin.py', 'tests/warehouses.py', 'tests/warehouse-bins.py', 'tests/catalog.py', 'tests/cart.py', 'tests/accounts.py', 'tests/customers.py', 'tests/order-journey.py', 'tests/checkout-recovery.py', 'tests/operations-orders.py', 'tests/weights.py', 'tests/basket-components.py', 'tests/storefront.py', 'tests/storefront_fixture.py', 'tests/disposals.py', 'tests/supplier-credits.py', 'tests/customer-returns.py', 'tests/movements.py', 'tests/notification-outbox.py', 'tests/rpc-contracts.mjs', 'tests/concurrency.py', '.github/workflows/jana-database.yml']
+    paths: ['supabase/**', 'tests/database*', 'tests/coupons.py', 'tests/addresses.py', 'tests/database-history/**', 'scripts/bootstrap-test-database.py', 'scripts/start-test-database.sh', 'tests/postgres.Dockerfile', 'tests/scheduler.py', 'tests/operational-health.py', 'tests/costs.py', 'tests/products.py', 'tests/support.py', 'tests/finance.py', 'tests/substitutions.py', 'tests/inventory-counts.py', 'tests/staff.py', 'tests/customer-saved.py', 'tests/delivery-admin.py', 'tests/warehouses.py', 'tests/warehouse-bins.py', 'tests/supplier-pickup.py', 'tests/catalog.py', 'tests/cart.py', 'tests/accounts.py', 'tests/customers.py', 'tests/order-journey.py', 'tests/checkout-recovery.py', 'tests/operations-orders.py', 'tests/weights.py', 'tests/basket-components.py', 'tests/storefront.py', 'tests/storefront_fixture.py', 'tests/disposals.py', 'tests/supplier-credits.py', 'tests/customer-returns.py', 'tests/movements.py', 'tests/notification-outbox.py', 'tests/rpc-contracts.mjs', 'tests/concurrency.py', '.github/workflows/jana-database.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -67,6 +67,8 @@ jobs:
         run: python3 tests/warehouses.py
       - name: Verify reference warehouse bins and stock placement
         run: python3 tests/warehouse-bins.py
+      - name: Verify supplier pickup directory without inventory or cash changes
+        run: python3 tests/supplier-pickup.py
       - name: Verify catalog pagination and usable availability
         run: python3 tests/catalog.py
       - name: Verify saved cart isolation and concurrent writes

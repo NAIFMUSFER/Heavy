@@ -82,6 +82,7 @@ try{
  const workLink=inventory.getByRole('link',{name:'فتح واجهة التشغيل'});assert.equal(await workLink.getAttribute('href'),'/admin.html');
  await workLink.click();await inventory.locator('.ops-user').waitFor();
  pass('inventory account returns from the storefront to its actual operations workspace');
+ await inventory.locator('[data-page=inventory]').click();
  const inventoryDownloadEvent=inventory.waitForEvent('download');await inventory.locator('[data-action=download-inventory-review]').click();const inventoryDownload=await inventoryDownloadEvent;
  assert.equal(inventoryDownload.suggestedFilename(),'jana-inventory-review.csv');const inventoryReview=await fs.readFile(await inventoryDownload.path(),'utf8');assert.equal(inventoryReview.charCodeAt(0),0xfeff);assert.match(inventoryReview,/الصالح_للبيع/);assert.deepEqual(stock(),{on_hand:1,reserved:0});
  pass('warehouse can download a read-only physical review file before receiving stock');
@@ -99,6 +100,15 @@ try{
  pass('warehouse can validate an Arabic Excel stock master before any definition balance lot or movement write');
  await inventory.locator('[data-action=new-supplier]').click();await inventory.locator('#supplier-form [name=name]').fill('مورد اختبار المتصفح');
  const supplier=await change(inventory,'/api/ops/suppliers',()=>inventory.locator('#supplier-form button').click());
+ const pickupBefore={stock:stock(),cash:Number(sql('SELECT count(*) FROM cash_entries;')),warehouses:Number(sql('SELECT count(*) FROM warehouses;'))};
+ await inventory.locator('[data-page=pickup-sites]').click();await inventory.setViewportSize({width:390,height:844});await inventory.locator('#new-pickup-site').click();
+ const pickupForm=inventory.locator('#pickup-site-form');await pickupForm.locator('[name=supplier_id]').selectOption(supplier.id);await pickupForm.locator('[name=name]').fill('محل اختبار معزول');await pickupForm.locator('[name=city]').fill('مدينة الاختبار');await pickupForm.locator('[name=address_line]').fill('عنوان اختبار معزول');await pickupForm.locator('[name=latitude]').fill('١٦٫٥');await pickupForm.locator('[name=longitude]').fill('٤٢٫٥');await pickupForm.locator('[name=active]').selectOption('true');await pickupForm.locator('[name=reason]').fill('مراجعة موقع في بيئة الاختبار');
+ const pickupSite=await change(inventory,'/api/ops/pickup-sites',()=>pickupForm.locator('button[type=submit]').click());await inventory.locator('[data-pickup-site="'+pickupSite.id+'"]').waitFor();assert.equal(Number(pickupSite.latitude),16.5);
+ assert.deepEqual({stock:stock(),cash:Number(sql('SELECT count(*) FROM cash_entries;')),warehouses:Number(sql('SELECT count(*) FROM warehouses;'))},pickupBefore);
+ pass('operations saves a supplier pickup address with Arabic coordinates on phone width without warehouse stock or cash writes');
+ const pickupReader=await login('picker');await pickupReader.locator('[data-page=pickup-sites]').click();await pickupReader.locator('[data-pickup-site="'+pickupSite.id+'"] [data-pickup-directions]').waitFor();assert.equal(await pickupReader.locator('#new-pickup-site').count(),0);assert.match(await pickupReader.locator('[data-pickup-site="'+pickupSite.id+'"] [data-pickup-directions]').getAttribute('href'),/^https:\/\/www.google.com\/maps\/dir/);
+ pass('picker can read active supplier locations and choose navigation but cannot edit them');
+ await pickupReader.close();await inventory.setViewportSize({width:1365,height:1000});await inventory.locator('[data-page=inventory]').click();
  await inventory.locator('[data-action=new-lot]').click();
  const lotForm=inventory.locator('#lot-form');await lotForm.locator('[name=stock_id]').selectOption(fixture.stock_id);await lotForm.locator('[name=supplier_id]').selectOption(supplier.id);
  await lotForm.locator('[name=receipt_reference]').fill('E2E-RECEIPT');await lotForm.locator('[name=received_base]').fill('10000');await lotForm.locator('[name=cost]').fill('١٠٠٫٠٠');await lotForm.locator('[name=expires_at]').fill(nextSaudiDate());

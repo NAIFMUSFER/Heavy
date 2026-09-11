@@ -12,7 +12,7 @@ test('customer, status and operations bundles remain valid and protected',async 
 test('health and version do not depend on database',async t=>{const f=await fixture(t,async()=>{throw Error('offline')},{commit:'test-commit'});assert.equal((await fetch(f.base+'/health')).status,200);assert.equal((await(await fetch(f.base+'/version')).json()).commit,'test-commit');assert.equal(f.calls.length,0);assert.equal((await fetch(f.base+'/ready')).status,503)});
 test('owner handoff links are served without a database and retain real workspace destinations',async t=>{
  const f=await fixture(t,async()=>{throw Error('No backend needed for public links')});const response=await fetch(f.base+'/start.html');assert.equal(response.status,200);const html=await response.text();
- for(const href of ['/admin.html#launch','/status.html','/admin.html#inventory','/picker.html#orders','/courier.html#orders','/admin.html#finance','/admin.html#support']){assert.ok(html.includes('href="'+href+'"'));assert.equal((await fetch(f.base+href.split('#')[0],{method:'HEAD'})).status,200)}
+ for(const href of ['/admin.html#launch','/status.html','/admin.html#pickup-sites','/picker.html#orders','/courier.html#orders','/admin.html#finance','/admin.html#support']){assert.ok(html.includes('href="'+href+'"'));assert.equal((await fetch(f.base+href.split('#')[0],{method:'HEAD'})).status,200)}
  assert.equal(f.calls.length,0);assert.equal(response.headers.getSetCookie().length,0);assert.match(response.headers.get('content-security-policy'),/script-src 'self';/);assert.doesNotMatch(html,/href="https:\/\/(apps\.apple\.com|play\.google\.com)|password|token|onclick=/);
 });
 test('readiness checks all three canonical Edge dependencies',async t=>{const f=await fixture(t);const r=await(await fetch(f.base+'/ready')).json();assert.equal(r.ok,true);assert.equal(r.dependencies.length,3);assert.ok(f.calls.every(([u])=>u.startsWith('https://jjdsajiwoqanefmnikls.supabase.co/functions/v1/')))});
@@ -76,6 +76,13 @@ test('disposal history and lot disposal routes use the trusted operations Edge',
 });
 
 test('stock movement reads use the canonical operations Edge',async t=>{const f=await fixture(t);const r=await fetch(f.base+'/api/ops/movements?reason=waste');assert.equal(r.status,200);assert.ok(f.calls.at(-1)[0].includes('/jana-ops-extra/api/ops/movements?reason=waste'))});
+test('supplier pickup reads and writes use operations Edge with private identifiers redacted',async t=>{
+ const f=await fixture(t),{routeLabel}=require('../server.js');
+ for(const [path,method] of [['/api/ops/pickup-sites','GET'],['/api/ops/pickup-sites','POST'],['/api/ops/pickup-sites/private-site','PATCH']]){
+  const r=await fetch(f.base+path,{method,...(method==='GET'?{}:{headers:{'content-type':'application/json'},body:'{}'})});
+  assert.equal(r.status,200);assert.ok(f.calls.at(-1)[0].includes('/jana-ops-extra'+path));assert.ok(!routeLabel(path).includes('private'));
+ }
+});
 test('reference bin writes use the operations Edge and redact identifiers',async t=>{
  const f=await fixture(t),{routeLabel}=require('../server.js');
  for(const [path,method] of [['/api/ops/bins','POST'],['/api/ops/bins/private-bin','PATCH'],['/api/ops/stock/private-stock/bin','POST']]){

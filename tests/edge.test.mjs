@@ -9,6 +9,19 @@ let calls=[];let response={ok:true};
 globalThis.fetch=async (url,init)=>{calls.push({url:String(url),body:JSON.parse(init.body||'{}')});return Response.json(response)};
 function request(name,path,options={}) {return new Request(`https://edge.example/${name}${path}`,options)}
 const bearer={authorization:'Bearer test-only-token-01234567890123456789','content-type':'application/json'};
+test('supplier pickup directory uses bounded role-checked RPCs and path identity',async()=>{
+ calls=[];response={items:[],next:null,can_manage:false,order_flow_ready:false};
+ const read=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/pickup-sites?limit=50',{headers:bearer}));
+ assert.equal(read.status,200);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_supplier_pickup_sites'));assert.deepEqual(calls[0].body,{p_token:bearer.authorization.slice(7),p_limit:50,p_after_id:null});
+ for(const query of ['limit=101','limit=0','limit=1.5','after_id=bad']){calls=[];const bad=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/pickup-sites?'+query,{headers:bearer}));assert.equal(bad.status,422);assert.equal(calls.length,0)}
+ calls=[];const id='pup-'+'1'.repeat(32);response={id};
+ const saved=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/pickup-sites/'+id,{method:'PATCH',headers:{...bearer,'idempotency-key':'pickup-site-test'},body:JSON.stringify({id:'ignored',revision:2,reason:'Reviewed site',name:'Shop',active:false,quantity:999})}));
+ assert.equal(saved.status,200);assert.ok(calls[0].url.endsWith('/jana_supplier_pickup_site_write'));assert.deepEqual(calls[0].body.p_payload,{id,revision:2,reason:'Reviewed site',changes:{name:'Shop',active:false}});
+});
+test('supplier pickup writes require retry keys and return actionable version errors',async()=>{
+ calls=[];const missing=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/pickup-sites',{method:'POST',headers:bearer,body:'{}'}));assert.equal(missing.status,422);assert.equal(calls.length,0);
+ response={_error:'pickup_changed',status:409};const stale=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/pickup-sites/pup-'+'1'.repeat(32),{method:'PATCH',headers:{...bearer,'idempotency-key':'pickup-site-test'},body:'{}'}));assert.equal(stale.status,409);assert.equal((await stale.json()).error.code,'PICKUP_CHANGED');response={ok:true};
+});
 test('staff order pages use one bounded role-scoped RPC and preserve legacy offsets',async()=>{
  for(const [query,expected] of [['limit=25&before_at=1800000000000&before_id=staff-order',{p_limit:25,p_before_at:1800000000000,p_before_id:'staff-order',p_offset:0}],['limit=100&offset=100',{p_limit:100,p_before_at:null,p_before_id:null,p_offset:100}]]){
   calls=[];response={items:[{id:'fixture'}],next:null,next_offset:null};

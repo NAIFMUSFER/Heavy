@@ -16,7 +16,7 @@ function harness({role='admin',workspace='admin',hash='#launch',get,confirm=()=>
 test('launch center reports recorded checks separately from mandatory physical review and never opens sales',async()=>{
  const h=harness();await h.run('setInitialOpsPage();render()');
  assert.deepEqual(h.paths,['/api/ops/storefront','/api/ops/deep-health']);assert.equal(h.writes.length,0);assert.match(h.root.innerHTML,/data-launch-state="closed"/);
- assert.equal((h.root.innerHTML.match(/data-launch-check=/g)||[]).length,8);assert.match(h.root.innerHTML,/data-launch-check="inventory" data-launch-check-state="review"/);assert.match(h.root.innerHTML,/data-launch-check="team" data-launch-check-state="review"/);assert.match(h.root.innerHTML,/data-launch-check="warehouse" data-launch-check-state="observed"/);
+ assert.equal((h.root.innerHTML.match(/data-launch-check=/g)||[]).length,8);assert.match(h.root.innerHTML,/data-launch-check="supplier-sites" data-launch-check-state="review"/);assert.match(h.root.innerHTML,/data-launch-check="team" data-launch-check-state="review"/);assert.match(h.root.innerHTML,/data-launch-check="procurement" data-launch-check-state="attention"/);
  assert.match(h.root.innerHTML,/لا يُستنتج اكتمالها من الاختبارات البرمجية/);assert.match(h.root.innerHTML,/href="\/admin.html#storefront"/);assert.match(h.root.innerHTML,/href="\/start.html"/);
  assert.match(h.root.innerHTML,/data-launch-opening-review="none"/);
  assert.match(h.root.innerHTML,/data-launch-download/);assert.match(h.root.innerHTML,/download="jana-launch-readiness.json"/);
@@ -27,7 +27,7 @@ test('downloadable launch observation excludes private merchant content and pres
  assert.equal(report.schema,'jana-launch-observation/v1');assert.deepEqual(report.admission,{state:'closed',storefront_revision:4,published_policy_version:2,opening_review:null});
  assert.equal(report.checks.length,8);assert.ok(report.checks.every(x=>Object.keys(x).sort().join(',')==='action,action_url,id,state,title'));
  assert.equal(report.operations.ok,true);assert.equal(report.manual_acceptance_required,true);assert.doesNotMatch(JSON.stringify(report),/Private fixture|private@example|SECRET POLICY/);
- const unknown=JSON.parse(JSON.stringify(h.run(`launchReport({},null)`)));assert.deepEqual(unknown.admission,{state:'unknown',storefront_revision:null,published_policy_version:null,opening_review:null});assert.equal(unknown.operations,null);assert.ok(unknown.checks.every(x=>['unknown','review'].includes(x.state)));
+ const unknown=JSON.parse(JSON.stringify(h.run(`launchReport({},null)`)));assert.deepEqual(unknown.admission,{state:'unknown',storefront_revision:null,published_policy_version:null,opening_review:null});assert.equal(unknown.operations,null);assert.ok(unknown.checks.every(x=>x.id==='procurement'?x.state==='attention':['unknown','review'].includes(x.state)));
 });
 test('launch displays a validated opening record while the download omits its private reference and actor',async()=>{
  const s=store();s.last_opening_review={recorded_at:1789140000000,storefront_revision:4,published_id:'fixture-policy',reference:'OWNER-APPROVAL-17<script>',reviewed:{catalog:true,inventory:true,coverage:true,tax:true,operations:true},actor:{id:'fixture-admin',name:'مسؤول <script>'}};s.opening_review_matches_published=true;
@@ -52,7 +52,7 @@ test('missing or malformed readiness never turns into zero counts or a completed
 });
 test('a failed health read preserves owner setup links while reporting the monitoring state as unknown',async()=>{
  const h=harness({get:p=>{if(p==='/api/ops/deep-health')throw Error('Fixture outage');return store()}});await h.run('setInitialOpsPage();render()');
- assert.match(h.root.innerHTML,/data-launch-check="operations" data-launch-check-state="unknown"/);assert.match(h.root.innerHTML,/data-launch-check="merchant" data-launch-check-state="observed"/);assert.match(h.root.innerHTML,/href="\/admin.html#inventory"/);
+ assert.match(h.root.innerHTML,/data-launch-check="operations" data-launch-check-state="unknown"/);assert.match(h.root.innerHTML,/data-launch-check="merchant" data-launch-check-state="observed"/);assert.match(h.root.innerHTML,/href="\/admin.html#pickup-sites"/);
 });
 test('refresh clears old open status and only the newest request can paint the launch center',async()=>{
  const pending=[];const h=harness({get:p=>new Promise(resolve=>pending.push({p,resolve}))});h.run('setInitialOpsPage()');const first=h.run('render()');const second=h.run('render()');assert.match(h.root.innerHTML,/data-launch-loading/);
