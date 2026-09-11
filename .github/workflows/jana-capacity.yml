@@ -1,0 +1,48 @@
+name: JANA Isolated Capacity Rehearsal
+on:
+  push:
+    branches: [jana-integrity, jana-live]
+    paths: ['server.js', 'supabase/**', 'tests/capacity.mjs', 'tests/e2e/harness.mjs', 'tests/e2e/bootstrap.py', 'tests/database-history/**', 'scripts/bootstrap-test-database.py', 'scripts/start-test-database.sh', 'tests/postgres.Dockerfile', '.github/workflows/jana-capacity.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: jana-capacity-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  capacity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      JANA_TEST_DATABASE: disposable
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGDATABASE: jana_test
+      PGUSER: postgres
+      PGPASSWORD: disposable-ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Start disposable PostgreSQL with PostGIS and pg_cron
+        run: bash scripts/start-test-database.sh
+      - name: Replay reviewed schema and create isolated inventory fixture
+        run: |
+          python3 scripts/bootstrap-test-database.py
+          python3 tests/e2e/bootstrap.py
+      - name: Start local PostgREST database transport
+        run: bash tests/e2e/start-rest.sh
+      - name: Measure catalog load, overload shedding and recovery
+        run: npm run capacity
+      - name: Retain aggregate fixture-only capacity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jana-disposable-capacity-evidence
+          path: evidence/local/capacity/rehearsal.json
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Remove disposable services
+        if: always()
+        run: docker rm -f jana-test-rest jana-test-postgres

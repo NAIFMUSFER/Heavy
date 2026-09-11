@@ -25,7 +25,7 @@ This matrix describes implemented source. Exact release/deployment/build evidenc
 | Notifications | Transactional in-app notifications; guarded outbox/leases/retries/uncertainty, Resend adapter and monitoring | Dedicated worker, verified destinations/consent/domain and approved channel activation |
 | Providers/analytics | Server-only provider boundaries, privacy-minimized events, fail-closed flags | Concrete SMS/push/payment/media integrations as selected; dedicated PostHog ingestion verification |
 | Database assurance | Recovered replay, populated fixture backup/restore gate, disposable concurrency tests, immutable ledgers, service-only application RPCs | Real backup restore/recovery timing; supported PostGIS platform-advisor remediation |
-| CI/operations | Node/PostgreSQL/recovery/browser/Expo/Android/iOS simulator gates, exact-commit smoke, recovery/rotation runbooks | Capacity/load, dedicated staging, alerts, measured backup/restore and signed releases |
+| CI/operations | Node/PostgreSQL/recovery/browser/Expo/Android/iOS simulator gates, exact-commit smoke, fixture-only capacity/overload regression, recovery/rotation runbooks | Owner-approved staging load, dedicated staging, alerts, measured production-backup restore and signed releases |
 
 ## Work order before commercial sales
 
@@ -66,3 +66,7 @@ The implemented release validates and serializes local cart persistence across w
 **Current web release: 67d03047b191bf8edc8cdee24be5c038ed87166c**, Render **dep-dahp529594qs7380058g**, LIVE at **2026-09-11T05:33:23.737690Z**. The exact aligned source passed **288 Node tests**, **64 disposable browser checks**, full database integrity and populated recovery before promotion. Public smoke [34566340605](https://github.com/NAIFMUSFER/Heavy/actions/runs/34566340605) passed **26 checks** against the deployed commit. Supabase is at **86 migrations** with ACTIVE jana-api v30, jana-critical v6 and jana-ops-extra v22, preserving `verify_jwt:false` custom-session authentication.
 
 The software now records immutable supplier credit-note evidence against a completed physical supplier return, prevents duplicate supplier documents, separates reference inventory cost from financial claims and gives finance/admin write access with inventory read-only review. Production contains zero such records after release; no fixture was created. Actual settlement/accounting/VAT treatment, approval thresholds and operating acceptance remain owner inputs and are not inferred by the application.
+
+## Isolated capacity gate — 11 September 2026
+
+The review candidate adds a disposable gateway/Edge/PostgreSQL capacity regression: bounded concurrent catalog reads, explicit latency/throughput thresholds, deterministic overload shedding at the existing gateway admission limit and a recovery read. It writes only aggregate fixture evidence and cannot target production. Candidate CI evidence is pending; this does not establish a production SLA or replace owner-approved staging load acceptance. See [CAPACITY-REHEARSAL.md](CAPACITY-REHEARSAL.md).
