@@ -2,7 +2,7 @@
 
 This matrix describes implemented source. Exact release/deployment/build evidence and historical failures are retained in RELEASE-EVIDENCE.md and the release handoff. A passing build is not physical operating acceptance or a signed store release.
 
-Latest verified web release: **bd9d224754e7755c0e07da31dbc566fde0b49ebe**, LIVE **11 September 2026 at 08:48:49 UTC** via Render **dep-dahs0e9594qs738bqi5g**. Exact-commit [public smoke](https://github.com/NAIFMUSFER/Heavy/actions/runs/34580859338) passed 26 checks. Supabase has **89 migrations**, ACTIVE **jana-api v32**, jana-critical v6 and jana-ops-extra v22. Exact component replacement is published. The read-only operational-observation schema is applied; its admin web publication is pending. Older dated checkpoints below retain historical states.
+Latest verified web release: **0dc5784e0fac03b668203668a1ef231aa40fd3e4**, LIVE **11 September 2026 at 10:03:23 UTC** via Render **dep-daht3jbm8hqs73d9hj70**. Exact-commit [public smoke](https://github.com/NAIFMUSFER/Heavy/actions/runs/34587134163) passed 26 checks. Supabase has **89 migrations**, ACTIVE **jana-api v32**, jana-critical v6 and jana-ops-extra v22. Admin operational observations are published, including stopped/stale jobs and overdue work. Older dated checkpoints below retain historical states.
 
 **Commercial launch is not complete.** Store admission remains closed until actual merchant information, policies, inventory, geography and operating acceptance pass the existing readiness gate. No invented percentage represents readiness.
 
@@ -27,7 +27,7 @@ Latest verified web release: **bd9d224754e7755c0e07da31dbc566fde0b49ebe**, LIVE 
 | Notifications | Transactional in-app notifications; guarded outbox/leases/retries/uncertainty, Resend adapter and monitoring | Dedicated worker, verified destinations/consent/domain and approved channel activation |
 | Providers/analytics | Server-only provider boundaries, privacy-minimized events, fail-closed flags | Concrete SMS/push/payment/media integrations as selected; dedicated PostHog ingestion verification |
 | Database assurance | Recovered replay, populated fixture backup/restore gate, disposable concurrency tests, immutable ledgers, service-only application RPCs | Real backup restore/recovery timing; supported PostGIS platform-advisor remediation |
-| CI/operations | Node/PostgreSQL/recovery/browser/Expo/Android/iOS simulator gates, exact-commit smoke, fixture-only capacity/overload regression, recovery/rotation runbooks; admin observations for stopped/stale scheduled jobs and overdue queues | Owner-approved staging load, dedicated staging, unattended monitoring/external alert delivery, measured production-backup restore and signed releases |
+| CI/operations | Node/PostgreSQL/recovery/browser/Expo/Android/iOS simulator gates, exact-commit smoke, fixture-only capacity/overload regression, recovery/rotation runbooks; [admin observations](OPERATIONAL-HEALTH.md) for stopped/stale scheduled jobs and overdue queues | Owner-approved staging load, dedicated staging, unattended monitoring/external alert delivery, measured production-backup restore and signed releases |
 
 ## Work order before commercial sales
 
