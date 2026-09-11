@@ -317,15 +317,32 @@ try{
 
  phase='customer order history pagination';
  const historyPrefix=fixture.prefix.slice(0,14)+'h';
- sql("INSERT INTO quotes SELECT clone.* FROM quotes q CROSS JOIN generate_series(1,55)n CROSS JOIN LATERAL jsonb_populate_record(NULL::quotes,to_jsonb(q)||jsonb_build_object('id',"+literal(historyPrefix)+"||'q'||lpad(n::text,3,'0'),'snapshot','{}'::json))clone WHERE q.id="+literal(confirmed.quote_id||sql('SELECT quote_id FROM orders WHERE id='+literal(confirmed.id)+';'))+';');
- sql("INSERT INTO orders SELECT clone.* FROM orders o CROSS JOIN generate_series(1,55)n CROSS JOIN LATERAL jsonb_populate_record(NULL::orders,to_jsonb(o)||jsonb_build_object('id',"+literal(historyPrefix)+"||'o'||lpad(n::text,3,'0'),'number',"+literal(historyPrefix)+"||lpad(n::text,3,'0'),'quote_id',"+literal(historyPrefix)+"||'q'||lpad(n::text,3,'0'),'snapshot','{}'::json,'original_snapshot','{}'::json,'status','cancelled','fulfillment_state','cancelled','delivery_state','cancelled','payment_state','cancelled','total_halalas',0,'collected_halalas',0,'refunded_halalas',0,'settled_halalas',0,'courier_refunded_halalas',0,'code_hash',NULL))clone WHERE o.id="+literal(confirmed.id)+';');
+ sql("INSERT INTO quotes SELECT clone.* FROM quotes q CROSS JOIN generate_series(1,115)n CROSS JOIN LATERAL jsonb_populate_record(NULL::quotes,to_jsonb(q)||jsonb_build_object('id',"+literal(historyPrefix)+"||'q'||lpad(n::text,3,'0'),'snapshot','{}'::json))clone WHERE q.id="+literal(confirmed.quote_id||sql('SELECT quote_id FROM orders WHERE id='+literal(confirmed.id)+';'))+';');
+ sql("INSERT INTO orders SELECT clone.* FROM orders o CROSS JOIN generate_series(1,115)n CROSS JOIN LATERAL jsonb_populate_record(NULL::orders,to_jsonb(o)||jsonb_build_object('id',"+literal(historyPrefix)+"||'o'||lpad(n::text,3,'0'),'number',"+literal(historyPrefix)+"||lpad(n::text,3,'0'),'quote_id',"+literal(historyPrefix)+"||'q'||lpad(n::text,3,'0'),'snapshot','{}'::json,'original_snapshot','{}'::json,'status','cancelled','fulfillment_state','cancelled','delivery_state','cancelled','payment_state','cancelled','total_halalas',0,'collected_halalas',0,'refunded_halalas',0,'settled_halalas',0,'courier_refunded_halalas',0,'code_hash',NULL))clone WHERE o.id="+literal(confirmed.id)+';');
  const expectedHistory=Number(sql('SELECT count(*) FROM orders WHERE user_id='+literal(customerId)+';'));
  await closeModal(customer);await customer.setViewportSize({width:390,height:844});await customer.locator('[data-view=orders]:visible').first().click();await customer.locator('#more-orders').waitFor();assert.equal(await customer.locator('[data-order]').count(),25);
  await change(customer,'/api/orders',()=>customer.locator('#more-orders').click(),'GET');await customer.locator('[data-order]').nth(49).waitFor();assert.equal(await customer.locator('[data-order]').count(),50);
- await change(customer,'/api/orders',()=>customer.locator('#more-orders').click(),'GET');await customer.locator('[data-order]').nth(expectedHistory-1).waitFor();assert.equal(await customer.locator('#more-orders').count(),0);
+ while(await customer.locator('[data-order]').count()<expectedHistory){const nextCount=Math.min(expectedHistory,(await customer.locator('[data-order]').count())+25);await change(customer,'/api/orders',()=>customer.locator('#more-orders').click(),'GET');await customer.locator('[data-order]').nth(nextCount-1).waitFor()}assert.equal(await customer.locator('#more-orders').count(),0);
  const displayed=await customer.locator('[data-order]').evaluateAll(nodes=>nodes.map(n=>n.dataset.order));assert.equal(displayed.length,expectedHistory);assert.equal(new Set(displayed).size,expectedHistory);
  await customer.screenshot({path:output+'/order-history-phone.png',fullPage:true});
- pass('customer loads all older orders beyond 50 on phone width without missing or duplicated cards');
+ pass('customer loads all older orders beyond 100 on phone width without missing or duplicated cards');
+
+ phase='staff order pagination and failed page retry';
+ const expectedStaff=Number(sql('SELECT count(*) FROM orders;'));
+ await closeModal(admin);await admin.setViewportSize({width:390,height:844});
+ await change(admin,'/api/ops/orders',()=>admin.locator('[data-page=orders]').click(),'GET');
+ await admin.locator('[data-action=orders-more]').waitFor();assert.equal(await admin.locator('[data-action=detail]').count(),50);
+ await admin.route('**/api/ops/orders?*',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:{code:'FIXTURE_UNAVAILABLE',message:'تعذر تحميل الصفحة التجريبية'}})}));
+ await admin.locator('[data-action=orders-more]').click();await admin.getByText('تعذر تحميل الصفحة التجريبية',{exact:true}).waitFor();
+ assert.equal(await admin.locator('[data-action=detail]').count(),50);assert.equal(await admin.locator('[data-action=orders-more]').isEnabled(),true);
+ await admin.unroute('**/api/ops/orders?*');
+ while(await admin.locator('[data-action=detail]').count()<expectedStaff){const nextCount=Math.min(expectedStaff,(await admin.locator('[data-action=detail]').count())+50);await change(admin,'/api/ops/orders',()=>admin.locator('[data-action=orders-more]').click(),'GET');await admin.locator('[data-action=detail]').nth(nextCount-1).waitFor()}
+ const staffIds=await admin.locator('[data-action=detail]').evaluateAll(nodes=>nodes.map(n=>n.dataset.id));assert.equal(staffIds.length,expectedStaff);assert.equal(new Set(staffIds).size,expectedStaff);assert.equal(await admin.locator('[data-action=orders-more]').count(),0);
+ assert.equal(await admin.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ pass('staff phone view retries a failed page and reaches all older orders beyond 100 without lost or duplicate cards');
+ await change(admin,'/api/ops/orders',()=>admin.locator('[data-action=refresh]').click(),'GET');await admin.locator('[data-action=orders-more]').waitFor();assert.equal(await admin.locator('[data-action=detail]').count(),50);
+ await admin.screenshot({path:output+'/staff-order-pages-phone.png',fullPage:false});
+ pass('staff refresh resets the history cursor and loaded count to the current first page');
 
  phase='customer password change and session invalidation';
  const secondPhone=await pageFor('phone_second');await secondPhone.locator('[data-view=account]').first().click();await secondPhone.locator('[data-login]').click();await secondPhone.locator('#auth-form [name=email]').fill('0500000002');await secondPhone.locator('#auth-form [name=password]').fill(password);await change(secondPhone,'/api/auth/login',()=>secondPhone.locator('#auth-form button[type=submit]').click());

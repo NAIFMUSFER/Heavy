@@ -1,5 +1,5 @@
 import {substitutionReview,qty,$,$$,esc,money,number,parseMoney,date,badge,empty,get,getAll,post,patch,modal,closeModal,toast,busy,formData,identity,loginDialog,setupConnectivity,field,selectField,ticketCategories,ticketThread} from './common.js'; import {zoneMapMarkup,mountZoneMap} from './zone-map.js'; import {orderLinks} from './order.js'; import {locationFailure} from './address.js';
-const root=$('#ops-app'),workspace=document.body.dataset.workspace;const state={user:null,page:'orders',orders:[],reports:null,staff:[],catalog:null};
+const root=$('#ops-app'),workspace=document.body.dataset.workspace;const state={user:null,page:'orders',orders:[],ordersNext:null,ordersGeneration:0,ordersLoading:null,reports:null,staff:[],catalog:null};
 const staffRoles=[['admin','مدير'],['inventory','المستودع'],['picker','التجهيز'],['courier','التوصيل'],['support','الدعم'],['finance','المالية']];
 const staffRoleName=role=>staffRoles.find(x=>x[0]===role)?.[1]||role;
 const roleTitle={admin:'لوحة التشغيل',picker:'التجهيز',courier:'التوصيل',finance:'المالية',support:'خدمة العملاء',inventory:'المستودع'};
@@ -11,8 +11,24 @@ const snapshotAddress=o=>[o.snapshot?.address?.city,o.snapshot?.address?.distric
 function deliveryLinks(o){const a=o.snapshot?.address||{},links=orderLinks(a);return `<div class="ops-actions">${links.directions?`<a class="btn outline" data-delivery-directions href="${esc(links.directions)}" target="_blank" rel="noopener noreferrer">بدء الملاحة للتوصيل</a>`:''}${links.phone?`<a class="btn outline" data-delivery-phone href="${esc(links.phone)}">الاتصال بالمستلم</a>`:''}</div>`}
 
 function task(o){const picker=workspace==='picker'||(workspace==='admin'&&state.user.role==='admin');const courier=workspace==='courier';const finance=workspace==='admin'&&['admin','finance'].includes(state.user.role);let actions='';if(workspace==='admin'&&state.user.role==='admin'&&o.status==='active'&&(['queued','picking','awaiting_customer'].includes(o.fulfillment_state)||(o.fulfillment_state==='ready'&&['unassigned','assigned','failed'].includes(o.delivery_state))))actions+=`<button class="btn outline" data-action="assign-order" data-id="${esc(o.id)}">إسناد الموظف</button>`;if(picker&&o.fulfillment_state==='queued')actions+=`<button class="btn primary" data-action="start" data-id="${o.id}">بدء التجهيز</button>`;if(picker&&['picking','awaiting_customer'].includes(o.fulfillment_state))actions+=`<button class="btn primary" data-action="open-pick" data-id="${o.id}">الأوزان والبدائل والتجهيز</button>`;if(courier&&o.fulfillment_state==='ready'&&['unassigned','assigned','failed'].includes(o.delivery_state))actions+=`<button class="btn primary" data-action="dispatch" data-id="${o.id}">استلام المهمة وبدء التوصيل</button>`;if(courier&&o.delivery_state==='out_for_delivery')actions+=`<button class="btn outline" data-action="share-location" data-id="${o.id}">مشاركة موقعي الآن مع العميل</button><button class="btn primary" data-action="deliver" data-id="${o.id}">تأكيد التسليم</button><button class="btn danger" data-action="fail" data-id="${o.id}">تعذر التسليم</button>`;if(courier&&o.delivery_state==='delivered'&&o.payment_state==='awaiting_collection')actions+=`<button class="btn primary" data-action="collect" data-id="${o.id}" data-total="${o.total_halalas}">تسجيل تحصيل ${money(o.total_halalas)}</button>`;if(finance&&o.cash_state==='with_courier'&&Number.isSafeInteger(o.cash_liability_halalas))actions+=`<button class="btn primary" data-action="settle" data-id="${o.id}">تسوية عهدة ${money(o.cash_liability_halalas)}</button>`;if(finance&&o.collected_halalas>o.refunded_halalas)actions+=`<button class="btn outline" data-action="paid-refund" data-id="${o.id}">تسجيل مبلغ أُعيد للعميل</button>`;return `<article class="task-card"><div class="row between"><h3>${esc(o.number)}</h3>${badge(o.status)}</div><p>${esc(snapshotAddress(o))}</p>${courier?deliveryLinks(o):''}<div class="row wrap">${badge(o.fulfillment_state)} ${badge(o.delivery_state)} ${badge(o.payment_state)} ${o.cash_state?badge(o.cash_state):''}</div><div class="task-meta"><span>${date(o.created_at)}</span><strong>${money(o.total_halalas)}</strong></div><div class="ops-actions">${actions}<button class="btn outline" data-action="detail" data-id="${o.id}">التفاصيل</button></div></article>`}
-async function loadOrders(){const r=await get('/api/ops/orders?limit=100');state.orders=r.items||[];return state.orders}
-async function ordersPage(){await loadOrders();shell(`<div class="task-grid">${state.orders.map(task).join('')||empty('لا توجد مهام','لا توجد طلبات تحتاج إجراء الآن.')}</div>`)}
+function clearOrderPages(){state.ordersGeneration++;state.ordersLoading=null;state.orders=[];state.ordersNext=null}
+async function ordersPage(more=false){
+ if(!state.user||state.page!=='orders'||(more&&(!state.ordersNext||state.ordersLoading!==null)))return;
+ const user=state.user,generation=++state.ordersGeneration,query=new URLSearchParams({limit:'50'});
+ if(more)for(const [key,value] of Object.entries(state.ordersNext))query.set(key,String(value));
+ state.ordersLoading=generation;
+ try{
+  const r=await get('/api/ops/orders?'+query);
+  if(state.user!==user||state.page!=='orders'||state.ordersGeneration!==generation)return;
+  state.orders=Array.from(new Map([...(more?state.orders:[]),...(r.items||[])].map(o=>[o.id,o])).values());
+  state.ordersNext=r.next||null;
+  shell(`<section class="stack"><p role="status">المعروض: ${number(state.orders.length)} طلبًا${state.ordersNext?' · توجد طلبات أقدم':''}</p><div class="task-grid">${state.orders.map(task).join('')||empty('لا توجد مهام','لا توجد طلبات تحتاج إجراء الآن.')}</div>${state.ordersNext?'<button class="btn outline" data-action="orders-more">عرض طلبات أقدم</button>':''}</section>`);
+ }catch(error){
+  if(state.user!==user||state.page!=='orders'||state.ordersGeneration!==generation)return;
+  if(error.code==='AUTH_REQUIRED'){state.user=null;clearOrderPages();login()}
+  throw error;
+ }finally{if(state.ordersLoading===generation)state.ordersLoading=null}
+}
 
 async function shareCourierLocation(order){
  if(!navigator.geolocation)throw Error('تحديد الموقع غير متاح في هذا المتصفح.');

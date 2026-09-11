@@ -9,6 +9,16 @@ let calls=[];let response={ok:true};
 globalThis.fetch=async (url,init)=>{calls.push({url:String(url),body:JSON.parse(init.body||'{}')});return Response.json(response)};
 function request(name,path,options={}) {return new Request(`https://edge.example/${name}${path}`,options)}
 const bearer={authorization:'Bearer test-only-token-01234567890123456789','content-type':'application/json'};
+test('staff order pages use one bounded role-scoped RPC and preserve legacy offsets',async()=>{
+ for(const [query,expected] of [['limit=25&before_at=1800000000000&before_id=staff-order',{p_limit:25,p_before_at:1800000000000,p_before_id:'staff-order',p_offset:0}],['limit=100&offset=100',{p_limit:100,p_before_at:null,p_before_id:null,p_offset:100}]]){
+  calls=[];response={items:[{id:'fixture'}],next:null,next_offset:null};
+  const r=await handlers['jana-api'](request('jana-api','/api/ops/orders?'+query,{headers:bearer}));
+  assert.equal(r.status,200);assert.deepEqual(await r.json(),response);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_ops_orders_page'));assert.deepEqual(calls[0].body,{p_token:bearer.authorization.slice(7),...expected});
+ }
+ for(const query of ['limit=1.5','offset=-1','before_at=NaN','before_at=9007199254740992','limit=']){calls=[];const r=await handlers['jana-api'](request('jana-api','/api/ops/orders?'+query,{headers:bearer}));assert.equal(r.status,422);assert.equal(calls.length,0)}
+ calls=[];const anonymous=await handlers['jana-api'](request('jana-api','/api/ops/orders'));assert.equal(anonymous.status,401);assert.equal(calls.length,0);
+ response={_error:'forbidden',status:403};const denied=await handlers['jana-api'](request('jana-api','/api/ops/orders',{headers:bearer}));assert.equal(denied.status,403);
+});
 test('courier foreground location preserves the path order and validates coordinates before its scoped RPC',async()=>{
  calls=[];response={order_id:'fixture-order',latitude:16.5,longitude:42.5};
  const r=await handlers['jana-api'](request('jana-api','/api/ops/orders/fixture-order/location',{method:'POST',headers:bearer,body:JSON.stringify({order_id:'ignored-body-order',latitude:'١٦٫٥',longitude:'٤٢٫٥',accuracy_m:15})}));

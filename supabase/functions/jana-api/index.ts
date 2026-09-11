@@ -92,7 +92,11 @@ Deno.serve(guard(async(req:Request)=>{const requestId=crypto.randomUUID();try{
  if(p==='/api/tickets'&&m==='POST'){requireCsrf(req);const b=await body(req);return json(await rpc('jana_ticket_write',{p_token:token,p_key:requiredIdempotency(req),p_operation:'ticket.create',p_payload:{order_id:b.order_id||null,subject:b.subject,message:b.message,category:b.category||'other'}}),201,{'x-request-id':requestId})}
  mm=p.match(/^\/api\/tickets\/([^/]+)\/reply$/);if(mm&&m==='POST'){requireCsrf(req);const b=await body(req);return json(await rpc('jana_ticket_write',{p_token:token,p_key:requiredIdempotency(req),p_operation:'ticket.reply',p_payload:{ticket_id:mm[1],message:b.message}}),200,{'x-request-id':requestId})}
 
- if(p==='/api/ops/orders'&&m==='GET'){const u=await currentUser(token);if(!['admin','picker','courier','inventory','finance','support'].includes(u.role))throw Object.assign(new Error('forbidden'),{status:403});const r=u.role==='admin'||u.role==='finance'||u.role==='support'?await rpc('jana_admin_orders',{p_token:token}):await rpc('jana_ops_orders',{p_token:token,p_role:u.role});return json(page(r,url),200,{'x-request-id':requestId})}
+    if(p==='/api/ops/orders'&&m==='GET'){
+      if(!token)throw Object.assign(new Error('auth_required'),{status:401});
+      const integer=(key:string,fallback:number|null)=>{const v=url.searchParams.get(key);if(v===null)return fallback;if(!/^\d+$/.test(v)||!Number.isSafeInteger(Number(v)))throw new Error('invalid_orders_page');return Number(v)};
+      return json(await rpc('jana_ops_orders_page',{p_token:token,p_limit:integer('limit',50),p_offset:integer('offset',0),p_before_at:integer('before_at',null),p_before_id:url.searchParams.get('before_id')}),200,{'x-request-id':requestId});
+    }
  if(p==='/api/ops/reports'&&m==='GET'){await role(token,['admin','finance']);return json(await rpc('jana_admin_reports',{p_token:token}),200,{'x-request-id':requestId})}
  if(p==='/api/ops/staff'&&m==='POST'){requireCsrf(req);const b=await body(req);return json(await rpc('jana_staff_write',{p_token:token,p_idem_key:requiredIdempotency(req),p_operation:'staff.create',p_payload:{email:b.email,name:b.name,password:b.password,role:b.role}}),201,{'x-request-id':requestId})}
  if(p==='/api/ops/staff'&&m==='GET')return json({items:await rpc('jana_list_staff',{p_token:token})},200,{'x-request-id':requestId});

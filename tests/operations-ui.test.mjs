@@ -115,3 +115,34 @@ test('finance movement ledger distinguishes reservations unknown costs and signe
 test('notification monitoring labels provider acceptance and uncertainty without claiming delivery',async()=>{
  const root={innerHTML:''};const context=vm.createContext({...common,document:{body:{dataset:{workspace:'admin'}},addEventListener(){}},$:()=>root,setupConnectivity(){},identity:()=>new Promise(()=>{}),get:async p=>{assert.equal(p,'/api/ops/notification-jobs');return {channels:[{channel:'email',enabled:false}],counts:{submitted:1,reconcile:1},items:[{id:'job & 1',channel:'email',state:'submitted',attempt_count:1,created_at:1},{id:'job2',channel:'email',state:'reconcile',attempt_count:2,created_at:1,error_code:'LEASE_EXPIRED'}]}}});vm.runInContext(bundle,context);await vm.runInContext("state.user={role:'support',name:'Support fixture'};state.page='notification-jobs';render()",context);assert.match(root.innerHTML,/الإرسال متوقف/);assert.match(root.innerHTML,/قُبل لدى المزود/);assert.match(root.innerHTML,/تحتاج مراجعة لدى المزود/);assert.match(root.innerHTML,/job &amp; 1/);
 });
+
+function orderPagesHarness(get){
+ const root={innerHTML:''},listeners={},paths=[];
+ const context=vm.createContext({...common,URLSearchParams,document:{body:{dataset:{workspace:'admin'}},addEventListener:(type,fn)=>{listeners[type]=fn}},$:()=>root,setupConnectivity(){},identity:()=>new Promise(()=>{}),toast(){},get:async path=>{paths.push(path);return get(path)}});
+ vm.runInContext(bundle,context);vm.runInContext("state.user={id:'fixture-staff',role:'support'};state.page='orders'",context);
+ return {root,context,paths,listeners,run:code=>vm.runInContext(code,context)};
+}
+const pageOrder=id=>({id,number:'JN-'+id,status:'cancelled',created_at:1800000000000,total_halalas:0});
+test('staff pages retain older cards, replace overlapping rows and remove the exhausted next button',async()=>{
+ let calls=0;const h=orderPagesHarness(async()=>++calls===1?{items:[pageOrder('a')],next:{before_at:1800000000000,before_id:'a'}}:{items:[{...pageOrder('a'),number:'JN-updated'},pageOrder('b')],next:null});
+ await h.run('ordersPage()');assert.match(h.root.innerHTML,/عرض طلبات أقدم/);
+ await h.run('ordersPage(true)');assert.equal(h.paths[1],'/api/ops/orders?limit=50&before_at=1800000000000&before_id=a');assert.match(h.root.innerHTML,/JN-updated/);assert.match(h.root.innerHTML,/JN-b/);assert.equal(h.run('state.orders.length'),2);assert.doesNotMatch(h.root.innerHTML,/data-action="orders-more"/);await h.run('ordersPage(true)');assert.equal(h.paths.length,2);
+});
+test('staff next-page failure retains cards and cursor so the same request can be retried',async()=>{
+ let calls=0;const h=orderPagesHarness(async()=>{if(++calls===2)throw Error('Temporary fixture outage');return {items:[pageOrder(calls===1?'a':'b')],next:calls===1?{before_at:1800000000000,before_id:'a'}:null}});
+ await h.run('ordersPage()');const before=h.root.innerHTML;await assert.rejects(h.run('ordersPage(true)'),/Temporary/);assert.equal(h.root.innerHTML,before);assert.equal(h.run('state.ordersLoading'),null);
+ await h.run('ordersPage(true)');assert.equal(h.paths[1],h.paths[2]);assert.equal(h.run('state.orders.length'),2);
+});
+test('staff pagination serializes load-more and a newer refresh supersedes an in-flight older page',async()=>{
+ let resolveOlder,calls=0;const h=orderPagesHarness(async()=>{calls++;if(calls===2)return new Promise(resolve=>{resolveOlder=resolve});return {items:[pageOrder(calls===1?'old':'fresh')],next:{before_at:1800000000000,before_id:'old'}}});
+ await h.run('ordersPage()');const older=h.run('ordersPage(true)');await h.run('ordersPage(true)');assert.equal(calls,2);await h.run('ordersPage()');resolveOlder({items:[pageOrder('late')],next:null});await older;assert.equal(h.run('state.orders[0].id'),'fresh');assert.equal(h.run('state.orders.length'),1);assert.equal(h.run('state.ordersLoading'),null);assert.doesNotMatch(h.root.innerHTML,/JN-late/);
+});
+test('staff order results cannot repaint a different page or an ended session',async()=>{
+ for(const change of ["state.page='support'","state.user=null;clearOrderPages()"]){
+  let resolve;const h=orderPagesHarness(()=>new Promise(r=>{resolve=r}));const loading=h.run('ordersPage()');h.run(change);h.root.innerHTML='Current view';resolve({items:[pageOrder('late')],next:null});await loading;assert.equal(h.root.innerHTML,'Current view');assert.equal(h.run('state.orders.length'),0);
+ }
+});
+test('expired staff session clears loaded order snapshots and returns to login',async()=>{
+ let calls=0;const h=orderPagesHarness(async()=>{if(++calls===2)throw Object.assign(Error('Session expired'),{code:'AUTH_REQUIRED'});return {items:[pageOrder('private')],next:{before_at:1,before_id:'private'}}});
+ await h.run('ordersPage()');await assert.rejects(h.run('ordersPage(true)'),/Session expired/);assert.equal(h.run('state.user'),null);assert.equal(h.run('state.orders.length'),0);assert.match(h.root.innerHTML,/تسجيل دخول الموظفين/);assert.doesNotMatch(h.root.innerHTML,/JN-private/);
+});

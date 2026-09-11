@@ -40,3 +40,7 @@ Supabase-owned PostGIS advisor findings remain documented platform limitations. 
 ## Recovery regression extension — 11 September 2026
 
 The review-branch populated-fixture backup/restore workflow passed run 34548982939 on 278d1326673b87813696304989d808049b9d840c: 12 guard/normalization tests, 11 integration groups and identical data across 52 public tables (24 nonempty). Production application/schema were not changed. See [RECOVERY-REHEARSAL.md](RECOVERY-REHEARSAL.md). Do not mark actual production backup recovery or RPO/RTO complete from this regression gate.
+
+## Staff list continuation — 11 September 2026 candidate
+
+Operations order pagination is implemented in the review source: indexed database selection, older-page controls, retry preservation, refresh/session guards and the existing courier cash-task lifecycle. Test and deployment results are pending the candidate gates in RELEASE-EVIDENCE.md. This removes the first-100-orders UI ceiling; it does not complete field acceptance, a signed mobile release or any commercial activation prerequisite.

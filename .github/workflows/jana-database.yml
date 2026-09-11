@@ -2,7 +2,7 @@ name: JANA Database Integrity
 on:
   push:
     branches: [jana-live, jana-integrity]
-    paths: ['supabase/**', 'tests/database*', 'tests/coupons.py', 'tests/addresses.py', 'tests/database-history/**', 'scripts/bootstrap-test-database.py', 'scripts/start-test-database.sh', 'tests/postgres.Dockerfile', 'tests/scheduler.py', 'tests/costs.py', 'tests/products.py', 'tests/support.py', 'tests/finance.py', 'tests/substitutions.py', 'tests/inventory-counts.py', 'tests/staff.py', 'tests/customer-saved.py', 'tests/delivery-admin.py', 'tests/catalog.py', 'tests/cart.py', 'tests/accounts.py', 'tests/customers.py', 'tests/order-journey.py', 'tests/weights.py', 'tests/basket-components.py', 'tests/storefront.py', 'tests/storefront_fixture.py', 'tests/disposals.py', 'tests/customer-returns.py', 'tests/movements.py', 'tests/notification-outbox.py', 'tests/rpc-contracts.mjs', 'tests/concurrency.py', '.github/workflows/jana-database.yml']
+    paths: ['supabase/**', 'tests/database*', 'tests/coupons.py', 'tests/addresses.py', 'tests/database-history/**', 'scripts/bootstrap-test-database.py', 'scripts/start-test-database.sh', 'tests/postgres.Dockerfile', 'tests/scheduler.py', 'tests/costs.py', 'tests/products.py', 'tests/support.py', 'tests/finance.py', 'tests/substitutions.py', 'tests/inventory-counts.py', 'tests/staff.py', 'tests/customer-saved.py', 'tests/delivery-admin.py', 'tests/catalog.py', 'tests/cart.py', 'tests/accounts.py', 'tests/customers.py', 'tests/order-journey.py', 'tests/operations-orders.py', 'tests/weights.py', 'tests/basket-components.py', 'tests/storefront.py', 'tests/storefront_fixture.py', 'tests/disposals.py', 'tests/customer-returns.py', 'tests/movements.py', 'tests/notification-outbox.py', 'tests/rpc-contracts.mjs', 'tests/concurrency.py', '.github/workflows/jana-database.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -31,6 +31,8 @@ jobs:
       - name: Recheck transactional regressions
         run: |
           psql -X -v ON_ERROR_STOP=1 -f tests/database-critical-writes.sql -c "DO \$gate\$ BEGIN IF EXISTS (SELECT 1 FROM jsonb_array_elements(current_setting('jana.audit_results')::jsonb) t WHERE t->>'pass' IS DISTINCT FROM 'true') THEN RAISE EXCEPTION 'Transactional regression failed'; END IF; END \$gate\$;"
+      - name: Verify paginated staff orders and delivery cash task visibility
+        run: python3 tests/operations-orders.py
       - name: Verify order paging tracking and password session integrity
         run: python3 tests/order-journey.py
       - name: Verify commercial policies admission and frozen seller versions
