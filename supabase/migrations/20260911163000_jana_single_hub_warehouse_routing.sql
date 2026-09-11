@@ -31,7 +31,11 @@ DECLARE u public.users;w public.warehouses;before_state jsonb;result public.ware
 BEGIN
  u=public.jana_auth_user(p_token);IF u.role<>'admin' THEN RAISE EXCEPTION 'forbidden';END IF;
  IF jsonb_typeof(p_payload) IS DISTINCT FROM 'object' OR length(trim(coalesce(p_reason,''))) NOT BETWEEN 3 AND 1000
-  OR EXISTS(SELECT 1 FROM jsonb_object_keys(p_payload) k WHERE k NOT IN ('name','city','address_line','latitude','longitude','active')) THEN RAISE EXCEPTION 'warehouse_validation';END IF;
+  OR EXISTS(
+    SELECT 1
+    FROM jsonb_object_keys(p_payload) AS payload_keys(payload_key)
+    WHERE payload_key NOT IN ('name','city','address_line','latitude','longitude','active')
+  ) THEN RAISE EXCEPTION 'warehouse_validation';END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('jana-single-active-warehouse',0));
  IF p_warehouse_id IS NULL THEN
   w.id='wh-'||replace(gen_random_uuid()::text,'-','');w.active=false;w.revision=1;w.created_at=nowms;
