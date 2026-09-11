@@ -75,7 +75,7 @@ END$$;
 ALTER FUNCTION public.jana_delivery_admin_write(text,text,text,jsonb) RENAME TO jana_delivery_admin_write_pre_warehouse;
 CREATE FUNCTION public.jana_delivery_admin_write(p_token text,p_idem_key text,p_operation text,p_payload jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,extensions,pg_temp AS $$
-DECLARE u public.users;prior public.idempotency_records;scope_key text;req_hash text;r jsonb;changes jsonb;warehouse_id text;zone_id text;current_warehouse text;nowms bigint:=(extract(epoch from clock_timestamp())*1000)::bigint;base_key text;
+DECLARE u public.users;prior public.idempotency_records;scope_key text;req_hash text;r jsonb;changes jsonb;v_warehouse_id text;v_zone_id text;current_warehouse text;nowms bigint:=(extract(epoch from clock_timestamp())*1000)::bigint;base_key text;
 BEGIN
  u=public.jana_auth_user(p_token);IF u.role<>'admin' THEN RAISE EXCEPTION 'forbidden';END IF;
  IF p_operation NOT IN ('warehouse.save','zone.save','slot.save') OR jsonb_typeof(p_payload) IS DISTINCT FROM 'object' THEN RAISE EXCEPTION 'delivery_validation';END IF;
@@ -91,21 +91,21 @@ BEGIN
   IF p_operation='zone.save' THEN
    IF changes?'warehouse_id' THEN
     IF jsonb_typeof(changes->'warehouse_id') IS DISTINCT FROM 'string' OR length(trim(changes->>'warehouse_id')) NOT BETWEEN 3 AND 36 THEN RAISE EXCEPTION 'warehouse_validation';END IF;
-    warehouse_id=trim(changes->>'warehouse_id');changes=changes-'warehouse_id';
-   ELSIF p_payload->>'id' IS NOT NULL THEN SELECT zw.warehouse_id INTO warehouse_id FROM public.delivery_zone_warehouses zw WHERE zw.zone_id=p_payload->>'id';END IF;
-   IF warehouse_id IS NULL THEN RAISE EXCEPTION 'delivery_validation';END IF;
+    v_warehouse_id=trim(changes->>'warehouse_id');changes=changes-'warehouse_id';
+   ELSIF p_payload->>'id' IS NOT NULL THEN SELECT zw.warehouse_id INTO v_warehouse_id FROM public.delivery_zone_warehouses zw WHERE zw.zone_id=p_payload->>'id';END IF;
+   IF v_warehouse_id IS NULL THEN RAISE EXCEPTION 'delivery_validation';END IF;
    PERFORM pg_advisory_xact_lock(hashtextextended('jana-single-active-warehouse',0));
-   IF NOT EXISTS(SELECT 1 FROM public.warehouses WHERE id=warehouse_id AND active FOR SHARE) THEN RAISE EXCEPTION 'delivery_validation';END IF;
+   IF NOT EXISTS(SELECT 1 FROM public.warehouses w WHERE w.id=v_warehouse_id AND w.active FOR SHARE) THEN RAISE EXCEPTION 'delivery_validation';END IF;
    SELECT zw.warehouse_id INTO current_warehouse FROM public.delivery_zone_warehouses zw WHERE zw.zone_id=p_payload->>'id' FOR UPDATE;
-   IF current_warehouse IS NOT NULL AND current_warehouse<>warehouse_id AND (EXISTS(SELECT 1 FROM public.delivery_slots s JOIN public.quotes q ON q.slot_id=s.id WHERE s.zone_id=p_payload->>'id') OR EXISTS(SELECT 1 FROM public.storefront_state WHERE singleton AND accepting_orders)) THEN RAISE EXCEPTION 'delivery_changed';END IF;
-   r=public.jana_delivery_admin_write_pre_warehouse(p_token,base_key,'zone.save',p_payload||jsonb_build_object('changes',changes));zone_id=r->>'id';
-   INSERT INTO public.delivery_zone_warehouses(zone_id,warehouse_id,assigned_by,assigned_at) VALUES(zone_id,warehouse_id,u.id,nowms)
-   ON CONFLICT(zone_id) DO UPDATE SET warehouse_id=excluded.warehouse_id,assigned_by=excluded.assigned_by,assigned_at=excluded.assigned_at WHERE delivery_zone_warehouses.warehouse_id<>excluded.warehouse_id;
-   IF current_warehouse IS DISTINCT FROM warehouse_id THEN INSERT INTO public.audit_log(id,actor_id,action,entity_id,detail,created_at) VALUES('aud-'||replace(gen_random_uuid()::text,'-',''),u.id,'delivery_zone_warehouse_assigned',zone_id,jsonb_build_object('before_warehouse_id',current_warehouse,'after_warehouse_id',warehouse_id,'reason',trim(p_payload->>'reason')),nowms);END IF;
-   r=r||jsonb_build_object('warehouse_id',warehouse_id);
+   IF current_warehouse IS NOT NULL AND current_warehouse<>v_warehouse_id AND (EXISTS(SELECT 1 FROM public.delivery_slots s JOIN public.quotes q ON q.slot_id=s.id WHERE s.zone_id=p_payload->>'id') OR EXISTS(SELECT 1 FROM public.storefront_state WHERE singleton AND accepting_orders)) THEN RAISE EXCEPTION 'delivery_changed';END IF;
+   r=public.jana_delivery_admin_write_pre_warehouse(p_token,base_key,'zone.save',p_payload||jsonb_build_object('changes',changes));v_zone_id=r->>'id';
+   INSERT INTO public.delivery_zone_warehouses(zone_id,warehouse_id,assigned_by,assigned_at) VALUES(v_zone_id,v_warehouse_id,u.id,nowms)
+   ON CONFLICT ON CONSTRAINT delivery_zone_warehouses_pkey DO UPDATE SET warehouse_id=excluded.warehouse_id,assigned_by=excluded.assigned_by,assigned_at=excluded.assigned_at WHERE delivery_zone_warehouses.warehouse_id<>excluded.warehouse_id;
+   IF current_warehouse IS DISTINCT FROM v_warehouse_id THEN INSERT INTO public.audit_log(id,actor_id,action,entity_id,detail,created_at) VALUES('aud-'||replace(gen_random_uuid()::text,'-',''),u.id,'delivery_zone_warehouse_assigned',v_zone_id,jsonb_build_object('before_warehouse_id',current_warehouse,'after_warehouse_id',v_warehouse_id,'reason',trim(p_payload->>'reason')),nowms);END IF;
+   r=r||jsonb_build_object('warehouse_id',v_warehouse_id);
   ELSE
-   zone_id=coalesce(changes->>'zone_id',(SELECT zone_id FROM public.delivery_slots WHERE id=p_payload->>'id'));
-   IF zone_id IS NULL OR NOT EXISTS(SELECT 1 FROM public.delivery_zone_warehouses zw JOIN public.warehouses w ON w.id=zw.warehouse_id WHERE zw.zone_id=zone_id AND w.active FOR SHARE) THEN RAISE EXCEPTION 'delivery_validation';END IF;
+   v_zone_id=coalesce(changes->>'zone_id',(SELECT s.zone_id FROM public.delivery_slots s WHERE s.id=p_payload->>'id'));
+   IF v_zone_id IS NULL OR NOT EXISTS(SELECT 1 FROM public.delivery_zone_warehouses zw JOIN public.warehouses w ON w.id=zw.warehouse_id WHERE zw.zone_id=v_zone_id AND w.active FOR SHARE) THEN RAISE EXCEPTION 'delivery_validation';END IF;
    r=public.jana_delivery_admin_write_pre_warehouse(p_token,base_key,'slot.save',p_payload);
   END IF;
  END IF;
