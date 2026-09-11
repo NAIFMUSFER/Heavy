@@ -65,7 +65,7 @@ assert sorted(x for x in references if x.startswith('PAGE-RETURN-'))==sorted('PA
 passed('supplier return reconciliation uses bounded stable pages without duplicates')
 
 assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('jana_supplier_credit_record','jana_supplier_credit_reconciliation','jana_supplier_credit_guard') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE'));")==0
-assert val("SELECT relrowsecurity FROM pg_class WHERE oid='public.supplier_credit_notes'::regclass;")
+assert val("SELECT to_jsonb(relrowsecurity) FROM pg_class WHERE oid='public.supplier_credit_notes'::regclass;")
 assert val('SELECT jana_deep_health();')['ok']
 passed('supplier credit RLS privileges and existing operational invariants remain enforced')
 print(json.dumps({'passed':len(checks),'checks':checks}))
