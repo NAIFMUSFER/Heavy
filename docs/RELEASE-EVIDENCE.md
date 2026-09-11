@@ -354,3 +354,27 @@ Final integration review added a failing test proving that quantity-limit errors
 
 
 Browser syntax correction **59befa6c339c9092458ffb5d9ff4823e4813cf40** passed verification **34559021002** and browser **34559021006**, job **103137709702**: **63** complete gateway/Edge/PostgreSQL checks at 03:37:03 UTC, including all four new workspace/localized-cost/cart-failure checks. Final shared-cart error-classification changes still require the following candidate gates; the failed initial run remains recorded above.
+
+## Cross-application review verified and published — 11 September 2026
+
+Final source **0a4f992e845275523d2973f49480c7620066a0f4**, tree `d9f3dfdbaa5678ea063c0975347ec16adebe2e84`, passed every applicable review gate before promotion:
+
+| Gate | Exact run | Observed result |
+|---|---|---|
+| Node verification | [34559209960](https://github.com/NAIFMUSFER/Heavy/actions/runs/34559209960), job 103138278960 | 284 passed, zero failed at 03:38:41 UTC; shared/cart/browser-script syntax checks also passed |
+| Disposable browser commerce | [34559209951](https://github.com/NAIFMUSFER/Heavy/actions/runs/34559209951), job 103138278493 | 63 checks complete at 03:40:13 UTC; all seven roles through real gateway/Edge/disposable PostgreSQL |
+| Expo export | [34559209937](https://github.com/NAIFMUSFER/Heavy/actions/runs/34559209937) | Success on the same final source |
+| Android debug | [34559209938](https://github.com/NAIFMUSFER/Heavy/actions/runs/34559209938) | Successful APK build and artifact verification |
+| iOS simulator | [34559209950](https://github.com/NAIFMUSFER/Heavy/actions/runs/34559209950) | Successful simulator compilation and artifact verification |
+
+Retained review artifacts: Android **10183786766**, SHA-256 `2e157c28e67344afa39a5daf858fa9ebd97ae8dfceb1824d8e442249924f8c70`, expires **September 18 03:42:59 UTC**; iOS simulator **10183794434**, `5317a01a21f71170402f2438f1fc0e81455131283a9fd6005f058622f5222e45`, expires **September 18 03:43:21 UTC**; browser evidence **10183726525**, `84bc14a8ff9c347f5ee0e470b3ddc574d14508f3823d997175d0340c64f779ed`, expires **September 25 03:40:13 UTC**. The browser artifact includes `cart-recovery-phone.png`. Artifacts are not signed store distribution or physical-device acceptance.
+
+This batch corrected confirmed stored-cart render failures, asynchronous persistence/checkout ordering, localized monetary precision, native account-retry behavior and staff workspace navigation. It also reconciled API/architecture/mobile and dated feature documents. The initial browser fixture syntax failure and subsequent failed quantity-message test are documented above; their corrected final source is the source that passed these gates. Read-only path review resolved **33 relative documentation links and 57 relative source imports** without missing targets. Full coverage and limits are in [REVIEW-2026-09-11.md](REVIEW-2026-09-11.md).
+
+Fresh pre-promotion reads confirmed `jana-integrity` at 0a4f992, `jana-live` still 07125e5 and the scoped Render service `not_suspended` on its existing free plan. At **03:45:02 UTC**, the tested source was fast-forwarded to `jana-live` without force. Two subsequent deployment reads found no automatic or pending deploy. The documented public Git clone configuration therefore required **one** API deployment, requested at **03:45:39 UTC** without clearing cache or changing settings. **dep-dahniorm8hqs73cji0cg** resolved the exact **0a4f992e845275523d2973f49480c7620066a0f4** and became LIVE at **2026-09-11T03:46:16.549455Z**. No duplicate deployment was created.
+
+Public verification [**34559615482**](https://github.com/NAIFMUSFER/Heavy/actions/runs/34559615482), job **103139502595**, reported `ok:true`, **26 checks** and the exact commit at **2026-09-11T03:46:28.9194501Z**. It waited for version/readiness during rollout and then ran the full smoke once, including the checkout/input/local-cart modules. This is post-deployment evidence, separate from the review tests. The production branch's Node verification also succeeded. Its push automatically starts the other applicable browser/mobile workflows; no unchanged gate was manually retriggered.
+
+Read-only production health at **03:46:51 UTC** returned `ok:true`, zero negative-stock/reservation-overrun/slot-overbooking/duplicate-order/cash-ledger violations, **1 existing order / 0 courier positions**, 8 active preview entries and 14 active slots. Admission remains **closed**, with **no published merchant profile**. No error-level Render logs were returned for **03:45:39–03:47:17 UTC**. No SQL, Edge runtime, production business record, provider flag or hosting plan was changed. Supabase remains at the already-verified **84 migrations**, latest **20260911024522**, with jana-api v30 / jana-critical v6 / jana-ops-extra v21 and the existing `verify_jwt:false` custom-session boundary.
+
+Remaining commercial prerequisites are actual merchant identity/contacts/tax status and policies; approved products/prices/photos and inspected inventory; actual geography/capacity/staff acceptance; approved verification/recovery/communication providers and worker/domain; dedicated staging, capacity/alerts and isolated real-production-backup recovery; physical Android/iPhone acceptance and signed store accounts/releases. Warehouse ownership/routing, approved basket component variance/substitution/pricing rules and supplier credit reconciliation remain separate work items. This documentation checkpoint is retained on `jana-integrity`; it does not trigger a second web deployment.
