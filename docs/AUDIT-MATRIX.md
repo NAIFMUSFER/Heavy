@@ -17,7 +17,7 @@ This matrix describes implemented source. Exact release/deployment/build evidenc
 | Quotes/orders | Atomic stock/slot reservation, expiration, persistent idempotency, frozen terms and cancellation gates | Tax/invoicing integration before enabling a VAT-registered seller |
 | Order experience | Frozen address/appointment, line/cash details, public timeline, cursor paging, cancellation/code renewal/refresh | No automatic background courier publishing or ETA |
 | Warehouse/counts | Suppliers, pending inspection, accepted FEFO stock, lot costs/metadata, reorder levels, reviewed counts | Actual inspected/received/count-verified stock; canonical warehouse/bin segregation for multiple hubs |
-| Disposal/returns | Waste, damage, supplier outbound return, customer quarantine/inspection, rejected-return custody/disposition | Supplier credit reconciliation and approved physical procedures |
+| Disposal/returns | Waste, damage, supplier outbound return, immutable supplier credit-note evidence/reference-cost comparison, customer quarantine/inspection, rejected-return custody/disposition | Actual bank settlement/accounting/tax treatment, approval policy and approved physical procedures |
 | Picker/substitutions | Assignment, FEFO, weight tolerance, fixed-basket measurements, explicit customer-approved substitutions | Component-level basket substitution/variance/tolerance/pricing rules and field acceptance |
 | Courier | Paged tasks retain outstanding collection/cash liability; assignment, dispatch, delivery code, failure/retry, destination navigation, recipient call link and explicit foreground GPS sharing | Physical devices/procedure; continuous location publishing absent |
 | Finance/COD | Delivery separated from cash collection, liability, partial settlement and source-aware completed refunds | Actual cash handover/accounting acceptance |
@@ -33,7 +33,7 @@ This matrix describes implemented source. Exact release/deployment/build evidenc
 2. Operations records actual inspected stock and capacity, creates real staff accounts and accepts the customer → warehouse → courier → cash/refund journey.
 3. Engineering connects the approved verification/recovery and communication providers, provisions the worker, verifies approved destinations, and establishes isolated staging/capacity/backup recovery evidence. Add VAT/invoicing if the confirmed tax status requires it.
 4. Owner provides Apple/Google distribution accounts; complete physical-device acceptance, signing and store review.
-5. Before Riyadh/Jeddah or another warehouse: implement warehouse/location ownership, routing and stock segregation, approved basket component variance/substitution rules and supplier credit accounting.
+5. Before Riyadh/Jeddah or another warehouse: implement warehouse/location ownership, routing and stock segregation, approved basket component variance/substitution rules and the owner-approved accounting treatment for recorded supplier credits.
 
 Supabase-owned PostGIS advisor findings remain documented platform limitations. Do not alter system-object ownership or invent policies to silence advisors. Service-only JANA application permissions are checked separately. Historical failed runs and recoveries stay in RELEASE-EVIDENCE.md.
 

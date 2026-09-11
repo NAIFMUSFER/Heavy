@@ -160,6 +160,14 @@ for(const [path,method,body,addressId] of [
 test('goods receipt preserves unknown cost with idempotency and excludes unrelated fields',async()=>{
  calls=[];response={id:'fixture-lot'};const r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/lots',{method:'POST',headers:{...bearer,'idempotency-key':'receipt-fixture-key'},body:JSON.stringify({stock_id:'fixture-stock',received_base:1000,total_cost_halalas:null,expires_at:4102444800000,discount_type:'fixed'})}));assert.equal(r.status,201);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_inventory_write'));assert.equal(calls[0].body.p_payload.total_cost_halalas,null);assert.equal(calls[0].body.p_payload.discount_type,undefined);assert.equal(calls[0].body.p_idem_key,'receipt-fixture-key');assert.equal(calls[0].body.p_operation,'lot.receive');
 });
+test('supplier credit note forwards only audited fields with caller idempotency',async()=>{
+ calls=[];response={id:'credit-fixture',amount_halalas:100};const id='11111111-1111-4111-8111-111111111111';
+ const r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/disposals/'+id+'/supplier-credits',{method:'POST',headers:{...bearer,'idempotency-key':'supplier-credit-key'},body:JSON.stringify({disposal_id:'foreign',amount_halalas:100,reference:'CN-1',note:'Actual supplier note',cash_received:true})}));
+ assert.equal(r.status,201);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_supplier_credit_record'));assert.equal(calls[0].body.p_idem_key,'supplier-credit-key');assert.deepEqual(calls[0].body.p_payload,{disposal_id:id,amount_halalas:100,reference:'CN-1',note:'Actual supplier note'});
+});
+test('supplier credit route rejects malformed identifiers before database access',async()=>{
+ calls=[];const r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/disposals/not-a-uuid/supplier-credits',{method:'POST',headers:{...bearer,'idempotency-key':'supplier-credit-key'},body:'{}'}));assert.equal(r.status,404);assert.equal(calls.length,0);
+});
 for(const [path,operation,input,expected] of [
  ['/api/tickets','ticket.create',{subject:'Support subject',message:'Customer message',category:'delivery'},{order_id:null,subject:'Support subject',message:'Customer message',category:'delivery'}],
  ['/api/tickets/ticket-a/reply','ticket.reply',{message:'Customer reply',state:'closed',ticket_id:'unrelated'},{ticket_id:'ticket-a',message:'Customer reply'}],
