@@ -32,6 +32,14 @@ test('warehouse count routes remain on the fixed operations service with redacte
 
 test('saved list and recurring identifiers are redacted from telemetry',()=>{const {routeLabel}=require('../server.js');for(const p of ['/api/shopping-lists/private-list','/api/recurring/private-plan'])assert.ok(!routeLabel(p).includes('private-'))});
 
+test('supplier credit routes use the operations service and redact disposal identifiers',async t=>{
+ const f=await fixture(t),{routeLabel}=require('../server.js'),id='11111111-1111-4111-8111-111111111111';
+ for(const [method,p] of [['GET','/api/ops/supplier-credits'],['POST','/api/ops/disposals/'+id+'/supplier-credits']]){
+  const r=await fetch(f.base+p,{method,headers:method==='POST'?{'content-type':'application/json'}:undefined,body:method==='POST'?'{}':undefined});
+  assert.equal(r.status,200);assert.ok(f.calls.at(-1)[0].includes('/jana-ops-extra'+p));assert.ok(!routeLabel(p).includes(id));
+ }
+});
+
 test('delivery setting edits reach the operations Edge and redact resource identifiers',async t=>{
  const f=await fixture(t),{routeLabel}=require('../server.js');
  for(const p of ['/api/ops/zones/zone-private','/api/ops/slots/slot-private']){
