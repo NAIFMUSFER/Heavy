@@ -53,9 +53,13 @@ BEGIN
  u=public.jana_auth_user(p_token);
  IF u.role<>'admin' THEN RAISE EXCEPTION 'forbidden';END IF;
 
+ IF p_operation IN ('profile.publish','intake.set') THEN
+  PERFORM pg_advisory_xact_lock(hashtextextended('jana-storefront-admission',0));
+ END IF;
+
  IF p_operation='profile.publish' THEN
   SELECT accepting_orders INTO intake_open
-  FROM public.storefront_state WHERE singleton FOR SHARE;
+  FROM public.storefront_state WHERE singleton;
   IF intake_open THEN RAISE EXCEPTION 'storefront_close_before_publish';END IF;
  END IF;
 
