@@ -9,8 +9,8 @@ assert detail['lines']==q['lines'] and balance(f)==before
 passed('read-only review returns frozen terms and server time without changing stock or capacity')
 for token in [f['ct'],f['atok'],'invalid-session']:
  result=run(rpc('jana_quote_detail',token,qid),False);assert not result['ok'],result
-assert not val("SELECT has_function_privilege('anon','jana_quote_detail(text,text)','EXECUTE');")
-assert not val("SELECT has_function_privilege('authenticated','jana_quote_detail(text,text)','EXECUTE');")
+assert not val("SELECT to_jsonb(has_function_privilege('anon','jana_quote_detail(text,text)','EXECUTE'));")
+assert not val("SELECT to_jsonb(has_function_privilege('authenticated','jana_quote_detail(text,text)','EXECUTE'));")
 passed('custom session ownership and service-only privileges remain enforced')
 o=val(rpc('jana_critical_write',f['t'],'checkout-confirm','order.confirm',{'quote_id':qid}))
 detail=val(rpc('jana_quote_detail',f['t'],qid));assert detail['order']['id']==o['id']
