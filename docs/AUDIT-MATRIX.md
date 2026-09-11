@@ -48,6 +48,12 @@ Review source **e8fe9224** passed 329 Node tests, the complete PostgreSQL gate, 
 
 Supabase-owned PostGIS advisor findings remain documented platform limitations. Do not alter system-object ownership or invent policies to silence advisors. Service-only JANA application permissions are checked separately. Historical failed runs and recoveries stay in RELEASE-EVIDENCE.md.
 
+## Customer cash-collection receipt candidate — 11 September 2026
+
+Review source **b80c8100** adds a customer-visible receipt only after the immutable COD collection entry exists. It shows the recorded collection time and amount, completed refunds and net collection; delivery alone produces no receipt. Web downloads an escaped printable HTML document, while native shows the same validated facts. Both label it non-tax, and no employee identity or internal settlement reference is exposed.
+
+The candidate passed **330 Node tests**, the complete PostgreSQL gate, **82 browser checks** including a real receipt download, populated recovery, isolated capacity, Expo, Android debug and iOS simulator compilation. Supabase applied actual migration **20260911181035** (**93 total**); ten core commercial-table hashes match before/after, there are no production collection rows, deep health is true, direct client JANA execution remains zero and the wrapped helper is private even to `service_role`. Edge source did not change. Web publication remains pending until the aligned release gate completes. This receipt does not implement VAT calculation or tax invoicing.
+
 ## Recovery regression extension — 11 September 2026
 
 The review-branch populated-fixture backup/restore workflow passed run 34548982939 on 278d1326673b87813696304989d808049b9d840c: 12 guard/normalization tests, 11 integration groups and identical data across 52 public tables (24 nonempty). Production application/schema were not changed. See [RECOVERY-REHEARSAL.md](RECOVERY-REHEARSAL.md). Do not mark actual production backup recovery or RPO/RTO complete from this regression gate.
