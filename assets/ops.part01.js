@@ -18,7 +18,7 @@ function discardOpsDraft(){return !state.storefrontDirty||confirm('لديك تع
 async function navigateOpsPage(requested,fromHash=false){
  if(!allowed())return;
  const menus=menusForUser(),page=menus.some(([key])=>key===requested)?requested:menus[0][0];
- if(page===state.page){writeOpsHash(page,true);return}
+ if(page===state.page){writeOpsHash(page,true);if(!state.storefrontDirty&&!fromHash)await render();return}
  if(!discardOpsDraft()){writeOpsHash(state.page,true);return}
  state.storefrontDirty=false;state.page=page;writeOpsHash(page,fromHash);await render();
 }

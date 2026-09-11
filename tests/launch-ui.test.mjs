@@ -56,3 +56,9 @@ test('navigation updates a bookmark and refuses an unsaved owner draft until the
  let prevented=false;h.events.beforeunload({preventDefault:()=>{prevented=true}});assert.equal(prevented,true);
  approved=true;await h.run("navigateOpsPage('launch')");assert.equal(h.location.hash,'#launch');assert.equal(h.run('state.storefrontDirty'),false);assert.match(h.root.innerHTML,/data-launch-center/);assert.equal(h.writes.length,0);
 });
+test('selecting an active task section refreshes changed orders while reselecting a dirty draft preserves input',async()=>{
+ const h=harness({hash:'#orders'});await h.run('setInitialOpsPage();render()');await h.run("navigateOpsPage('orders')");
+ assert.deepEqual(h.paths,['/api/ops/orders?limit=50','/api/ops/orders?limit=50']);
+ h.run("state.page='storefront';state.storefrontDirty=true;root.innerHTML='Unsaved merchant input'");await h.run("navigateOpsPage('storefront')");
+ assert.equal(h.paths.length,2);assert.equal(h.root.innerHTML,'Unsaved merchant input');assert.equal(h.run('state.storefrontDirty'),true);
+});
