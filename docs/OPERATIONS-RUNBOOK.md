@@ -41,3 +41,10 @@ Dedicated staging infrastructure; commercial catalog, accepted real receipts and
 ## Commercial admission
 
 Use the administrator storefront settings described in `COMMERCIAL-STOREFRONT.md`. Default production admission is closed until actual merchant data, policies and operations are reviewed. Closing stops fresh quotes; it does not cancel existing valid quotes or interfere with existing order fulfillment. Publish approved policies before opening. Do not choose a tax declaration or complete physical-operation attestations on behalf of the owner.
+
+
+## Render public-repository deployment observation — 11 September 2026
+
+The JANA service reports `autoDeploy:yes` / `autoDeployTrigger:commit`, but its build log says it lacks repository access and clones the public Git URL. After promotion of ca1f650, no automatic deployment appeared; the reviewed release was deployed once through the existing Render connector. [Render documents](https://render.com/docs/deploys#automatic-deploys) that automatic deploys require a connected Git provider, while public-URL services deploy manually. Treat the flag alone as insufficient evidence of a working webhook.
+
+Before each release, verify current branch heads, relevant successful CI on the release source, service branch and recent deploys. Observe whether a deployment starts. If one is pending/running, monitor it instead of issuing another. For this documented public-clone configuration, trigger a single manual deploy only after establishing that no automatic deployment exists; verify its resolved commit, public smoke and health. Connecting GitHub to Render for webhook-based deployment needs the owner's Git-provider authorization; it is not required to use the existing controlled release path. Do not bypass CI or alter unrelated services.

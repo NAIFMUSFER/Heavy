@@ -12,13 +12,15 @@ Details display frozen delivery address, recipient, building/apartment notes and
 
 The customer timeline contains only ID, whitelisted public event and recorded time. It excludes actors, internal reasons, cash settlement details and delivery codes. The latest 100 public events appear chronologically, with a truncation notice if earlier events exist. Missing events or times do not produce fabricated milestones.
 
-## Delivery location and actions
+## Staff order paging
 
 Staff order lists now use `GET /api/ops/orders?limit=50` with the same paired `before_at` / `before_id` cursor and bounded legacy offset contract. PostgreSQL selects at most limit+1 result rows before JSON aggregation, with time/id and staff task indexes. Admin, finance and support retain complete permitted history; picker and courier lists preserve their existing assignment/claim rules. Delivered work stays on the courier list while collection or remaining cash liability is outstanding, including partial settlement. Existing list RPCs remain for compatibility.
 
 The operations web view shows the number loaded (not a claimed total), offers older pages, retains cards/cursor on a transient next-page failure, deduplicates results and ignores superseded requests or ended sessions. Refresh starts from the current first page. Eligibility can change during browsing as colleagues assign/complete tasks; refresh reconciles that change. This does not change assignments, stock, cash or native customer application behavior.
 
 `tests/operations-orders.py` covers history beyond 100, tied times, new arrivals, compatibility, all permitted staff roles and actual disposable delivery/collection/partial-settlement transitions. The browser journey also exercises a failed staff page and retry on phone width. Exact test/deployment status is recorded in RELEASE-EVIDENCE.md.
+
+## Delivery location and actions
 
 The courier explicitly shares one foreground GPS point using the assigned-order button. The service validates role, assignment, delivery state, coordinates/accuracy and a 15-second per-order limit; it does not run automatically. Tracking exposes a recorded point only for an active outbound delivery, the currently assigned courier and current attempt. Ended/failed journeys and prior drivers/attempts expose no location. Points older than five minutes are explicitly historical; clients show recording time and available accuracy. There is no fabricated ETA or continuous live route. **Automatic courier background location publishing is not implemented**; no location is an honest empty state.
 
