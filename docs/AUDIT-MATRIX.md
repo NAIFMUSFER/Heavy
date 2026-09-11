@@ -6,6 +6,8 @@ Latest verified web release: **2847c7ccb3a3fcc95a08c878276fab94b88c030d**, LIVE 
 
 **Commercial launch is not complete.** Store admission remains closed until actual merchant information, policies, inventory, geography and operating acceptance pass the existing readiness gate. No invented percentage represents readiness.
 
+Review follow-up removes the manually maintained production-smoke count. The smoke runner now counts every checked request, including deployment consistency, and a network-stub regression requires the reported value to equal the actual request list. This evidence-only change has no gateway, database, Edge, mobile or commercial-data effect; local checks pass **335 Node tests**. CI and production alignment remain pending.
+
 | Area | Implemented and covered by automated gates | Still required |
 |---|---|---|
 | Isolation/backend | Dedicated JANA Supabase/Render/branches; Node → custom authenticated Edge → transactional PostgreSQL/PostGIS | Dedicated JANA staging and actual operating acceptance |
