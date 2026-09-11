@@ -17,7 +17,7 @@ const percentile=(values,fraction)=>values[Math.min(values.length-1,Math.ceil(va
 
 async function catalogSample(){
  const started=performance.now();
- const response=await fetch(harness.base+'/api/catalog?limit=20&offset=0');
+ const response=await harness.fetchLocal('/api/catalog?limit=20&offset=0');
  const elapsed=performance.now()-started;
  let body;try{body=await response.json()}catch{body=null}
  samples.push({status:response.status,duration_ms:elapsed});
@@ -26,7 +26,7 @@ async function catalogSample(){
 }
 
 try{
- const ready=await fetch(harness.base+'/ready');
+ const ready=await harness.fetchLocal('/ready');
  assert.equal(ready.status,200,await ready.text());
  for(let index=0;index<5;index++)await catalogSample();
  samples.length=0;
@@ -44,7 +44,7 @@ try{
 
  harness.setEdgeDelay(400);
  const burst=await Promise.all(Array.from({length:125},async()=>{
-  const response=await fetch(harness.base+'/api/catalog?limit=1&offset=0');
+  const response=await harness.fetchLocal('/api/catalog?limit=1&offset=0');
   const body=await response.json();
   return{status:response.status,code:body?.error?.code||null};
  }));
@@ -54,7 +54,7 @@ try{
  assert.ok(admitted>0,'burst admitted no catalog requests');
  assert.ok(shed>0,'burst did not exercise the gateway admission limit');
  assert.equal(admitted+shed,burst.length,'burst returned an unexpected status');
- const recovery=await fetch(harness.base+'/api/catalog?limit=1&offset=0');
+ const recovery=await harness.fetchLocal('/api/catalog?limit=1&offset=0');
  assert.equal(recovery.status,200,'gateway did not recover after shedding the burst');
 
  const evidence={

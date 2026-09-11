@@ -13,7 +13,8 @@ export async function startHarness(){
  const {createGateway,config}=require('../../server.js');const failures=[],control={edgeDelayMs:0};
  const server=createGateway({settings:{...config({}),commit:'disposable-e2e',development:false},fetchImpl:async(url,init)=>{const u=new URL(url);assert.equal(u.origin,project);const name=u.pathname.split('/')[3];assert.ok(handlers[name],'Only canonical Edge handlers are allowed');if(control.edgeDelayMs)await new Promise(resolve=>setTimeout(resolve,control.edgeDelayMs));return handlers[name](new Request(url,init))},log:r=>{if(r.status>=500)failures.push(r)}});
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
- return{base:'http://127.0.0.1:'+server.address().port,failures,setEdgeDelay:milliseconds=>{assert.ok(Number.isInteger(milliseconds)&&milliseconds>=0&&milliseconds<=2000);control.edgeDelayMs=milliseconds},close:async()=>{await new Promise(resolve=>{server.close(resolve);server.closeAllConnections()});globalThis.fetch=nativeFetch}};
+ const base='http://127.0.0.1:'+server.address().port;
+ return{base,fetchLocal:(pathname,init)=>{const url=new URL(pathname,base);assert.equal(url.origin,base);return nativeFetch(url,init)},failures,setEdgeDelay:milliseconds=>{assert.ok(Number.isInteger(milliseconds)&&milliseconds>=0&&milliseconds<=2000);control.edgeDelayMs=milliseconds},close:async()=>{await new Promise(resolve=>{server.close(resolve);server.closeAllConnections()});globalThis.fetch=nativeFetch}};
 }
 export async function attachBrowser(context,base,control={}){
  // Every browser request is fulfilled by the real local gateway/Edge/PostgreSQL.
