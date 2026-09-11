@@ -15,7 +15,7 @@ def fixture(stock=10000,capacity=20):
  source=pathlib.Path('tests/database-critical-writes.sql').read_text()
  setup=source.split(' BEGIN\n',1)[1].split('  BEGIN r=public.jana_login',1)[0]
  declare=f'DECLARE p text:={literal(p)};t text:={literal(t)};ct text:={literal(ct)};atok text:={literal(atok)};nowms bigint:=(extract(epoch from clock_timestamp())*1000)::bigint;'
- run('DO $fixture$ '+declare+' BEGIN '+setup+f" UPDATE public.stock_balances SET on_hand_base={stock} WHERE stock_id=p||'st'; UPDATE public.inventory_lots SET received_base={stock},on_hand_base={stock},expires_at=nowms+86400000 WHERE id=p||'l'; UPDATE public.delivery_slots SET capacity={capacity} WHERE id=p||'s'; END $fixture$;")
+ run('DO $fixture$ '+declare+' BEGIN '+setup+f" UPDATE public.stock_balances SET on_hand_base={stock} WHERE stock_id=p||'st'; UPDATE public.inventory_lots SET received_base={stock},on_hand_base={stock},expires_at=nowms+86400000 WHERE id=p||'l'; UPDATE public.delivery_slots SET capacity={capacity} WHERE id=p||'s'; INSERT INTO public.delivery_zone_warehouses(zone_id,warehouse_id,assigned_by,assigned_at) SELECT p||'z',id,p||'a',nowms FROM public.warehouses WHERE active ON CONFLICT(zone_id) DO NOTHING; END $fixture$;")
  return {'p':p,'t':t,'ct':ct,'atok':atok}
 def quote(f,key,qty=1):
  p=f['p'];return 'SELECT public.jana_create_quote_idempotent('+','.join(map(literal,[f['t'],key,p+'s',p+'addr']))+','+literal(json.dumps([{'offering_id':p+'off','qty':qty}]))+'::jsonb)::text;'

@@ -34,6 +34,12 @@ Courier directions use the order snapshot coordinates in an official keyless Goo
 
 Native order details include refresh, cancellation while active/queued/unassigned, code renewal during delivery, support, substitutions, refunds and the existing review. Cancellation/renewal require confirmation and authoritative server checks. Renewal invalidates the previous code; the new code stays only in the current screen.
 
+## Launch warehouse ownership
+
+The supported first-market topology is one active launch warehouse. Its owner-entered name, city, operational address and coordinates are private operations data; activation requires all fields and an explicit audited reason. Every delivery zone saved through the operations boundary is linked atomically to that active warehouse, and new delivery slots require the same live route. Existing production zones are not assigned automatically because the application must not guess a real location.
+
+Commercial readiness counts only available slots whose zone belongs to the active warehouse, reports unlinked available slots separately and refuses opening when the route is incomplete. While intake is open the active warehouse cannot be deactivated. This protects the initial single-hub order journey; it does not partition stock balances, FEFO lots or assignments across multiple warehouses. A second active hub remains blocked until that wider model is implemented and accepted.
+
 ## Password change
 
 `POST /api/auth/password` requires the current password and the existing cookie CSRF protection. Replacements require at least 12 Unicode characters and at most 72 UTF-8 bytes. The database locks the account, revalidates the session after locking, changes the hash and revokes **every** account session, including the caller. Login already holds a shared account lock, so concurrent login/rotation cannot leave an old-password session alive. Audit metadata contains no credentials.

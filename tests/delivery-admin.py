@@ -4,6 +4,7 @@ def passed(name):checks.append(name);print('PASS '+name,flush=True)
 def fails(q,code):
  r=run(q,False);assert not r['ok'] and code in r['error'],r
 def write(f,key,kind,changes,id=None,revision=None,reason='مراجعة إعدادات التوصيل'):
+ if kind=='zone' and id is None and 'warehouse_id' not in changes:changes={**changes,'warehouse_id':val("SELECT id FROM warehouses WHERE active;")}
  return rpc('jana_delivery_admin_write',f['atok'],key,kind+'.save',{'id':id,'revision':revision,'reason':reason,'changes':changes})
 def slot(f):return val('SELECT to_jsonb(s) FROM delivery_slots s WHERE id='+literal(f['p']+'s')+';')
 def zone(f):return val("SELECT to_jsonb(z)-'geom' FROM delivery_zones z WHERE id="+literal(f['p']+'z')+';')

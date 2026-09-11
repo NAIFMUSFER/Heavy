@@ -48,7 +48,7 @@ try{
  await change(owner,'/api/auth/login',()=>owner.locator('#auth-form button[type=submit]').click());await owner.locator('[data-launch-center]').waitFor();assert.equal(await owner.locator('[data-launch-check]').count(),7);
  assert.equal(await owner.locator('[data-launch-state]').getAttribute('data-launch-state'),handoffBefore.store.accepting_orders?'open':'closed');
  const launchHref=await owner.locator('[data-launch-download]').getAttribute('href'),launchReport=JSON.parse(decodeURIComponent(launchHref.split(',').slice(1).join(',')));
- assert.equal(launchReport.schema,'jana-launch-observation/v1');assert.equal(launchReport.admission.state,handoffBefore.store.accepting_orders?'open':'closed');assert.equal(launchReport.checks.length,7);assert.equal(launchReport.manual_acceptance_required,true);assert.doesNotMatch(JSON.stringify(launchReport),/privacy_policy|support_email|display_name/);
+ assert.equal(launchReport.schema,'jana-launch-observation/v1');assert.equal(launchReport.admission.state,handoffBefore.store.accepting_orders?'open':'closed');assert.equal(launchReport.checks.length,8);assert.equal(launchReport.manual_acceptance_required,true);assert.doesNotMatch(JSON.stringify(launchReport),/privacy_policy|support_email|display_name/);
  pass('owner can download a privacy-minimized launch observation without changing commerce');
  await owner.reload();await owner.locator('[data-launch-center]').waitFor();assert.equal(new URL(owner.url()).hash,'#launch');assert.deepEqual(handoffSnapshot(),handoffBefore);
  assert.equal(await owner.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);await owner.screenshot({path:output+'/owner-launch-phone.png',fullPage:true});

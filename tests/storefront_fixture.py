@@ -11,6 +11,8 @@ def intake(f,opening):
 def bootstrap_store():
  f=fixture();s=get_store(f)
  assert s['accepting_orders'] is False and s['published'] is None,'Production migration must default closed and unpublished'
+ warehouse=val(rpc('jana_delivery_admin_write',f['atok'],'fixture-launch-warehouse','warehouse.save',dict(id=None,revision=None,reason='Disposable warehouse setup',changes=dict(name='Fixture launch warehouse',city='Fixture city',address_line='Disposable database only',latitude=16.5,longitude=42.5,active=True))))
+ val(rpc('jana_delivery_admin_write',f['atok'],'fixture-launch-route','zone.save',dict(id=f['p']+'z',revision=1,reason='Disposable warehouse route',changes=dict(warehouse_id=warehouse['id']))))
  s=write_store(f,'draft.save',dict(revision=s['revision'],profile=PROFILE))
  assert s['draft']==PROFILE and s['revision']==1
  s=write_store(f,'profile.publish',dict(revision=s['revision'],confirmed=True))

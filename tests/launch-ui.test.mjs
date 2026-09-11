@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import * as common from '../assets/common.js';
 const bundle=[1,2,3,4].map(n=>readFileSync(new URL(`../assets/ops.part0${n}.js`,import.meta.url),'utf8')).join('\n').replace(/^import .*?;\n/,'');
-const store=()=>({revision:4,accepting_orders:false,published:{version:2},draft:{},readiness:{profile_published:true,tax_supported:true,active_products:4,preview_products:0,available_products:3,available_slots:7}});
+const store=()=>({revision:4,accepting_orders:false,published:{version:2},draft:{},readiness:{profile_published:true,tax_supported:true,warehouse_ready:true,active_warehouses:1,routed_available_slots:7,unrouted_available_slots:0,active_products:4,preview_products:0,available_products:3,available_slots:7}});
 const health=()=>({ok:true,operations:{schema_version:1,checked_at:1789120000000,ok:true,alert_count:0,jobs:['quote_expiry','recurring_reminders'].map(code=>({code,status:'ok'})),queues:['expired_quotes','expired_substitutions','overdue_reminders'].map(code=>({code,status:'ok',count:0,capped:false}))}});
 function harness({role='admin',workspace='admin',hash='#launch',get,confirm=()=>true}={}){
  const root={innerHTML:''},paths=[],writes=[],events={},clicks={},nodes={},location={hash};
@@ -16,7 +16,7 @@ function harness({role='admin',workspace='admin',hash='#launch',get,confirm=()=>
 test('launch center reports recorded checks separately from mandatory physical review and never opens sales',async()=>{
  const h=harness();await h.run('setInitialOpsPage();render()');
  assert.deepEqual(h.paths,['/api/ops/storefront','/api/ops/deep-health']);assert.equal(h.writes.length,0);assert.match(h.root.innerHTML,/data-launch-state="closed"/);
- assert.equal((h.root.innerHTML.match(/data-launch-check=/g)||[]).length,7);assert.match(h.root.innerHTML,/data-launch-check="inventory" data-launch-check-state="review"/);assert.match(h.root.innerHTML,/data-launch-check="team" data-launch-check-state="review"/);
+ assert.equal((h.root.innerHTML.match(/data-launch-check=/g)||[]).length,8);assert.match(h.root.innerHTML,/data-launch-check="inventory" data-launch-check-state="review"/);assert.match(h.root.innerHTML,/data-launch-check="team" data-launch-check-state="review"/);assert.match(h.root.innerHTML,/data-launch-check="warehouse" data-launch-check-state="observed"/);
  assert.match(h.root.innerHTML,/لا يُستنتج اكتمالها من الاختبارات البرمجية/);assert.match(h.root.innerHTML,/href="\/admin.html#storefront"/);assert.match(h.root.innerHTML,/href="\/start.html"/);
  assert.match(h.root.innerHTML,/data-launch-download/);assert.match(h.root.innerHTML,/download="jana-launch-readiness.json"/);
 });
@@ -24,7 +24,7 @@ test('downloadable launch observation excludes private merchant content and pres
  const s=store();s.draft={display_name:'Private fixture',support_email:'private@example.invalid',privacy_policy:'SECRET POLICY'};
  const h=harness();const report=JSON.parse(JSON.stringify(h.run(`launchReport(${JSON.stringify(s)},${JSON.stringify(health())})`)));
  assert.equal(report.schema,'jana-launch-observation/v1');assert.deepEqual(report.admission,{state:'closed',storefront_revision:4,published_policy_version:2});
- assert.equal(report.checks.length,7);assert.ok(report.checks.every(x=>Object.keys(x).sort().join(',')==='action,action_url,id,state,title'));
+ assert.equal(report.checks.length,8);assert.ok(report.checks.every(x=>Object.keys(x).sort().join(',')==='action,action_url,id,state,title'));
  assert.equal(report.operations.ok,true);assert.equal(report.manual_acceptance_required,true);assert.doesNotMatch(JSON.stringify(report),/Private fixture|private@example|SECRET POLICY/);
  const unknown=JSON.parse(JSON.stringify(h.run(`launchReport({},null)`)));assert.deepEqual(unknown.admission,{state:'unknown',storefront_revision:null,published_policy_version:null});assert.equal(unknown.operations,null);assert.ok(unknown.checks.every(x=>['unknown','review'].includes(x.state)));
 });
