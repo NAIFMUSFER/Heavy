@@ -144,7 +144,8 @@ passed('rejection preserves the measured shortage original basket terms and rese
 
 f=setup();replacement=replacement_stock(f,'بديل منتهي');val(record(f,payload(f,1999,6)));before=current(f);stocks=selected_stock(f['p']+'st',f['piece'],replacement)
 proposal=val(rpc('jana_picking_write',f['atok'],'component-sub-expire-propose','component.substitution.propose',dict(order_id=f['order'],line_id=f['line'],component_id=f['p']+'st',replacement_stock_id=replacement)))
-run('UPDATE substitutions SET expires_at=0 WHERE id='+literal(proposal['id'])+';');assert val('SELECT jana_expire_substitutions();')==1
+run('BEGIN; ALTER TABLE substitutions DISABLE TRIGGER jana_substitution_history_guard; UPDATE substitutions SET expires_at=0 WHERE id='+literal(proposal['id'])+'; ALTER TABLE substitutions ENABLE TRIGGER jana_substitution_history_guard; COMMIT;')
+assert val('SELECT jana_expire_substitutions();')==1
 assert current(f)['snapshot']==before['snapshot'] and selected_stock(f['p']+'st',f['piece'],replacement)==stocks and val('SELECT state FROM substitutions WHERE id='+literal(proposal['id'])+';')=='expired'
 passed('expiry records a distinct component event without implicit consent or inventory change')
 
