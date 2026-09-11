@@ -55,7 +55,13 @@ passed('finance records credits, inventory reviews only, and customer is denied'
 f5,supplier5=prepare(stock=10000);revision=0
 for i in range(52):
  event_i=val(rpc('jana_inventory_dispose',f5['atok'],'credit-page-return-'+str(i),{'lot_id':f5['p']+'l','kind':'supplier_return','quantity_base':1,'revision':revision,'reason':'Pagination supplier return fixture','reference':'PAGE-RETURN-'+str(i)}));revision+=1
-first_page=history(f5);assert len(first_page['items'])==50 and first_page['next'];cursor=first_page['next'];second_page=history(f5,None,cursor['before_at'],cursor['before_id']);assert len(second_page['items'])==2 and not ({x['id'] for x in first_page['items']}&{x['id'] for x in second_page['items']})
+page=history(f5);assert len(page['items'])==50 and page['next'];seen=set();references=[]
+while True:
+ assert len(page['items'])<=50 and not (seen&{x['id'] for x in page['items']})
+ seen.update(x['id'] for x in page['items']);references.extend(x['return_reference'] for x in page['items'])
+ if not page['next']:break
+ cursor=page['next'];page=history(f5,None,cursor['before_at'],cursor['before_id'])
+assert sorted(x for x in references if x.startswith('PAGE-RETURN-'))==sorted('PAGE-RETURN-'+str(i) for i in range(52))
 passed('supplier return reconciliation uses bounded stable pages without duplicates')
 
 assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('jana_supplier_credit_record','jana_supplier_credit_reconciliation','jana_supplier_credit_guard') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE'));")==0
