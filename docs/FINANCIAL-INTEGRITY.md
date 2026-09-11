@@ -11,7 +11,7 @@ Migration `20260910030745` enforces:
 - Settlement can be partial; each amount and reference is retained in an append-only cash ledger.
 - One order row serializes collection, refund completion, and settlement. Deferred ledger checks reconcile account totals before commit.
 - Replayed idempotency keys return the recorded original result. A reference cannot be counted twice for the same order/event type.
-- No money is transferred by these COD recordkeeping APIs. Staff must confirm a payment actually occurred before recording it. Online payment and refund adapters remain configuration work.
+- No money is transferred by these COD recordkeeping APIs. Staff must confirm a payment actually occurred before recording it. Online payment/refund integration requires a selected provider, implementation and owner-approved configuration.
 
 Production pre-migration evidence, 10 September 2026: one existing order; zero collected orders, zero courier-held cash orders, zero refund records. No historical refund source needs to be invented. The migration is applied with zero cash-ledger mismatches and unchanged original order snapshots.
 

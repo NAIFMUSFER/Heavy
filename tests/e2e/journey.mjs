@@ -68,10 +68,10 @@ try{
  pass('damaged local cart preserves storage, keeps the phone storefront usable and resets only on explicit confirmation');
  const cartAdd=storagePage.locator('[data-add="'+fixture.offering_id+'"]');
  await cartAdd.click();await storagePage.locator('#cart-count').getByText('1',{exact:true}).waitFor();
- const savedCart=await storagePage.evaluate(()=>localStorage.getItem('jana.live.cart'));
+ const deviceCartBeforeFailure=await storagePage.evaluate(()=>localStorage.getItem('jana.live.cart'));
  await storagePage.evaluate(()=>{const original=Storage.prototype.setItem;window.cartWriteFailure=true;Storage.prototype.setItem=function(key,value){if(key==='jana.live.cart'&&window.cartWriteFailure)throw new DOMException('Fixture storage full','QuotaExceededError');return original.call(this,key,value)}});
  await cartAdd.click();await storagePage.locator('#cart-storage').getByText(/لم يُحفظ التعديل/).waitFor();
- assert.equal(await storagePage.evaluate(()=>localStorage.getItem('jana.live.cart')),savedCart);assert.equal(await storagePage.locator('#cart-count').innerText(),'1');
+ assert.equal(await storagePage.evaluate(()=>localStorage.getItem('jana.live.cart')),deviceCartBeforeFailure);assert.equal(await storagePage.locator('#cart-count').innerText(),'1');
  await storagePage.evaluate(()=>{window.cartWriteFailure=false});await cartAdd.click();await storagePage.locator('#cart-count').getByText('2',{exact:true}).waitFor();
  await storagePage.reload();await storagePage.locator('#cart-count').getByText('2',{exact:true}).waitFor();
  pass('failed local cart write changes neither persisted nor visible quantities, then retry survives reload');

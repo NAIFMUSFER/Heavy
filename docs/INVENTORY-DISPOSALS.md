@@ -1,6 +1,8 @@
 # Inventory waste, damage and supplier returns
 
-Database run 34492552637 passed all sixteen disposal groups and prior integrity/concurrency suites. Browser run 34492552641 passed 26 journey checks; the local JavaScript suite passes 175 tests. The unchanged tested SQL is applied as `20260910150043_jana_inventory_disposals.sql`, and operations Edge v17 is active. Its CLI-generated draft name 20260910144937 was aligned with the actual applied migration timestamp. Gateway release `593c96265de0ca59ac0d86ebe2bc1471e79c123f` is verified live in Render `dep-dahcgtqd0e5s738skh60` (15:11:21 UTC), with exact-commit smoke `34493833102`, database `34493833009` and browser `34493832928` passing.
+Release numbers below record this feature's original validation. Current deployed versions and subsequent gates are maintained in [RELEASE-EVIDENCE.md](RELEASE-EVIDENCE.md).
+
+Database run 34492552637 passed all sixteen disposal groups and prior integrity/concurrency suites. Browser run 34492552641 passed 26 journey checks; the local JavaScript suite passes 175 tests. The unchanged tested SQL is applied as `20260910150043_jana_inventory_disposals.sql`, and operations Edge v17 was deployed for that release. Its CLI-generated draft name 20260910144937 was aligned with the actual applied migration timestamp. Gateway release `593c96265de0ca59ac0d86ebe2bc1471e79c123f` is verified live in Render `dep-dahcgtqd0e5s738skh60` (15:11:21 UTC), with exact-commit smoke `34493833102`, database `34493833009` and browser `34493832928` passing.
 
 Authorized admin/inventory staff open a current lot context, choose waste/damage/supplier return, enter the actual outbound quantity in the canonical stock unit, and provide a reason plus real document reference. The UI explicitly confirms the physical stock reduction. This records a completed physical outbound event; it is not a request or automatic approval system.
 

@@ -1,5 +1,7 @@
 # Customer account identifiers
 
+Release numbers below record this feature's original validation. Current deployed versions and subsequent gates are maintained in [RELEASE-EVIDENCE.md](RELEASE-EVIDENCE.md).
+
 Applied account migration `20260910094542` permits customer registration with an email address, a Saudi mobile number, or both. A real password is mandatory. No synthetic email address is created. Existing email/password accounts remain compatible, and staff continue to use email identifiers.
 
 The accepted phone forms are `05xxxxxxxx` and `+9665xxxxxxxx`. A unique normalized phone index prevents separate accounts from claiming those two forms of the same number. Production preflight found zero nonstandard phone rows and zero normalized collisions. Existing contacts are not rewritten by the migration.
@@ -10,6 +12,6 @@ Password creation requires at least 12 characters and at most 72 UTF-8 bytes to 
 
 Profile editing cannot remove the only usable login identifier. Normalized uniqueness also applies to profile updates. A formatting-only change to the same phone does not falsely revoke an already recorded verification; changing the actual number resets verification. Self-service addition/change of an email identifier and provider-backed recovery remain separate future work.
 
-New functions remain service-only, and the normalization helper is private. The database and browser gates cover optional-email creation, alias login, uniqueness, concurrent registration, durable limits, profile safeguards and inactive/operational-account exclusions. The database and browser gates passed at d89fb4a, and API v21 is active. Existing user, order and stock fingerprints are unchanged. Android 34462074478, iOS simulator 34462074546 and Expo 34462074506 passed. Web release 388b777 is verified live; actual device acceptance remains pending; see RELEASE-EVIDENCE.md.
+New functions remain service-only, and the normalization helper is private. The database and browser gates cover optional-email creation, alias login, uniqueness, concurrent registration, durable limits, profile safeguards and inactive/operational-account exclusions. The database and browser gates passed at d89fb4a, and API v21 was deployed for that release. Existing user, order and stock fingerprints are unchanged. Android 34462074478, iOS simulator 34462074546 and Expo 34462074506 passed. Web release 388b777 is verified live; actual device acceptance remains pending; see RELEASE-EVIDENCE.md.
 
 Self-service password changes are available in web and native accounts. The current password is required; the same 12-character / 72-byte boundary applies to replacements. All sessions, including the calling session, are revoked atomically. See ORDER-JOURNEY.md for concurrency, uncertain-network behavior and the distinction from provider-backed recovery.

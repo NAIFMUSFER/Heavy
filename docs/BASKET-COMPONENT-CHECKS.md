@@ -1,5 +1,7 @@
 # Fixed basket component measurement
 
+Release numbers below record this feature's original validation. Current deployed versions and subsequent gates are maintained in [RELEASE-EVIDENCE.md](RELEASE-EVIDENCE.md).
+
 An assigned picker or administrator records the measured total of each component in a multi-component sold line. Quantities scale by the number of baskets and retain the canonical unit of each stock item: grams and pieces are never summed together. Initial inputs are blank; the operator explicitly attests to physical measurement. Zero records an absent component. All members of the sold component set must be present exactly once, with bounded integer amounts.
 
 The record is operational evidence, not a stock adjustment or a new price agreement. Saving a shortage or excess leaves the customer-approved price, coupon terms, original order snapshot, reservations, lot balances and cost/cash ledgers unchanged. The normal finishing transaction remains blocked until each measured amount matches the sold component quantity. Staff can complete the original quantity or use the existing explicit customer-approved whole-line substitution workflow. Component-level substitution, a discount for a missing basket component, and weight tolerances for fixed baskets remain separate commercial-policy work; this change does not choose those policies.
@@ -14,4 +16,4 @@ Disposable PostgreSQL tests exercise strict types, complete component sets, zero
 
 Release state and actual test results are recorded in RELEASE-EVIDENCE.md. This source change concerns the warehouse web interface and backend; native device acceptance and commercial launch approval remain outstanding.
 
-Migration `20260910191908_jana_basket_component_checks` is applied and `jana-api` v26 is active. The migration filename was aligned to its actual application version without changing tested SQL bytes. Candidate `d576bfc` passed 204 JavaScript tests, all 12 basket database groups plus the existing business suites, and the 39-check browser journey. Public gateway verification is tracked separately.
+Migration `20260910191908_jana_basket_component_checks` is applied and `jana-api` v26 was deployed for that release. The migration filename was aligned to its actual application version without changing tested SQL bytes. Candidate `d576bfc` passed 204 JavaScript tests, all 12 basket database groups plus the existing business suites, and the 39-check browser journey. Public gateway verification is tracked separately.
