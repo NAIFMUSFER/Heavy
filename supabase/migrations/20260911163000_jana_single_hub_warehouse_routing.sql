@@ -150,6 +150,6 @@ BEGIN
  RETURN public.jana_storefront_write_pre_warehouse(p_token,p_idem_key,p_operation,p_payload);
 END$$;
 
-REVOKE ALL ON FUNCTION public.jana_save_warehouse(text,text,jsonb,bigint,text),public.jana_delivery_admin_write_pre_warehouse(text,text,text,jsonb),public.jana_admin_catalog_pre_warehouse(text),public.jana_storefront_readiness_pre_warehouse(),public.jana_storefront_readiness() FROM PUBLIC,anon,authenticated,service_role;
+REVOKE ALL ON FUNCTION public.jana_save_warehouse(text,text,jsonb,bigint,text),public.jana_delivery_admin_write_pre_warehouse(text,text,text,jsonb),public.jana_admin_catalog_pre_warehouse(text),public.jana_storefront_readiness_pre_warehouse(),public.jana_storefront_readiness(),public.jana_storefront_write_pre_warehouse(text,text,text,jsonb) FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION public.jana_delivery_admin_write(text,text,text,jsonb),public.jana_admin_catalog(text),public.jana_storefront_write_pre_warehouse(text,text,text,jsonb),public.jana_storefront_write(text,text,text,jsonb) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.jana_delivery_admin_write(text,text,text,jsonb),public.jana_admin_catalog(text),public.jana_storefront_write(text,text,text,jsonb) TO service_role;
