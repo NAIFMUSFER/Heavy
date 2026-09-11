@@ -7,7 +7,7 @@ def prepare(stock=10000):
  f=fixture(stock=stock);supplier=val(rpc('jana_admin_create_supplier',f['atok'],'Supplier credit fixture',''))
  run('UPDATE inventory_lots SET supplier_id='+literal(supplier['id'])+' WHERE id='+literal(f['p']+'l')+';')
  return f,supplier
-def disposal(f,key='supplier-return-fixture',reference='RETURN-FIXTURE'):
+def disposal(f,key='supplier-return-fixture',reference='SUPPLIER-CREDIT-RETURN-FIXTURE'):
  revision=val(rpc('jana_inventory_disposal_context',f['atok'],f['p']+'l'))['quantity_revision']
  return val(rpc('jana_inventory_dispose',f['atok'],key,{'lot_id':f['p']+'l','kind':'supplier_return','quantity_base':100,'revision':revision,'reason':'Physical supplier return fixture','reference':reference}))
 def credit(f,token,key,event,amount=75,reference='CREDIT-FIXTURE',note='Actual supplier credit note fixture'):
