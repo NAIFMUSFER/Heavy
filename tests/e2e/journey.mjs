@@ -54,6 +54,11 @@ try{
  assert.equal(await owner.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);await owner.screenshot({path:output+'/owner-launch-phone.png',fullPage:true});
  pass('owner portal preserves the launch bookmark across login and reload on phone width without changing commerce');
  await owner.getByRole('link',{name:'مراجعة المنتجات',exact:true}).click();await owner.locator('[data-action=new-product]').waitFor();assert.equal(new URL(owner.url()).hash,'#catalog');
+ await owner.locator('[data-action=import-catalog]').click();const csvHeader='product_key,title,kind,category,description,emoji,image_url,sellable_key,size_label,sale_unit,price_sar,weight_under_percent,weight_over_percent,stock_id,base_qty,list_price_sar';
+ const csvRow=['owner-csv','منتج CSV للمراجعة','sized','fruit','','','','one-kg','1 كجم','kg','١٢٫٩٥','','',fixture.stock_id,'1000','٩٫٠٠'].join(',');
+ await owner.locator('[data-catalog-file]').setInputFiles({name:'jana-owner-review.csv',mimeType:'text/csv',buffer:Buffer.from(csvHeader+'\r\n'+csvRow)});await owner.locator('[data-catalog-preview]').filter({hasText:/1 منتج.*1 حجم بيع.*1 مكوّن/}).waitFor();
+ assert.equal(await owner.locator('[data-confirm-catalog]').isDisabled(),false);assert.equal(await owner.locator('[data-submit-catalog]').isDisabled(),true);await owner.locator('[data-confirm-catalog]').check();assert.equal(await owner.locator('[data-submit-catalog]').isDisabled(),false);assert.deepEqual(handoffSnapshot(),handoffBefore);await closeModal(owner);
+ pass('owner can validate an Excel CSV catalog with exact Arabic riyal values before any draft or stock write');
  await owner.goBack();await owner.locator('[data-launch-center]').waitFor();await owner.goForward();await owner.locator('[data-action=new-product]').waitFor();
  await owner.locator('.ops-menu [data-page=launch]').click();await owner.getByRole('link',{name:'إكمال بيانات المتجر'}).click();await owner.locator('#store-draft').waitFor();
  owner.removeAllListeners('dialog');let discardOwnerDraft=false;owner.on('dialog',d=>discardOwnerDraft?d.accept():d.dismiss());

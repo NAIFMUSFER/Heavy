@@ -1,7 +1,73 @@
+import {integerValue,moneyValue} from './input.js';
+
 const kinds=new Set(['individual','basket','sized','usage','bulk','gift']);
 const units=new Set(['kg','piece','pack','package','basket']);
 const textValue=(value,name,min,max)=>{if(typeof value!=='string'||value.trim().length<min||value.trim().length>max)throw Error(`راجع ${name}`);return value.trim()};
 const integer=(value,name,min,max)=>{if(!Number.isSafeInteger(value)||value<min||value>max)throw Error(`راجع ${name}`);return value};
+const csvFields=[
+ ['product_key','مفتاح_المنتج'],['title','اسم_المنتج'],['kind','النوع'],['category','القسم'],['description','الوصف'],['emoji','الرمز'],['image_url','رابط_الصورة'],
+ ['sellable_key','مفتاح_الحجم'],['size_label','وصف_الحجم'],['sale_unit','وحدة_البيع'],['price_sar','السعر_بالريال'],['weight_under_percent','نسبة_النقص'],['weight_over_percent','نسبة_الزيادة'],
+ ['stock_id','معرف_المخزون'],['base_qty','كمية_المكون'],['list_price_sar','قيمة_المكون_بالريال']
+];
+const csvEscape=value=>{const text=String(value??'');return /[",\r\n]/.test(text)?`"${text.replace(/"/g,'""')}"`:text};
+
+function csvRows(text){
+ if(typeof text!=='string'||text.includes('\0'))throw Error('ملف CSV غير صالح');
+ const rows=[];let row=[],cell='',quoted=false,afterQuote=false;
+ for(let i=0;i<text.length;i++){
+  const char=text[i];
+  if(quoted){if(char==='"'){if(text[i+1]==='"'){cell+='"';i++}else{quoted=false;afterQuote=true}}else cell+=char;continue}
+  if(afterQuote&&char!==','&&char!=='\r'&&char!=='\n')throw Error('راجع علامات الاقتباس في ملف CSV');
+  if(char==='"'){if(cell)throw Error('راجع علامات الاقتباس في ملف CSV');quoted=true;continue}
+  if(char===','){row.push(cell);cell='';afterQuote=false;continue}
+  if(char==='\r'||char==='\n'){if(char==='\r'&&text[i+1]==='\n')i++;row.push(cell);rows.push(row);row=[];cell='';afterQuote=false;continue}
+  cell+=char;afterQuote=false;
+ }
+ if(quoted)throw Error('علامة اقتباس غير مكتملة في ملف CSV');
+ if(cell||row.length){row.push(cell);rows.push(row)}
+ return rows.filter(values=>values.some(value=>value.trim()));
+}
+
+export function catalogImportCsvTemplate(stock=[]){
+ const lines=['\ufeff'+csvFields.map(([,arabic])=>csvEscape(arabic)).join(',')];
+ lines.push(csvEscape('# صف واحد لكل مكوّن. كرر مفتاح المنتج والحجم، ويمكن ترك تفاصيلهما المكررة فارغة. الأسعار بالريال والكميات بوحدة المخزون الأساسية.'));
+ lines.push(csvEscape('# الأنواع: individual | basket | sized | usage | bulk | gift — وحدات البيع: kg | piece | pack | package | basket'));
+ for(const item of stock.filter(x=>x.active))lines.push(csvEscape(`# مخزون نشط: ${item.id} — ${item.name||'دون اسم'} — ${item.base_unit||'وحدة غير مسجلة'}`));
+ return lines.join('\r\n')+'\r\n';
+}
+
+export function catalogImportFromCsv(text,stock=[]){
+ const rows=csvRows(text);if(!rows.length)throw Error('ملف CSV فارغ');
+ const aliases=new Map(csvFields.flatMap(([canonical,arabic])=>[[canonical,canonical],[arabic,canonical]]));
+ const header=rows.shift().map((value,index)=>index?value.trim():value.replace(/^\ufeff/,'').trim()).map(value=>aliases.get(value));
+ if(header.some(value=>!value)||new Set(header).size!==header.length||header.length!==csvFields.length||csvFields.some(([name])=>!header.includes(name)))throw Error('استخدم أعمدة نموذج CSV كما هي دون حذف أو تكرار');
+ const index=Object.fromEntries(header.map((name,i)=>[name,i])),products=[],productByKey=new Map(),offeringByKey=new Map();
+ const read=(row,name)=>String(row[index[name]]??'').trim();
+ const requireValue=(row,name,label)=>textValue(read(row,name),label,1,10000);
+ const same=(incoming,current,label,convert=value=>value)=>{if(incoming==='')return;const value=convert(incoming);if(value!==current)throw Error(`تفاصيل ${label} غير متطابقة في الصفوف المكررة`)};
+ for(let rowIndex=0;rowIndex<rows.length;rowIndex++){
+  const row=rows[rowIndex];if(read(row,'product_key').startsWith('#'))continue;
+  if(row.length>header.length||row.slice(header.length).some(value=>value.trim()))throw Error(`يوجد عمود زائد في صف البيانات ${rowIndex+2}`);
+  const productKey=requireValue(row,'product_key',`مفتاح المنتج في الصف ${rowIndex+2}`);if(!/^[a-z0-9][a-z0-9_-]{0,39}$/.test(productKey))throw Error(`مفتاح المنتج غير صالح في الصف ${rowIndex+2}`);
+  let product=productByKey.get(productKey);
+  if(!product){
+   product={title:requireValue(row,'title',`اسم المنتج في الصف ${rowIndex+2}`),kind:requireValue(row,'kind',`نوع المنتج في الصف ${rowIndex+2}`),category:requireValue(row,'category',`قسم المنتج في الصف ${rowIndex+2}`),description:read(row,'description'),emoji:read(row,'emoji'),image_url:read(row,'image_url'),offerings:[]};
+   productByKey.set(productKey,product);products.push(product);
+  }else{
+   same(read(row,'title'),product.title,'اسم المنتج');same(read(row,'kind'),product.kind,'نوع المنتج');same(read(row,'category'),product.category,'قسم المنتج');same(read(row,'description'),product.description,'وصف المنتج');same(read(row,'emoji'),product.emoji,'رمز المنتج');same(read(row,'image_url'),product.image_url,'رابط الصورة');
+  }
+  const sellableKey=requireValue(row,'sellable_key',`مفتاح الحجم في الصف ${rowIndex+2}`),compound=productKey+'\0'+sellableKey;
+  let offering=offeringByKey.get(compound);
+  if(!offering){
+   offering={sellable_key:sellableKey,size_label:requireValue(row,'size_label',`وصف الحجم في الصف ${rowIndex+2}`),sale_unit:requireValue(row,'sale_unit',`وحدة البيع في الصف ${rowIndex+2}`),price_halalas:moneyValue(requireValue(row,'price_sar',`السعر في الصف ${rowIndex+2}`)),weight_under_bps:read(row,'weight_under_percent')===''?10000:moneyValue(read(row,'weight_under_percent')),weight_over_bps:read(row,'weight_over_percent')===''?0:moneyValue(read(row,'weight_over_percent')),components:[]};
+   offeringByKey.set(compound,offering);product.offerings.push(offering);
+  }else{
+   same(read(row,'size_label'),offering.size_label,'وصف الحجم');same(read(row,'sale_unit'),offering.sale_unit,'وحدة البيع');same(read(row,'price_sar'),offering.price_halalas,'السعر',moneyValue);same(read(row,'weight_under_percent'),offering.weight_under_bps,'نسبة النقص',moneyValue);same(read(row,'weight_over_percent'),offering.weight_over_bps,'نسبة الزيادة',moneyValue);
+  }
+  offering.components.push({stock_id:requireValue(row,'stock_id',`معرّف المخزون في الصف ${rowIndex+2}`),base_qty:integerValue(requireValue(row,'base_qty',`كمية المكوّن في الصف ${rowIndex+2}`),{min:1,max:1000000000,label:'كمية المكوّن'}),list_price_halalas:read(row,'list_price_sar')===''?0:moneyValue(read(row,'list_price_sar'))});
+ }
+ return validateCatalogImport({schema_version:1,products},stock);
+}
 
 export function catalogImportTemplate(stock=[]){
  const stockId=stock.find(x=>x.active)?.id||'REPLACE_WITH_STOCK_ID';
