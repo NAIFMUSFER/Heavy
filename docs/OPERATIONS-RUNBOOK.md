@@ -20,6 +20,8 @@ Expo instructions and EAS development/preview/production profiles are in `mobile
 
 ## Backup and restore
 
+CI now includes a populated **fixture-only** backup/restore rehearsal in a separate network-isolated database. It verifies table contents, application permissions/constraints and functional order/retry recovery. See [RECOVERY-REHEARSAL.md](RECOVERY-REHEARSAL.md) for verified runs, limitations and artifact handling. This supplements schema replay; it does not replace the production recovery requirements below.
+
 Before commercial launch, confirm the actual Supabase plan, available retention and recovery facilities. Record approved RPO/RTO. A schema replay test is not a production-data restore. Supabase backup coverage depends on plan; storage objects need a separate backup strategy. Follow the [official backup guide](https://supabase.com/docs/guides/platform/backups).
 
 Restore into a new, isolated JANA recovery project. Never overwrite production to test recovery. Validate row counts, order original snapshots, cash/refund reconciliation, lot/balance reservations, slot capacity, FK constraints, application RLS, RPC privileges and worker schedules. Disable external delivery of notifications and production analytics in recovery. Verify customer/operations authentication using authorized test accounts, and measure the complete restore duration. Document discrepancies before allowing traffic. A real backup restore and measured RPO/RTO are currently NOT VERIFIED.

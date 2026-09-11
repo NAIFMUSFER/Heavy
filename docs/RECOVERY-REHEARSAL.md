@@ -24,7 +24,7 @@ Use the workflow on `jana-integrity` or `jana-live`. It uses existing reviewed P
 
 The only uploaded artifact is `evidence/local/recovery/rehearsal.json`: source commit, check names, per-table counts/hashes, metadata hashes, archive checksum/size and measured fixture dump/restore/rehearsal durations. The backup archive is temporary and deleted; row contents and fixture tokens/password hashes are not uploaded. Containers and their anonymous volumes are removed on exit and by the workflow cleanup step.
 
-A script existing or an artifact uploading is not a pass. Inspect the complete workflow conclusion for the exact commit. The initial candidate remains pending until a successful run is recorded in RELEASE-EVIDENCE.md.
+A script existing or an artifact uploading is not a pass. Inspect the complete workflow conclusion for the exact commit. Source `278d1326673b87813696304989d808049b9d840c` passed [recovery run 34548982939](https://github.com/NAIFMUSFER/Heavy/actions/runs/34548982939) on 11 September 2026 at 01:02:46 UTC: twelve guard/normalization tests and eleven integration groups; 52 public tables compared, 24 nonempty. The temporary fixture archive was 629,321 bytes; dump 0.264 seconds, restore 0.552 seconds and the measured recovery cycle 12.670 seconds (excluding fixture/bootstrap setup). These are fixture-only timings, not production objectives. There are currently no public sequences, so the successful run compared two empty public-sequence sets; populated sequence recovery is not claimed.
 
 ## Still required before commercial recovery readiness
 

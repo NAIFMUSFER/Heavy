@@ -24,8 +24,8 @@ This matrix describes implemented source. Exact release/deployment/build evidenc
 | Support/reporting | Threads, order links, priority/assignment; real sales/cash/stock reports and explicit unknown/estimated costs | Staff acceptance, actual costs; tax/operating expenses not full accounting |
 | Notifications | Transactional in-app notifications; guarded outbox/leases/retries/uncertainty, Resend adapter and monitoring | Dedicated worker, verified destinations/consent/domain and approved channel activation |
 | Providers/analytics | Server-only provider boundaries, privacy-minimized events, fail-closed flags | Concrete SMS/push/payment/media integrations as selected; dedicated PostHog ingestion verification |
-| Database assurance | Recovered replay, disposable concurrency tests, immutable ledgers, service-only application RPCs | Real backup restore/recovery timing; supported PostGIS platform-advisor remediation |
-| CI/operations | Node/PostgreSQL/browser/Expo/Android/iOS simulator gates, exact-commit smoke, recovery/rotation runbooks | Capacity/load, dedicated staging, alerts, measured backup/restore and signed releases |
+| Database assurance | Recovered replay, populated fixture backup/restore gate, disposable concurrency tests, immutable ledgers, service-only application RPCs | Real backup restore/recovery timing; supported PostGIS platform-advisor remediation |
+| CI/operations | Node/PostgreSQL/recovery/browser/Expo/Android/iOS simulator gates, exact-commit smoke, recovery/rotation runbooks | Capacity/load, dedicated staging, alerts, measured backup/restore and signed releases |
 
 ## Work order before commercial sales
 
@@ -39,4 +39,4 @@ Supabase-owned PostGIS advisor findings remain documented platform limitations. 
 
 ## Recovery regression extension — 11 September 2026
 
-An isolated populated-fixture backup/restore workflow and guard tests are implemented in the review branch; its first full execution is pending. See [RECOVERY-REHEARSAL.md](RECOVERY-REHEARSAL.md). Do not mark actual production backup recovery or RPO/RTO complete from this regression gate.
+The review-branch populated-fixture backup/restore workflow passed run 34548982939 on 278d1326673b87813696304989d808049b9d840c: 12 guard/normalization tests, 11 integration groups and identical data across 52 public tables (24 nonempty). Production application/schema were not changed. See [RECOVERY-REHEARSAL.md](RECOVERY-REHEARSAL.md). Do not mark actual production backup recovery or RPO/RTO complete from this regression gate.
