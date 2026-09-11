@@ -11,6 +11,9 @@ export function createApiClient({base,storage,fetchImpl=fetch,timeoutMs=20000,ne
  const critical=(method,path)=>(method==='PUT'&&path==='/api/cart')||method==='POST'&&(path==='/api/quotes'||path==='/api/orders'||path==='/api/shopping-lists'||path==='/api/recurring'||/\/refunds$/.test(path)||/^\/api\/substitutions\/[^/]+\/decision$/.test(path));
  async function journal(token,signature,clear=false){return serialized(async()=>{
   const raw=await storage.getItemAsync(journalKey);let data=raw?JSON.parse(raw):{token,entries:{}};
+  // A response may arrive after logout or after another account started work.
+  // Clearing that old request must not resurrect or replace a newer journal.
+  if(clear&&(!raw||data.token!==token))return;
   if(data.token!==token)data={token,entries:{}};
   if(clear)delete data.entries[signature];
   else if(!data.entries[signature]){

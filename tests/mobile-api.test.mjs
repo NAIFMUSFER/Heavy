@@ -20,3 +20,18 @@ for(const path of ['/api/shopping-lists','/api/recurring'])test(`${path}: uncert
 test('uncertain saved cart PUT retains its revision and key across mobile restart',async()=>{
  const storage=store(),options={method:'PUT',token:'fixture',body:{revision:4,items:[]}};let original;const one=createApiClient({base,storage,fetchImpl:async(u,i)=>{original=i.headers['idempotency-key'];throw Error('offline')}});await assert.rejects(one('/api/cart',options));const two=createApiClient({base,storage,fetchImpl:async(u,i)=>{assert.equal(i.headers['idempotency-key'],original);assert.equal(JSON.parse(i.body).revision,4);return Response.json({revision:5,saved:true})}});assert.equal((await two('/api/cart',options)).revision,5);
 });
+test('an older successful request cannot erase a newer session pending confirmation',async()=>{
+ const storage=store();let release,seen;const started=new Promise(resolve=>seen=resolve),held=new Promise(resolve=>release=resolve);
+ const request=createApiClient({base,storage,fetchImpl:async(u,i)=>{if(i.headers.authorization==='Bearer old-session'){seen();await held;return Response.json({id:'old-order'})}throw Error('new session offline')}});
+ const old=request('/api/orders',{method:'POST',token:'old-session',body:{quote_id:'old-quote'}});await started;
+ await assert.rejects(request('/api/orders',{method:'POST',token:'new-session',body:{quote_id:'new-quote'}}));
+ const pending=await storage.getItemAsync('jana.mobile.retry.v1');release();await old;
+ assert.equal(await storage.getItemAsync('jana.mobile.retry.v1'),pending);
+});
+test('a late completed request does not recreate retry credentials removed at logout',async()=>{
+ const storage=store();let release,seen;const started=new Promise(resolve=>seen=resolve),held=new Promise(resolve=>release=resolve);
+ const request=createApiClient({base,storage,fetchImpl:async()=>{seen();await held;return Response.json({id:'order'})}});
+ const old=request('/api/orders',{method:'POST',token:'old-session',body:{quote_id:'quote'}});await started;
+ await storage.deleteItemAsync('jana.mobile.retry.v1');release();await old;
+ assert.equal(await storage.getItemAsync('jana.mobile.retry.v1'),null);
+});

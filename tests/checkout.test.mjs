@@ -94,5 +94,8 @@ test('failed cart persistence leaves the confirmed reference recoverable; succes
  let saved=false;const o=await f.client.acknowledge(async()=>{saved=true;assert.ok(await f.storage.getItem(CHECKOUT_KEY))});assert.equal(saved,true);assert.equal(o.id,order.id);assert.equal(await f.storage.getItem(CHECKOUT_KEY),null);
 });
 test('logout clears the persisted reference after any older write finishes',async()=>{
- const f=fixture();await f.client.create(body);await f.client.forget();assert.equal(f.client.snapshot.pending,null);assert.equal(await f.storage.getItem(CHECKOUT_KEY),null);
+ const f=fixture();await f.client.create(body);const gate=deferred(),started=deferred(),write=f.storage.setItem;
+ f.storage.setItem=async(k,v)=>{started.resolve();await gate.promise;await write(k,v)};
+ const confirm=f.client.confirm('policy-one');await started.promise;const forgotten=f.client.forget();gate.resolve();await confirm;await forgotten;
+ assert.equal(f.client.snapshot.pending,null);assert.equal(await f.storage.getItem(CHECKOUT_KEY),null);assert.equal(f.calls.some(x=>x[0]==='/api/orders'),false);
 });
