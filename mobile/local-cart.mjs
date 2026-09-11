@@ -3,6 +3,7 @@ export class CartStorageError extends Error {
  constructor(code,message){super(message);this.name='CartStorageError';this.code=code;}
 }
 const invalid=()=>new CartStorageError('CART_INVALID','تعذر قراءة السلة المحفوظة. أعد المحاولة أو امسح سلة هذا الجهاز للبدء من جديد.');
+const unavailable=()=>new CartStorageError('CART_STORAGE','تعذر الوصول إلى تخزين السلة. لم يُحفظ التعديل؛ أعد المحاولة.');
 export function validateCart(rows){
  if(!Array.isArray(rows)||rows.length>40)throw invalid();
  const ids=new Set();let total=0;
@@ -32,18 +33,19 @@ export function createCartStore({storage,key,onChange=()=>{}}){
   operations++;publish();
   const result=queue.then(async()=>{
    try{const value=await fn();error=null;return value;}
-   catch(e){error=e instanceof CartStorageError?e:new CartStorageError('CART_STORAGE','تعذر الوصول إلى تخزين السلة. لم يُحفظ التعديل؛ أعد المحاولة.');throw error;}
+   catch(e){if(e instanceof CartStorageError)error=e;throw e;}
    finally{operations--;publish();}
   });
   queue=result.catch(()=>{});return result;
  }
  async function persist(next){
   const valid=Object.freeze(validateCart(next));
-  await storage.setItem(key,JSON.stringify(valid));items=valid;ready=true;return items;
+  try{await storage.setItem(key,JSON.stringify(valid));}catch{throw unavailable();}
+  items=valid;ready=true;return items;
  }
  return {
   get snapshot(){return snapshot();},
-  load:()=>serial(async()=>{const valid=readCart(await storage.getItem(key));items=Object.freeze(valid);ready=true;return items;}),
+  load:()=>serial(async()=>{let raw;try{raw=await storage.getItem(key);}catch{throw unavailable();}const valid=readCart(raw);items=Object.freeze(valid);ready=true;return items;}),
   update:change=>serial(async()=>{if(!ready)throw error||invalid();const next=change(items);return next===items?items:persist(next);}),
   // Reset is an explicit user action, including when stored data cannot be read.
   reset:()=>serial(()=>persist([])),

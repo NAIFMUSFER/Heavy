@@ -61,3 +61,8 @@ test('quantity changes enforce available stock and allow removing an unavailable
  assert.throws(()=>changeCartQuantity([{...line,quantity:20}],{...product,available_units:50},1));
  const full=Array.from({length:40},(_,i)=>({...line,offering_id:'old-'+i}));assert.throws(()=>changeCartQuantity(full,product,1));
 });
+test('an unavailable quantity keeps its business message and does not suggest resetting storage',async()=>{
+ const storage=memory(),store=createCartStore({storage,key:'cart'});await store.load();
+ await assert.rejects(store.update(rows=>changeCartQuantity(rows,{...product,available_units:1},1)),/لا تتوفر كمية إضافية/);
+ assert.equal(store.snapshot.error,null);assert.equal(storage.writes.length,0);assert.deepEqual(store.snapshot.items,[line]);
+});

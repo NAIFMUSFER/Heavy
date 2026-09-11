@@ -348,3 +348,9 @@ Local syntax checks and 283 Node tests passed before final integration review; t
 
 
 Candidate **f1cf8d987c3bf49b10464a74f92f9450628dcdf8** passed Node verification **34558812256** (283 tests) and Expo export **34558812345**. Browser **34558812251** completed disposable database setup but stopped before exercising the UI: a new local-cart fixture variable reused the existing `savedCart` name in the same block. Renamed the fixture variable and added browser-script syntax checking to the early Node gate. This was an invalid test script, not a passing browser result. Native builds **34558812270** / **34558812260** remain attached to the unchanged mobile source. No production promotion occurred.
+
+
+Final integration review added a failing test proving that quantity-limit errors were incorrectly reported as storage failures by the new cart queue. Storage exceptions are now classified only at the actual read/write boundary; a stock/quantity validation failure retains its own message and does not suggest resetting a valid cart. The complete shared-cart tests pass after this correction. Because the shared native runtime changed, fresh Expo/Android/iOS builds are required for this corrected source.
+
+
+Browser syntax correction **59befa6c339c9092458ffb5d9ff4823e4813cf40** passed verification **34559021002** and browser **34559021006**, job **103137709702**: **63** complete gateway/Edge/PostgreSQL checks at 03:37:03 UTC, including all four new workspace/localized-cost/cart-failure checks. Final shared-cart error-classification changes still require the following candidate gates; the failed initial run remains recorded above.
