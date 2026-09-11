@@ -18,6 +18,15 @@ test('launch center reports recorded checks separately from mandatory physical r
  assert.deepEqual(h.paths,['/api/ops/storefront','/api/ops/deep-health']);assert.equal(h.writes.length,0);assert.match(h.root.innerHTML,/data-launch-state="closed"/);
  assert.equal((h.root.innerHTML.match(/data-launch-check=/g)||[]).length,7);assert.match(h.root.innerHTML,/data-launch-check="inventory" data-launch-check-state="review"/);assert.match(h.root.innerHTML,/data-launch-check="team" data-launch-check-state="review"/);
  assert.match(h.root.innerHTML,/لا يُستنتج اكتمالها من الاختبارات البرمجية/);assert.match(h.root.innerHTML,/href="\/admin.html#storefront"/);assert.match(h.root.innerHTML,/href="\/start.html"/);
+ assert.match(h.root.innerHTML,/data-launch-download/);assert.match(h.root.innerHTML,/download="jana-launch-readiness.json"/);
+});
+test('downloadable launch observation excludes private merchant content and preserves unknowns',async()=>{
+ const s=store();s.draft={display_name:'Private fixture',support_email:'private@example.invalid',privacy_policy:'SECRET POLICY'};
+ const h=harness();const report=JSON.parse(JSON.stringify(h.run(`launchReport(${JSON.stringify(s)},${JSON.stringify(health())})`)));
+ assert.equal(report.schema,'jana-launch-observation/v1');assert.deepEqual(report.admission,{state:'closed',storefront_revision:4,published_policy_version:2});
+ assert.equal(report.checks.length,7);assert.ok(report.checks.every(x=>Object.keys(x).sort().join(',')==='action,action_url,id,state,title'));
+ assert.equal(report.operations.ok,true);assert.equal(report.manual_acceptance_required,true);assert.doesNotMatch(JSON.stringify(report),/Private fixture|private@example|SECRET POLICY/);
+ const unknown=JSON.parse(JSON.stringify(h.run(`launchReport({},null)`)));assert.deepEqual(unknown.admission,{state:'unknown',storefront_revision:null,published_policy_version:null});assert.equal(unknown.operations,null);assert.ok(unknown.checks.every(x=>['unknown','review'].includes(x.state)));
 });
 test('preview products, empty availability and stopped jobs remain actionable blockers',async()=>{
  const s=store(),o=health();s.readiness.preview_products=1;s.readiness.available_slots=0;o.operations.jobs[0].status='disabled';o.operations.alert_count=1;o.operations.ok=false;

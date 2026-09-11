@@ -198,6 +198,21 @@ function launchChecks(data,health){
   {id:'operations',title:'سلامة التشغيل',page:'health',action:'مراجعة تنبيهات التشغيل',state:!jobsKnown?'unknown':health.ok&&observation.ok?'observed':'attention',detail:!jobsKnown?'لم يصل فحص تشغيل مكتمل. أعد المحاولة قبل اعتماد التشغيل.':health.ok&&observation.ok?'فحص الأرصدة والمهام المجدولة سليم وقت هذه القراءة. يلزم أيضًا اعتماد التنبيهات الخارجية والنسخ الاحتياطي والتعافي الفعلي.':'ظهر تنبيه في الأرصدة أو المهام المجدولة. راجع التفاصيل وسبب التنبيه قبل اعتماد التشغيل.'}
  ];
 }
+function launchReport(data,health,checks=launchChecks(data,health)){
+ const revision=Number.isSafeInteger(data?.revision)&&data.revision>=0?data.revision:null;
+ const intake=revision!==null&&typeof data?.accepting_orders==='boolean'?(data.accepting_orders?'open':'closed'):'unknown';
+ const policyVersion=Number.isSafeInteger(data?.published?.version)&&data.published.version>=1?data.published.version:null;
+ const operations=operationalData(health),healthKnown=!!operations&&typeof health?.ok==='boolean';
+ return {
+  schema:'jana-launch-observation/v1',
+  admission:{state:intake,storefront_revision:revision,published_policy_version:policyVersion},
+  checks:checks.map(c=>({id:c.id,title:c.title,state:c.state,action:c.action,action_url:'/admin.html#'+c.page})),
+  operations:healthKnown?{ok:health.ok&&operations.ok===true,checked_at:Number.isSafeInteger(operations.checked_at)?operations.checked_at:null,alert_count:Number.isSafeInteger(operations.alert_count)&&operations.alert_count>=0?operations.alert_count:null}:null,
+  manual_acceptance_required:true,
+  notice:'هذا تقرير حالات مسجلة وروابط متابعة، وليس اعتمادًا تجاريًا أو بديلًا عن مراجعة المنشأة والبضاعة والفريق والأجهزة.'
+ };
+}
+function launchReportHref(data,health,checks){return 'data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(launchReport(data,health,checks),null,2))}
 async function launchPage(){
  const user=state.user,generation=++state.launchGeneration;
  if(user?.role!=='admin')throw Error('مركز إعداد الإطلاق متاح للمدير فقط');
@@ -207,9 +222,9 @@ async function launchPage(){
  if(reads.some(r=>r.status==='rejected'&&r.reason?.code==='AUTH_REQUIRED')){state.user=null;state.storefrontDirty=false;clearOrderPages();login();return}
  const data=reads[0].status==='fulfilled'?reads[0].value:null,health=reads[1].status==='fulfilled'?reads[1].value:null;
  const known=Number.isSafeInteger(data?.revision)&&data.revision>=0&&typeof data?.accepting_orders==='boolean';
- const intake=known?(data.accepting_orders?'open':'closed'):'unknown',checks=launchChecks(data,health);
+ const intake=known?(data.accepting_orders?'open':'closed'):'unknown',checks=launchChecks(data,health),reportHref=launchReportHref(data,health,checks);
  const labels={observed:'بيانات مسجلة',attention:'تحتاج إكمالًا',review:'مراجعة فعلية',unknown:'غير مؤكد'};
- shell(`<div class="stack" data-launch-center><section class="panel stack launch-status" data-launch-state="${intake}" role="status"><h2>${intake==='open'?'استقبال الطلبات مفتوح':intake==='closed'?'استقبال الطلبات متوقف':'تعذر تأكيد حالة استقبال الطلبات'}</h2><p>هذه الصفحة تجمع الإعدادات والفحوص المسجلة. المراجعة الفعلية للمنشأة والبضاعة والفريق تقع على مسؤول التشغيل؛ لا يُستنتج اكتمالها من الاختبارات البرمجية.</p>${known?`<p>مراجعة إعدادات المتجر: ${number(data.revision)}${Number.isSafeInteger(data.published?.version)?' · إصدار السياسات المنشور: '+number(data.published.version):''}</p>`:'<p class="notice warning">تعذر تحميل إعدادات المتجر. حدّث الصفحة؛ لن نعرض حالة فتح أو إغلاق مفترضة.</p>'}<div class="ops-actions"><a class="btn primary" href="/admin.html#storefront">مراجعة إعدادات استقبال الطلبات</a><a class="btn outline" href="/start.html">روابط المتجر والفريق</a><a class="btn outline" href="/">معاينة متجر العملاء</a></div></section>
+ shell(`<div class="stack" data-launch-center><section class="panel stack launch-status" data-launch-state="${intake}" role="status"><h2>${intake==='open'?'استقبال الطلبات مفتوح':intake==='closed'?'استقبال الطلبات متوقف':'تعذر تأكيد حالة استقبال الطلبات'}</h2><p>هذه الصفحة تجمع الإعدادات والفحوص المسجلة. المراجعة الفعلية للمنشأة والبضاعة والفريق تقع على مسؤول التشغيل؛ لا يُستنتج اكتمالها من الاختبارات البرمجية.</p>${known?`<p>مراجعة إعدادات المتجر: ${number(data.revision)}${Number.isSafeInteger(data.published?.version)?' · إصدار السياسات المنشور: '+number(data.published.version):''}</p>`:'<p class="notice warning">تعذر تحميل إعدادات المتجر. حدّث الصفحة؛ لن نعرض حالة فتح أو إغلاق مفترضة.</p>'}<div class="ops-actions"><a class="btn primary" href="/admin.html#storefront">مراجعة إعدادات استقبال الطلبات</a><a class="btn outline" href="/start.html">روابط المتجر والفريق</a><a class="btn outline" href="/">معاينة متجر العملاء</a><a class="btn outline" data-launch-download download="jana-launch-readiness.json" href="${esc(reportHref)}">تنزيل تقرير حالة الإطلاق</a></div><p class="muted">التقرير لا يتضمن نصوص السياسات أو بيانات التواصل، ولا يغيّر أي إعداد.</p></section>
  <section class="stack"><h2>أكمل خطوات الإطلاق</h2><div class="launch-grid">${checks.map((c,i)=>`<article class="panel stack launch-step" data-launch-check="${c.id}" data-launch-check-state="${c.state}"><div class="row between wrap"><h3>${number(i+1)}. ${c.title}</h3><span class="badge ${c.state==='observed'?'success':c.state==='review'?'neutral':'danger'}">${labels[c.state]}</span></div><p>${c.detail}</p><a class="btn outline" href="/admin.html#${c.page}">${c.action}</a></article>`).join('')}</div></section>
  <section class="panel stack"><h2>اعتمادات قبل تسليم التشغيل</h2><ul class="launch-review-list"><li>اعتماد بيانات المنشأة والمنتجات والأسعار والصور والمخزون ومناطق التوصيل الفعلية.</li><li>تجربة تشغيل معتمدة للفريق على أجهزة فعلية، مع التحصيل والتسويات والاسترداد وخدمة العملاء.</li><li>تجهيز استعادة الحساب ومزودي الخدمات وقناة التنبيهات، وإثبات النسخ الاحتياطي والتعافي في بيئة مستقلة.</li><li>اعتماد حسابات وتوقيع ونشر تطبيقات المتاجر. نسخة المتصفح متاحة للجوال؛ نجاح بناء التطبيق لا يعني نشره في Apple أو Google.</li></ul><p class="notice">بعد إكمال المراجعة افتح «إعدادات المتجر» وسجل اعتماد التشغيل ثم طبّق حالة استقبال الطلبات. فتح هذه الصفحة أو زيارة الروابط لا يغيّر الأسعار أو المخزون ولا يفتح البيع.</p></section></div>`);
 }
