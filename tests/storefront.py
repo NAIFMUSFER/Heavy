@@ -48,6 +48,10 @@ fails(rpc('jana_storefront_write',f['atok'],'preview-fixture','intake.set',paylo
 run('UPDATE offerings SET active=false WHERE id='+literal(preview['offerings'][0]['id'])+';')
 s=intake(f,True)
 passed('opening requires complete operations attestation and rejects known preview merchandise')
+opened=get_store(f);review=opened['last_opening_review']
+assert review['reference']=='CI-FIXTURE-ONLY' and review['reviewed']==REVIEWED and review['actor']['id']==f['p']+'a'
+assert review['published_id']==opened['published_id'] and opened['opening_review_matches_published'] is True
+passed('latest immutable opening review is visible to administrators and tied to the published policy')
 q2=val(quote(f,'after-policy-change'));assert q2['store_profile']['id']==s['published']['id'] and q2['store_profile']['id']!=old['id']
 passed('new quote binds to the currently published seller and policy version')
 s=get_store(f);payload=dict(revision=s['revision'],profile=dict(PROFILE,display_name='Concurrent saved store'))
@@ -56,6 +60,11 @@ rows=successful(race([query]*6));assert len(rows)==6 and all(x==rows[0] for x in
 assert get_store(f)['revision']==s['revision']+1
 fails(rpc('jana_storefront_write',f['atok'],'same-key-store','draft.save',dict(payload,profile=PROFILE)),'idempotency_conflict')
 passed('concurrent same-key requests produce one stored revision and reject conflicting key reuse')
+open_store=get_store(f);published_id=open_store['published_id']
+fails(rpc('jana_storefront_write',f['atok'],'publish-while-open','profile.publish',dict(revision=open_store['revision'],confirmed=True)),'storefront_close_before_publish')
+assert get_store(f)['accepting_orders'] and get_store(f)['published_id']==published_id
+passed('a policy version cannot change under an open intake without a fresh opening review')
+intake(f,False)
 s=get_store(f)
 rows=race([rpc('jana_storefront_write',f['atok'],'publish-'+uuid.uuid4().hex,'profile.publish',dict(revision=s['revision'],confirmed=True)) for _ in range(2)])
 assert len(successful(rows))==1 and all(r['ok'] or 'storefront_changed' in r['error'] for r in rows)
@@ -68,7 +77,7 @@ else:assert 'storefront_closed' in rows[0]['error'] and balance(f)==b
 passed('concurrent closure and quotation serialize admission without partial reservations')
 intake(f,True)
 assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('jana_public_storefront','jana_admin_storefront','jana_storefront_write','jana_storefront_readiness','jana_create_quote_store_base') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE'));")==0
-assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('jana_storefront_readiness','jana_storefront_profile_valid','jana_create_quote_store_base') AND has_function_privilege('service_role',oid,'EXECUTE');")==0
+assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('jana_storefront_readiness','jana_storefront_profile_valid','jana_create_quote_store_base','jana_admin_storefront_pre_acceptance','jana_storefront_write_pre_acceptance') AND has_function_privilege('service_role',oid,'EXECUTE');")==0
 assert val("SELECT count(*) FROM pg_trigger WHERE tgrelid='storefront_profiles'::regclass AND tgfoid='jana_append_only()'::regprocedure AND NOT tgisinternal;")==1
 assert val('SELECT jana_deep_health();')['ok']
 passed('immutable published versions private helpers and business invariants remain enforced')

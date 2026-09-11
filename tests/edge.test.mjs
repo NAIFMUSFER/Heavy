@@ -302,6 +302,10 @@ for(const [route,operation]of [['draft','draft.save'],['publish','profile.publis
  let r=await handlers['jana-api'](request('jana-api',path,{method:'POST',headers:bearer,body:JSON.stringify(body)}));assert.equal(r.status,422);assert.equal(calls.length,0);
  r=await handlers['jana-api'](request('jana-api',path,{method:'POST',headers:{...bearer,'idempotency-key':'store-write-fixture'},body:JSON.stringify(body)}));assert.equal(r.status,200);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_storefront_write'));assert.equal(calls[0].body.p_operation,operation);assert.deepEqual(calls[0].body.p_payload,body);
 });
+test('publishing while intake is open returns an actionable policy-review conflict',async()=>{
+ calls=[];response={_error:'storefront_close_before_publish',status:409};const r=await handlers['jana-api'](request('jana-api','/api/ops/storefront/publish',{method:'POST',headers:{...bearer,'idempotency-key':'publish-open-fixture'},body:JSON.stringify({revision:7,confirmed:true})}));
+ assert.equal(r.status,409);assert.equal((await r.json()).error.code,'STORE_CLOSE_BEFORE_PUBLISH');
+});
 test('public store version lookup validates IDs and uses only the public RPC',async()=>{
  calls=[];let r=await handlers['jana-api'](request('jana-api','/api/storefront?version=invalid'));assert.equal(r.status,404);assert.equal(calls.length,0);
  response={published:null,accepting_orders:false};r=await handlers['jana-api'](request('jana-api','/api/storefront'));assert.equal(r.status,200);assert.deepEqual(calls[0].body,{p_version_id:null});assert.ok(calls[0].url.endsWith('/jana_public_storefront'));
