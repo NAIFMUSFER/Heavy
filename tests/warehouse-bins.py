@@ -49,6 +49,7 @@ passed('admin and inventory roles can maintain bins while customers and couriers
 
 assert val("SELECT count(*) FROM pg_class c WHERE c.relname IN ('warehouse_bins','stock_item_bins') AND (has_table_privilege('anon',c.oid,'SELECT') OR has_table_privilege('authenticated',c.oid,'SELECT'));")==0
 assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='jana_admin_catalog_pre_bins' AND has_function_privilege('service_role',oid,'EXECUTE');")==0
+assert val("SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND tablename='stock_item_bins' AND indexdef LIKE '%(assigned_by)%';")>=1
 assert val("SELECT count(*) FROM audit_log WHERE entity_id="+literal(active['id'])+" AND action IN ('warehouse_bin_created','warehouse_bin_updated');")>=2
 assert val('SELECT jana_deep_health();')['ok']
 passed('RLS grants, private wrapper, audit trail, and deep health remain intact')
