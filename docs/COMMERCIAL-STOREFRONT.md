@@ -10,6 +10,8 @@ Opening requires a published profile, an owner-declared supported tax status, no
 
 VAT-registered merchant profiles may be saved and published while paused. Opening such a store is blocked: a VAT calculation and tax invoice integration is not yet implemented. The supported opening mode is an owner-declared non-VAT-registered merchant. Do not choose this mode for the owner or describe it as tax authority verification. Publishing a registered profile while open is rejected.
 
+The customer cash-collection receipt does not change this boundary. It records actual cash received against the frozen order terms and completed refunds, labels itself as non-tax, and must not be presented as a VAT invoice or as registration/compliance evidence.
+
 Administrative writes require a persisted idempotency key and the current revision. A row lock serializes publication/admission updates against quotes. Public RPCs expose only published profiles, never draft text or publisher IDs. Client database roles have no direct execute grants; the trusted Edge uses the existing JANA opaque-session authorization.
 
 ## Photos

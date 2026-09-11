@@ -12,6 +12,8 @@ Clients retain loaded cards on next-page failure, deduplicate overlapping respon
 
 Details display frozen delivery address, recipient, building/apartment notes and appointment from confirmed terms. Current line totals and measured quantities remain separate from collected cash, completed refunds and remaining collection. Refunded cash is not a new customer debt; a requested refund is not a completed payment.
 
+After the courier records a real COD collection, the order detail exposes a bounded receipt object derived from the immutable collection ledger entry. Web can download a self-contained printable HTML receipt; native shows its collected time, collected amount, completed refunds and net collection. No receipt appears on delivery alone, and no courier/actor ID or internal settlement reference is exposed. The document states that it is a cash-collection receipt, not a VAT invoice. Later completed refunds update the displayed net amount without rewriting the original collection entry.
+
 The customer timeline contains only ID, whitelisted public event and recorded time. It excludes actors, internal reasons, cash settlement details and delivery codes. The latest 100 public events appear chronologically, with a truncation notice if earlier events exist. Missing events or times do not produce fabricated milestones.
 
 Replacement and whole-line-removal decisions appear in the same order detail on web and native. A removal proposal identifies the unavailable sold line, previous total, exact reduction and total after approval. The line and its reservation remain intact until the owner explicitly approves; rejection or expiry leaves an unresolved picker task. The last remaining line cannot be removed through this flow.
@@ -48,7 +50,7 @@ On success, web cookies and native token/session state are cleared, and the user
 
 ## Verification and limits
 
-`tests/order-journey.py` runs only against guarded disposable loopback PostgreSQL: more than 100 tied-time orders, new arrivals, ownership, legacy paging, public timeline, assigned/ended/stale/retried positions, UTF-8 boundaries, complete session invalidation and concurrent rotation/login. Node tests cover the shared model and actual Edge routes. Browser tests exercise order details, navigation/contact links, recorded/ended tracking, more than 50 orders and two-browser password invalidation through real gateway/Edge/PostgreSQL fixtures. Expo/Android/iOS simulator builds validate compilation; physical-device and operating acceptance remain outstanding.
+`tests/order-journey.py` runs only against guarded disposable loopback PostgreSQL: more than 100 tied-time orders, new arrivals, ownership, legacy paging, public timeline, assigned/ended/stale/retried positions, UTF-8 boundaries, complete session invalidation and concurrent rotation/login. The finance suite covers absent/pre-collection receipts, exact collection time/amount, refund-derived net values and private helper grants. Node tests cover the shared receipt model, output escaping and actual Edge routes. Browser tests exercise the real downloaded receipt after a separate collection alongside order details, navigation/contact links, recorded/ended tracking, more than 50 orders and two-browser password invalidation through real gateway/Edge/PostgreSQL fixtures. Expo/Android/iOS simulator builds validate compilation; physical-device and operating acceptance remain outstanding.
 
 ## Checkout recovery
 

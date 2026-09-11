@@ -4,7 +4,7 @@ The Expo customer app uses the dedicated JANA production API. It implements emai
 
 Addresses support create/edit/delete/default, recipient details, Arabic/Persian numeric input, one-shot foreground GPS, supported Google pin import, manual coordinates, map review and actual coverage/slots. No background location permission is requested.
 
-Checkout uses a server quote, published seller/policy review, consent and COD. Orders provide cursor-based older-page loading, frozen address/appointment, current lines/amounts, dated history, recorded location/time, cancellation before picking, delivery-code renewal, explicit substitution decisions, refund history/requests, verified-order review and support. Ended deliveries do not share locations; missing coordinates or cash values are not invented.
+Checkout uses a server quote, published seller/policy review, consent and COD. Orders provide cursor-based older-page loading, frozen address/appointment, current lines/amounts, dated history, recorded location/time, cancellation before picking, delivery-code renewal, explicit substitution decisions, refund history/requests, verified-order review and support. After actual COD collection, native order details show the recorded collection time, amount, completed refunds and net as a non-tax cash receipt. Ended deliveries do not share locations; missing coordinates, receipts or cash values are not invented.
 
 In-app notifications/read state and ticket replies are implemented. External push/SMS/payment integrations remain disabled pending approved configuration. Forgotten-password recovery and automatic background courier tracking remain unimplemented.
 

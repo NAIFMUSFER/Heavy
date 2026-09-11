@@ -273,7 +273,10 @@ try{
  pass('completed delivery removes location sharing while uncollected cash remains distinguishable');
 
  await change(courier,'/api/ops/orders/'+confirmed.id+'/collect',()=>courier.locator('[data-action=collect]').click());
- assert.equal(order().collected,1800);assert.equal(order().settled,0);pass('separate courier collection creates cash liability');
+ assert.equal(order().collected,1800);assert.equal(order().settled,0);
+ await customer.locator('[data-order="'+confirmed.id+'"]').click();await customer.getByText('إيصال التحصيل النقدي',{exact:true}).waitFor();assert.equal(await customer.getByText(/ليس فاتورة ضريبية/).count(),1);
+ const receiptDownload=customer.waitForEvent('download');await customer.locator('#download-cash-receipt').click();const downloaded=await receiptDownload;assert.match(downloaded.suggestedFilename(),/^jana-cash-receipt-/);const receiptHtml=await fs.readFile(await downloaded.path(),'utf8');assert.match(receiptHtml,/إيصال تحصيل نقدي/);assert.match(receiptHtml,/ليس فاتورة ضريبية/);assert.match(receiptHtml,/متجر اختبار السياسات/);assert.doesNotMatch(receiptHtml,/<script/);await closeModal(customer);
+ pass('separate courier collection creates cash liability and a printable customer-safe non-tax receipt');
 
  phase='finance settlement';
  const finance=await login('finance');const deniedLaunchReads=[];finance.on('request',r=>{if(['/api/ops/storefront','/api/ops/deep-health'].includes(new URL(r.url()).pathname))deniedLaunchReads.push(r.url())});

@@ -1,11 +1,11 @@
 import React,{useRef,useState} from 'react';
 import {Alert,Linking,Text,View} from 'react-native';
-import {orderFacts,orderLinks,trackingView} from './order.mjs';
+import {cashReceiptFacts,orderFacts,orderLinks,trackingView} from './order.mjs';
 
 export default function OrderDetails({order,call,onRefresh,onSupport,children,ui}){
  const {Card,Btn,s,money,when,statusLabel}=ui;
  const [busy,setBusy]=useState(false),[tracking,setTracking]=useState(null),[code,setCode]=useState(null);
- const locked=useRef(false),facts=orderFacts(order),address=facts.address,slot=facts.slot,links=orderLinks(address);
+ const locked=useRef(false),facts=orderFacts(order),receipt=cashReceiptFacts(order),address=facts.address,slot=facts.slot,links=orderLinks(address);
  async function run(fn){if(locked.current)return;locked.current=true;setBusy(true);try{await fn()}catch(e){Alert.alert('تعذر التنفيذ',e.message)}finally{locked.current=false;setBusy(false)}}
  const track=trackingView(tracking?{...tracking,delivery_state:order.delivery_state}:null);
  return <>
@@ -20,6 +20,7 @@ export default function OrderDetails({order,call,onRefresh,onSupport,children,ui
    {Number.isSafeInteger(order.snapshot?.delivery_fee_halalas)&&<Text>رسوم التوصيل: {money(order.snapshot.delivery_fee_halalas)}</Text>}{order.snapshot?.discount_halalas>0&&<Text>الخصم: −{money(order.snapshot.discount_halalas)}</Text>}
    <Text style={s.price}>إجمالي الطلب: {money(facts.total)}</Text><Text>المبلغ المحصّل: {money(facts.collected)}</Text><Text>المبلغ المُعاد لك: {money(facts.refunded)}</Text><Text>المتبقي للتحصيل: {money(facts.due)}</Text>
   </Card>
+  {receipt&&<Card><Text style={s.productTitle}>إيصال التحصيل النقدي</Text><Text>تم التحصيل نقدًا عند الاستلام: {money(receipt.collected)}</Text><Text>وقت التحصيل: {when(receipt.collectedAt)}</Text>{receipt.refunded>0&&<Text>المبلغ المُعاد: {money(receipt.refunded)}</Text>}<Text style={s.price}>صافي المبلغ المحصّل: {money(receipt.net)}</Text><Text style={s.muted}>هذا إيصال تحصيل نقدي وليس فاتورة ضريبية.</Text></Card>}
   <Card><Text style={s.productTitle}>تحديثات الطلب</Text>{order.timeline_has_earlier&&<Text style={s.muted}>أحدث 100 تحديث مسجل لهذا الطلب.</Text>}{facts.timeline.length?facts.timeline.map(event=><View key={event.id} style={{borderRightWidth:3,borderColor:'#1b563d',paddingRight:10,gap:4}}><Text>{event.title}</Text><Text style={s.muted}>{when(event.created_at)}</Text></View>):<Text>لا توجد تحديثات مؤرخة متاحة.</Text>}</Card>
   <Card><Text style={s.productTitle}>موقع المندوب</Text><Text>{tracking?track.message:'اضغط التحديث لمعرفة آخر موقع مسجل.'}</Text>{track.updatedAt&&<Text>وقت التسجيل: {when(track.updatedAt)}</Text>}{track.accuracy!=null&&<Text>دقة الموقع التقريبية: {track.accuracy} متر</Text>}{!!track.map&&<Btn title="فتح آخر موقع مسجل" kind="outline" disabled={busy} onPress={()=>run(()=>Linking.openURL(track.map))}/>}
    <Btn title="تحديث موقع المندوب" kind="outline" disabled={busy} onPress={()=>run(async()=>setTracking(await call('/api/orders/'+order.id+'/tracking')))}/>

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {orderFacts,orderLinks,trackingView,orderPageUrl,appendOrderPage,passwordProblem} from '../mobile/order.mjs';
+import {cashReceiptFacts,cashReceiptHtml,orderFacts,orderLinks,trackingView,orderPageUrl,appendOrderPage,passwordProblem} from '../mobile/order.mjs';
 
 test('web and native order presentation use the same validated model',()=>{
  assert.equal(readFileSync('mobile/order.mjs','utf8'),readFileSync('assets/order.js','utf8').replace("from './address.js'","from './address.mjs'"));
@@ -11,6 +11,13 @@ test('partial refund does not ask the customer to pay refunded cash again',()=>{
  assert.equal(f.due,0);assert.equal(f.refunded,500);assert.equal(f.canRefund,true);
  assert.equal(orderFacts({status:'active',total_halalas:2000,collected_halalas:0,refunded_halalas:0}).due,2000);
  assert.equal(orderFacts({}).due,null);assert.equal(orderFacts({status:'cancelled',total_halalas:2000,collected_halalas:0}).due,0);
+});
+test('cash receipt is downloadable only from validated collection facts and escapes frozen merchant and line text',()=>{
+ const order={number:'JN-<script>',total_halalas:2000,collected_halalas:2000,refunded_halalas:100,original_snapshot:{store_profile:{display_name:'متجر <script>alert(1)</script>',legal_name:'شركة & شركاؤها',registration_type:'other_license',registration_number:'=1+1'}},snapshot:{lines:[{name:'تفاح <img src=x onerror=1>',qty:2,line_total_halalas:1800}],delivery_fee_halalas:200,discount_halalas:0},payment_receipt:{receipt_id:'cash-1',kind:'cash_collection_receipt',tax_invoice:false,payment_method:'cash_on_delivery',collected_at:1800000000000,collected_halalas:2000,refunded_halalas:100,net_collected_halalas:1900}};
+ const facts=cashReceiptFacts(order),html=cashReceiptHtml(order);
+ assert.equal(facts.net,1900);assert.equal(facts.refunded,100);assert.match(html,/إيصال تحصيل نقدي/);assert.match(html,/ليس فاتورة ضريبية/);assert.match(html,/&lt;script&gt;/);assert.match(html,/&lt;img/);assert.doesNotMatch(html,/<script>|<img/);
+ for(const receipt of [null,{receipt_id:'cash-1',kind:'cash_collection_receipt',tax_invoice:true,payment_method:'cash_on_delivery',collected_at:1,collected_halalas:2000,refunded_halalas:0,net_collected_halalas:2000},{receipt_id:'cash-1',kind:'cash_collection_receipt',tax_invoice:false,payment_method:'cash_on_delivery',collected_at:1,collected_halalas:2000,refunded_halalas:100,net_collected_halalas:2000}])assert.equal(cashReceiptFacts({...order,payment_receipt:receipt}),null);
+ assert.throws(()=>cashReceiptHtml({...order,payment_receipt:null}),/cash_receipt_unavailable/);
 });
 test('order address and appointment are frozen terms and cancellations match server state gates',()=>{
  const f=orderFacts({original_snapshot:{address:{details:'frozen'},slot:{starts_at:123}},snapshot:{address:{details:'edited'},slot:{starts_at:456}},status:'active',fulfillment_state:'queued',delivery_state:'unassigned'});
