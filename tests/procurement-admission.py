@@ -19,7 +19,9 @@ run("UPDATE stock_balances SET on_hand_base=0,reserved_base=0 WHERE stock_id="+l
 def business():
  return val("SELECT jsonb_build_object('balance',(SELECT to_jsonb(b) FROM stock_balances b WHERE stock_id="+literal(p+'st')+"),'lot',(SELECT to_jsonb(l) FROM inventory_lots l WHERE stock_id="+literal(p+'st')+"),'movements',(SELECT count(*) FROM stock_movements WHERE stock_id="+literal(p+'st')+"),'orders',(SELECT count(*) FROM orders WHERE user_id="+literal(p+'c')+"),'booked',(SELECT booked FROM delivery_slots WHERE id="+literal(p+'s')+'));')
 before=business();items=[dict(offering_id=p+'off',qty=2)]
-create=rpc('jana_supplier_pickup_quote_idempotent',f['t'],'procurement-quote-'+uuid.uuid4().hex,p+'s',p+'addr',items)
+def supplier_quote(key,lines):
+ return 'SELECT public.jana_supplier_pickup_quote_idempotent('+','.join(map(literal,[f['t'],key,p+'s',p+'addr']))+','+literal(json.dumps(lines))+'::jsonb)::text;'
+create=supplier_quote('procurement-quote-'+uuid.uuid4().hex,items)
 q=val(create);after_quote=business()
 assert q['fulfillment_model']=='supplier_pickup' and q['inventory_reserved'] is False and q['order_flow_ready'] is False
 assert after_quote['balance']==before['balance'] and after_quote['lot']==before['lot'] and after_quote['movements']==before['movements']
@@ -28,10 +30,10 @@ snap=val('SELECT snapshot::jsonb FROM quotes WHERE id='+literal(q['id'])+';')
 assert snap['allocations']==[] and snap['fulfillment_model']=='supplier_pickup' and snap['lines'][0]['unit_price_halalas']==q['lines'][0]['unit_price_halalas']
 passed('warehouse-free quote freezes displayed retail terms and delivery capacity without stock')
 key='procurement-retry-'+uuid.uuid4().hex
-query=rpc('jana_supplier_pickup_quote_idempotent',f['t'],key,p+'s',p+'addr',items)
+query=supplier_quote(key,items)
 rows=successful(race([query]*6));assert len(rows)==6 and all(x==rows[0] for x in rows)
 assert business()['booked']==before['booked']+2
-fails(rpc('jana_supplier_pickup_quote_idempotent',f['t'],key,p+'s',p+'addr',[dict(offering_id=p+'off',qty=3)]),'idempotency_conflict')
+fails(supplier_quote(key,[dict(offering_id=p+'off',qty=3)]),'idempotency_conflict')
 passed('concurrent quote retries create one capacity reservation and reject conflicting reuse')
 cancel_id=rows[0]['id'];cancel_before=business()
 c=val(rpc('jana_cancel_quote',f['t'],cancel_id));assert c['state']=='cancelled'
