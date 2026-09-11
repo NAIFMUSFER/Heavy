@@ -39,6 +39,8 @@ const closeModal=page=>page.locator('dialog[open] [data-close]').first().click()
 const nextSaudiDate=()=>new Date(Date.now()+2*86400000+3*3600000).toISOString().slice(0,16);
 try{
  phase='owner handoff and bookmarked launch setup';
+ const serviceStatus=await pageFor('service-status','/status.html');await serviceStatus.setViewportSize({width:390,height:844});await serviceStatus.locator('[data-status-overall="ok"]').waitFor();
+ assert.equal(await serviceStatus.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);assert.match(await serviceStatus.locator('[data-status-version]').innerText(),/الإصدار/);pass('public service status verifies the gateway and all Edge dependencies without authentication or writes');
  const handoffSnapshot=()=>value("SELECT jsonb_build_object('store',(SELECT to_jsonb(s) FROM storefront_state s WHERE singleton),'profiles',(SELECT count(*) FROM storefront_profiles),'orders',(SELECT count(*) FROM orders),'quotes',(SELECT count(*) FROM quotes),'stock',(SELECT jsonb_agg(to_jsonb(b) ORDER BY stock_id) FROM stock_balances b),'movements',(SELECT count(*) FROM stock_movements));");
  const handoffBefore=handoffSnapshot();const owner=await pageFor('owner-handoff','/start.html');await owner.setViewportSize({width:390,height:844});
  assert.equal(await owner.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);

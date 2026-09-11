@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#173f2d">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/assets/icon.svg">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <title>جَنى — حالة النظام</title>
+</head>
+<body class="handoff-body">
+  <header class="container handoff-header row between wrap">
+    <a class="brand" href="/start.html"><span class="brand-mark">ج</span><span><strong>جَنى</strong><small>حالة النظام</small></span></a>
+    <a class="btn outline" href="/start.html">العودة إلى روابط الفريق</a>
+  </header>
+  <main class="container handoff-main stack">
+    <section class="handoff-intro stack">
+      <span class="eyebrow">فحص مباشر وآمن</span>
+      <h1>حالة خدمات جَنى</h1>
+      <p>يعرض هذا الفحص اتصال الموقع بخدمات الطلبات والتشغيل دون تسجيل الدخول أو كشف بيانات المنشأة والعملاء.</p>
+    </section>
+    <section class="panel stack" aria-labelledby="status-title">
+      <div class="row between wrap"><h2 id="status-title">الاتصال الحالي</h2><button class="btn outline" type="button" data-status-refresh>إعادة الفحص</button></div>
+      <p class="notice" data-status-overall="checking" aria-live="polite">جارٍ فحص الخدمات…</p>
+      <div class="handoff-grid">
+        <article class="panel stack"><h3>بوابة الموقع</h3><p data-status-gateway>جارٍ الفحص…</p></article>
+        <article class="panel stack"><h3>الخدمات الأساسية</h3><p data-status-dependencies>جارٍ الفحص…</p></article>
+        <article class="panel stack"><h3>الإصدار المنشور</h3><p data-status-version>جارٍ الفحص…</p></article>
+      </div>
+      <p><small data-status-time></small></p>
+    </section>
+    <section class="panel stack"><h2>ماذا يعني هذا الفحص؟</h2><p>نجاح الاتصال يعني أن البوابة تستطيع الوصول إلى خدمات جَنى الآن. لا يعني اكتمال بيانات المتجر، ولا يفتح استقبال الطلبات، ولا يحل محل القبول التشغيلي أو المراقبة الخارجية.</p><a class="btn primary" href="/admin.html#launch">فتح مركز جاهزية الإطلاق</a></section>
+  </main>
+  <script src="/assets/status.js" defer></script>
+</body>
+</html>

@@ -5,7 +5,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const JANA_SUPABASE = 'https://jjdsajiwoqanefmnikls.supabase.co';
 const MAX_BODY = 65536, MAX_RESPONSE = 4 * 1024 * 1024;
-const PUBLIC_FILES = ['index.html','admin.html','picker.html','courier.html','start.html','offline.html','manifest.webmanifest','sw.js','assets/icon.svg','assets/common.js','assets/catalog-import.js','assets/stock-import.js','assets/ops-exports.js','assets/zone-map.js','assets/address.js','assets/order.js','assets/checkout.js','assets/local-cart.js','assets/input.js'];
+const PUBLIC_FILES = ['index.html','admin.html','picker.html','courier.html','start.html','status.html','offline.html','manifest.webmanifest','sw.js','assets/icon.svg','assets/common.js','assets/catalog-import.js','assets/stock-import.js','assets/ops-exports.js','assets/status.js','assets/zone-map.js','assets/address.js','assets/order.js','assets/checkout.js','assets/local-cart.js','assets/input.js'];
 const BUNDLES = {'/assets/shop.js':['shop',5,'.js'],'/assets/ops.js':['ops',4,'.js'],'/assets/styles.css':['styles',2,'.css']};
 const TYPES = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
 const OPS = /^\/api\/ops\/(customer-returns|customer-returns\/context|customer-returns\/[^/]+\/(inspection|dispositions)|notification-jobs|movements|disposals|supplier-credits|disposals\/[^/]+\/supplier-credits|lots\/[^/]+\/disposal|counts|counts\/[^/]+\/(submit|cancel)|count-lines\/[^/]+\/decision|stock\/import|stock\/[^/]+|suppliers\/[^/]+|zones\/[^/]+|slots\/[^/]+|catalog|finance|refunds\/[^/]+\/(complete|reject)|products|products\/import|product-versions\/[^/]+\/activate|suppliers|coupons|slots|stock|lots|zones|lots\/[^/]+\/(inspect|adjust)|families\/[^/]+\/versions|offerings\/[^/]+\/active|coupons\/[^/]+\/active|slots\/[^/]+\/active|orders\/[^/]+\/(collect|settle|refunds))$/;
@@ -70,7 +70,7 @@ function createGateway({settings=config(),fetchImpl=fetch,log=entry=>console.log
       if(p==='/health'&&req.method==='GET')return json(res,200,{ok:true,service:'jana-gateway'});
       if(p==='/version'&&req.method==='GET')return json(res,200,{service:'jana-gateway',commit:settings.commit});
       if(p==='/ready'&&req.method==='GET'){
-        const dependencies=await Promise.all(['jana-api','jana-critical','jana-ops-extra'].map(async name=>{const r=await fetchImpl(upstream+name+'/health',{signal:AbortSignal.timeout(settings.timeout),redirect:'error'});const b=JSON.parse((await boundedResponse(r)).toString());return{name,ok:r.ok&&b.ok===true}}));
+        const dependencies=await Promise.all(['jana-api','jana-critical','jana-ops-extra'].map(async name=>{try{const r=await fetchImpl(upstream+name+'/health',{signal:AbortSignal.timeout(settings.timeout),redirect:'error'});const b=JSON.parse((await boundedResponse(r)).toString());return{name,ok:r.ok&&b.ok===true}}catch{return{name,ok:false}}}));
         const ok=dependencies.every(x=>x.ok);return json(res,ok?200:503,{ok,service:'jana-gateway',dependencies});
       }
       if(p.startsWith('/api/')){

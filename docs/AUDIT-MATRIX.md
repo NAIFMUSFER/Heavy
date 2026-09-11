@@ -30,6 +30,12 @@ Latest verified web release: **c04707a68febf6273471ed95ff72293fad65c257**, LIVE 
 | Database assurance | Recovered replay, populated fixture backup/restore gate, disposable concurrency tests, immutable ledgers, service-only application RPCs | Real backup restore/recovery timing; supported PostGIS platform-advisor remediation |
 | CI/operations | Node/PostgreSQL/recovery/browser/Expo/Android/iOS simulator gates, exact-commit smoke, fixture-only capacity/overload regression, recovery/rotation runbooks; [admin observations](OPERATIONAL-HEALTH.md) for stopped/stale scheduled jobs and overdue queues | Owner-approved staging load, dedicated staging, unattended monitoring/external alert delivery, measured production-backup restore and signed releases |
 
+## Public service-status candidate — 11 September 2026
+
+The review source adds a public, read-only Arabic status page linked from the owner handoff. It checks the gateway, all three canonical Edge dependencies and the deployed commit without authentication, cookies or private merchant/customer data. It explicitly does not claim commercial readiness, open order admission or replace independent monitoring. Gateway readiness now isolates each dependency check: one timeout or malformed reply returns HTTP 503 while retaining the other two results instead of collapsing the entire response into an opaque gateway error.
+
+Local bundle/syntax checks and **334 Node tests** pass, including a thrown-dependency regression. The disposable browser journey adds a phone-width, no-write status-page check. CI, Render publication and public verification are pending; Render's service-level health-check path remains unconfigured because the available management boundary does not expose that setting. External alert delivery remains open.
+
 ## Work order before commercial sales
 
 Start with the [Arabic owner handoff guide and exact role links](OWNER-HANDOFF-ar.md). The setup center preserves actual admission state and separates recorded observations from manual operating acceptance; it neither declares commercial completion nor changes admission.
