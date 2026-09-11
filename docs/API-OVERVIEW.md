@@ -23,7 +23,7 @@ JSON mutations use `Content-Type: application/json`. Critical writes send a stab
 | Quote recovery/release | GET/DELETE `/api/quotes/:id` | Owned read with server time/existing-order summary; explicit reservation release |
 | Orders | GET/POST `/api/orders`; GET `/api/orders/:id` | POST confirms an owned, unexpired quote once; original terms retained |
 | Cancellation | POST `/api/orders/:id/cancel` | Reason, allowed business state, transactional resource release |
-| Substitution | POST `/api/substitutions/:id/decision` | Owner's explicit boolean decision and stable key |
+| Substitution/removal decision | POST `/api/substitutions/:id/decision` | Owner's explicit boolean decision and stable key; server applies the immutable proposed action |
 | Support | GET/POST `/api/tickets`; POST `/api/tickets/:id/reply` | Customer ownership; optional order; retained transcript |
 | Notifications | GET `/api/notifications`; POST `/api/notifications/:id/read` | In-app, owned records |
 | Operations orders | GET `/api/ops/orders` | Database roles and assignment scope; cash tasks remain visible |
@@ -32,7 +32,7 @@ JSON mutations use `Content-Type: application/json`. Critical writes send a stab
 | Products | POST `/api/ops/products`; POST `/api/ops/product-versions/:id/activate` | Admin creates immutable draft/version and explicitly activates |
 | Inventory | `/api/ops/stock`, `/api/ops/lots`, `/api/ops/suppliers`, `/api/ops/counts` | Warehouse role, canonical units, inspection, counts and stock/cost ledgers |
 | Delivery settings | POST `/api/ops/zones`, `/api/ops/slots`; PATCH item paths | Admin-only reason, revision, valid geometry and locked capacity |
-| Picking | POST `/api/ops/orders/:id/start`, `/actual`, `/finalize`; GET `/picking` | Assigned picker/admin; sold weight limits, issues, FEFO and audited consumption |
+| Picking | POST `/api/ops/orders/:id/start`, `/actual`, `/unavailable`, `/restore`, `/substitution`, `/removal`, `/finalize`; GET `/picking` | Assigned picker/admin; sold weight limits, issues, replacement/removal proposals, FEFO and audited consumption |
 | Courier | POST `/api/ops/orders/:id/dispatch`, `/deliver`, `/fail`, `/collect` | Assigned courier; proof, failure reason and cash are separate events |
 | Recorded courier location | POST `/api/ops/orders/:id/location`; GET `/api/orders/:id/tracking` | Explicit foreground location, assignment/active-attempt checks, recorded time; no automatic background publishing |
 | Finance | GET `/api/ops/finance`; POST `/api/ops/orders/:id/settle`; refund completion routes | Authorized finance/admin; explicit source/reference; liability limits |

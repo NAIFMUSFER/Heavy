@@ -38,6 +38,6 @@ test('password form checks confirmation and the database UTF-8 bcrypt boundary i
  assert.match(passwordProblem('current','abcdef123456','different'),/يطابق/);assert.match(passwordProblem('','abcdef123456','abcdef123456'),/الحالية/);
 });
 test('customer timeline maps recorded public events and ignores internal entries without inventing timestamps',()=>{
- const f=orderFacts({timeline:[{id:'1',event:'order_created',created_at:1800000000000},{id:'2',event:'start_picking',created_at:1800000000001},{id:'3',event:'cash_settled',created_at:1800000000002},{id:'4',event:'delivered',created_at:null}]});
- assert.deepEqual(f.timeline.map(x=>x.title),['تم تأكيد الطلب','بدأ تجهيز الطلب']);
+ const f=orderFacts({timeline:[{id:'1',event:'order_created',created_at:1800000000000},{id:'2',event:'start_picking',created_at:1800000000001},{id:'3',event:'line_removal_proposed',created_at:1800000000002},{id:'4',event:'line_removal_accepted',created_at:1800000000003},{id:'5',event:'cash_settled',created_at:1800000000004},{id:'6',event:'delivered',created_at:null}]});
+ assert.deepEqual(f.timeline.map(x=>x.title),['تم تأكيد الطلب','بدأ تجهيز الطلب','طُلبت موافقتك على حذف صنف','وافقت على حذف الصنف']);
 });

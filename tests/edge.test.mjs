@@ -184,6 +184,7 @@ test('partial settlement forwards the explicit amount while legacy full settleme
 for(const [path,operation,payload] of [
  ['/api/ops/orders/order-a/actual','line.actual',{line_id:'line-a',actual_base:900}],
  ['/api/ops/orders/order-a/substitution','substitution.propose',{line_id:'line-a',offering_id:'offer-a',qty:1}],
+ ['/api/ops/orders/order-a/removal','line.removal.propose',{line_id:'line-a'}],
  ['/api/ops/orders/order-a/unavailable','line.unavailable',{line_id:'line-a',reason:'Unavailable fixture'}],
  ['/api/ops/orders/order-a/restore','line.restore',{line_id:'line-a',reason:'Verified original fixture'}],
  ['/api/ops/orders/order-a/finalize','picking.finish',{}],
@@ -193,7 +194,7 @@ for(const [path,operation,payload] of [
  calls=[];response={id:'fixture'};
  let r=await handlers['jana-api'](request('jana-api',path,{method:'POST',headers:bearer,body:JSON.stringify(payload)}));assert.equal(r.status,422);assert.equal(calls.length,0);
  r=await handlers['jana-api'](request('jana-api',path,{method:'POST',headers:{...bearer,'idempotency-key':'picking-fixture-key'},body:JSON.stringify({...payload,price_halalas:1,role:'admin',state:'accepted'})}));
- assert.equal(r.status,operation==='substitution.propose'?201:200);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_picking_write'));assert.equal(calls[0].body.p_operation,operation);assert.equal(calls[0].body.p_idem_key,'picking-fixture-key');assert.equal(calls[0].body.p_payload.price_halalas,undefined);assert.equal(calls[0].body.p_payload.state,undefined);if(operation==='substitution.decide')assert.equal(calls[0].body.p_payload.accept,false);
+ assert.equal(r.status,operation.endsWith('.propose')?201:200);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_picking_write'));assert.equal(calls[0].body.p_operation,operation);assert.equal(calls[0].body.p_idem_key,'picking-fixture-key');assert.equal(calls[0].body.p_payload.price_halalas,undefined);assert.equal(calls[0].body.p_payload.state,undefined);if(operation==='substitution.decide')assert.equal(calls[0].body.p_payload.accept,false);
 });
 test('expired substitute business error is not displayed as successful consent',async()=>{
  calls=[];response={_error:'substitution_expired',status:409};const r=await handlers['jana-api'](request('jana-api','/api/substitutions/sub-a/decision',{method:'POST',headers:{...bearer,'idempotency-key':'expired-fixture-key'},body:'{"accept":true}'}));assert.equal(r.status,409);assert.equal((await r.json()).error.code,'SUBSTITUTION_EXPIRED');

@@ -58,11 +58,16 @@ test('substitution review discloses quantities prices and expiry without silentl
  const incomplete=common.substitutionReview({...sub,proposed:{}},'order-a',true);assert.match(incomplete,/data-accept="true"[^>]*disabled/);
  const expired=common.substitutionReview({...sub,expires_at:1},'order-a',true);assert.doesNotMatch(expired,/data-accept=/);assert.match(expired,/انتهت المهلة/);
 });
+test('line removal review names the missing item lower total and explicit consent without inventing a replacement',()=>{
+ const sub={id:'remove-a',state:'pending',expires_at:Date.now()+60000,proposed:{action:'remove_line',original_line:{name:'تفاح & موز',qty:1,components:[{name:'تفاح',base_unit:'gram',base_qty:1000}]},replacement_line:null,original_total_halalas:3000,subtotal_halalas:1000,total_halalas:1000,price_difference_halalas:-2000}};
+ const html=common.substitutionReview(sub,'order-a',true);assert.match(html,/طلب حذف صنف/);assert.match(html,/تفاح &amp; موز/);assert.match(html,/-20\.00 ر\.س/);assert.match(html,/أوافق على حذف الصنف والإجمالي/);assert.match(html,/عدم الرد يبقي الصنف معلقًا/);assert.doesNotMatch(html,/البديل المقترح/);
+ const unsafe=common.substitutionReview({...sub,proposed:{...sub.proposed,total_halalas:4000}},'order-a',true);assert.match(unsafe,/data-accept="true"[^>]*disabled/);
+});
 test('picker refreshes canonical order and disables completion for unresolved lines',async()=>{
  let html='',paths=[];const stub={onclick:null};const order={id:'order-a',number:'JN-fixture',fulfillment_state:'picking',total_halalas:2000,snapshot:{lines:[{line_id:'line-a',name:'تفاح',qty:1,components:[{name:'تفاح',base_unit:'gram',base_qty:1000}]}]},issues:[{line_id:'line-a',state:'open',reason:'لم يتوفر الصنف'}],substitutions:[]};
  const context=vm.createContext({...common,document:{body:{dataset:{workspace:'picker'}},addEventListener(){}},$:()=>stub,$$:()=>[],setupConnectivity(){},identity:()=>new Promise(()=>{}),modal:(title,content)=>{html=content;return {}},get:async path=>{paths.push(path);return order}});
  vm.runInContext(bundle,context);await vm.runInContext("state.user={name:'Picker fixture',role:'picker'};pickDialog({id:'order-a',snapshot:{lines:[]}})",context);
- assert.deepEqual(paths,['/api/ops/orders/order-a/picking']);assert.match(html,/تفاح/);assert.match(html,/لم يتوفر الصنف/);assert.match(html,/data-finalize="order-a" disabled/);assert.match(html,/تأكيد توفر الأصلي بعد التحقق/);
+ assert.deepEqual(paths,['/api/ops/orders/order-a/picking']);assert.match(html,/تفاح/);assert.match(html,/لم يتوفر الصنف/);assert.match(html,/data-finalize="order-a" disabled/);assert.match(html,/تأكيد توفر الأصلي بعد التحقق/);assert.match(html,/data-remove="line-a"/);assert.match(html,/اقتراح حذف الصنف بموافقة العميل/);
 });
 test('warehouse view distinguishes unset thresholds and displays real count sessions',async()=>{
  const root={innerHTML:''};const context=vm.createContext({...common,document:{body:{dataset:{workspace:'admin'}},addEventListener(){}},$:()=>root,setupConnectivity(){},identity:()=>new Promise(()=>{}),get:async p=>{if(p==='/api/ops/counts')return {items:[{id:'count-a',location:'الرف & أ',state:'submitted',created_at:1789000000000,counts:[]}]};assert.equal(p,'/api/ops/catalog');return {stock:[{id:'stock-a',name:'موز',base_unit:'gram',active:true,on_hand_base:1000,reserved_base:200,available_base:800,sellable_base:500,reorder_base:null,stock_status:'threshold_not_set'}],lots:[],suppliers:[]}}});

@@ -12,6 +12,8 @@ Details display frozen delivery address, recipient, building/apartment notes and
 
 The customer timeline contains only ID, whitelisted public event and recorded time. It excludes actors, internal reasons, cash settlement details and delivery codes. The latest 100 public events appear chronologically, with a truncation notice if earlier events exist. Missing events or times do not produce fabricated milestones.
 
+Replacement and whole-line-removal decisions appear in the same order detail on web and native. A removal proposal identifies the unavailable sold line, previous total, exact reduction and total after approval. The line and its reservation remain intact until the owner explicitly approves; rejection or expiry leaves an unresolved picker task. The last remaining line cannot be removed through this flow.
+
 ## Staff order paging
 
 Staff order lists now use `GET /api/ops/orders?limit=50` with the same paired `before_at` / `before_id` cursor and bounded legacy offset contract. PostgreSQL selects at most limit+1 result rows before JSON aggregation, with time/id and staff task indexes. Admin, finance and support retain complete permitted history; picker and courier lists preserve their existing assignment/claim rules. Delivered work stays on the courier list while collection or remaining cash liability is outstanding, including partial settlement. Existing list RPCs remain for compatibility.
