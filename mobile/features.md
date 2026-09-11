@@ -1,6 +1,6 @@
 # JANA Mobile feature coverage
 
-The Expo customer app uses the dedicated JANA production API. It implements email/phone login, registration, SecureStore sessions, password changes with all-session revocation, paginated catalog, category/search, product details/images, favorites, local/synced carts, custom baskets, profiles, shopping lists and recurring reminders.
+The Expo customer app uses the dedicated JANA production API. It implements email/phone login, registration, SecureStore sessions, password changes with all-session revocation, paginated catalog, category/search, product details/images, favorites, local/synced carts, custom baskets, profiles, shopping lists and recurring reminders. Account-saved carts can explicitly replace the current device cart or merge quantities within current availability; merge does not overwrite the cloud revision until a separate save and creates no reservation or order.
 
 Addresses support create/edit/delete/default, recipient details, Arabic/Persian numeric input, one-shot foreground GPS, supported Google pin import, manual coordinates, map review and actual coverage/slots. No background location permission is requested.
 
