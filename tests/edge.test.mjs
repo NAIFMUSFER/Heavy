@@ -166,7 +166,7 @@ test('supplier credit note forwards only audited fields with caller idempotency'
  assert.equal(r.status,201);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_supplier_credit_record'));assert.equal(calls[0].body.p_idem_key,'supplier-credit-key');assert.deepEqual(calls[0].body.p_payload,{disposal_id:id,amount_halalas:100,reference:'CN-1',note:'Actual supplier note'});
 });
 test('supplier credit route rejects malformed identifiers before database access',async()=>{
- calls=[];const r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/disposals/not-a-uuid/supplier-credits',{method:'POST',headers:{...bearer,'idempotency-key':'supplier-credit-key'},body:'{}'}));assert.equal(r.status,404);assert.equal(calls.length,0);
+ for(const id of ['not-a-uuid','------------------------------------','11111111-1111-1111-1111-111111111111']){calls=[];const r=await handlers['jana-ops-extra'](request('jana-ops-extra','/api/ops/disposals/'+id+'/supplier-credits',{method:'POST',headers:{...bearer,'idempotency-key':'supplier-credit-key'},body:'{}'}));assert.equal(r.status,404);assert.equal(calls.length,0)}
 });
 for(const [path,operation,input,expected] of [
  ['/api/tickets','ticket.create',{subject:'Support subject',message:'Customer message',category:'delivery'},{order_id:null,subject:'Support subject',message:'Customer message',category:'delivery'}],
