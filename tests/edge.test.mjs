@@ -184,6 +184,7 @@ test('partial settlement forwards the explicit amount while legacy full settleme
 for(const [path,operation,payload] of [
  ['/api/ops/orders/order-a/actual','line.actual',{line_id:'line-a',actual_base:900}],
  ['/api/ops/orders/order-a/substitution','substitution.propose',{line_id:'line-a',offering_id:'offer-a',qty:1}],
+ ['/api/ops/orders/order-a/component-substitution','component.substitution.propose',{line_id:'line-a',component_id:'stock-a',replacement_stock_id:'stock-b'}],
  ['/api/ops/orders/order-a/removal','line.removal.propose',{line_id:'line-a'}],
  ['/api/ops/orders/order-a/unavailable','line.unavailable',{line_id:'line-a',reason:'Unavailable fixture'}],
  ['/api/ops/orders/order-a/restore','line.restore',{line_id:'line-a',reason:'Verified original fixture'}],

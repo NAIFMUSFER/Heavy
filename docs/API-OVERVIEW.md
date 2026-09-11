@@ -32,7 +32,7 @@ JSON mutations use `Content-Type: application/json`. Critical writes send a stab
 | Products | POST `/api/ops/products`; POST `/api/ops/product-versions/:id/activate` | Admin creates immutable draft/version and explicitly activates |
 | Inventory | `/api/ops/stock`, `/api/ops/lots`, `/api/ops/suppliers`, `/api/ops/counts` | Warehouse role, canonical units, inspection, counts and stock/cost ledgers |
 | Delivery settings | POST `/api/ops/zones`, `/api/ops/slots`; PATCH item paths | Admin-only reason, revision, valid geometry and locked capacity |
-| Picking | POST `/api/ops/orders/:id/start`, `/actual`, `/unavailable`, `/restore`, `/substitution`, `/removal`, `/finalize`; GET `/picking` | Assigned picker/admin; sold weight limits, issues, replacement/removal proposals, FEFO and audited consumption |
+| Picking | POST `/api/ops/orders/:id/start`, `/actual`, `/components`, `/unavailable`, `/restore`, `/substitution`, `/component-substitution`, `/removal`, `/finalize`; GET `/picking` | Assigned picker/admin; measured basket evidence, sold weight limits, issues, replacement/removal proposals, FEFO and audited consumption |
 | Courier | POST `/api/ops/orders/:id/dispatch`, `/deliver`, `/fail`, `/collect` | Assigned courier; proof, failure reason and cash are separate events |
 | Recorded courier location | POST `/api/ops/orders/:id/location`; GET `/api/orders/:id/tracking` | Explicit foreground location, assignment/active-attempt checks, recorded time; no automatic background publishing |
 | Finance | GET `/api/ops/finance`; POST `/api/ops/orders/:id/settle`; refund completion routes | Authorized finance/admin; explicit source/reference; liability limits |

@@ -14,6 +14,8 @@ The customer timeline contains only ID, whitelisted public event and recorded ti
 
 Replacement and whole-line-removal decisions appear in the same order detail on web and native. A removal proposal identifies the unavailable sold line, previous total, exact reduction and total after approval. The line and its reservation remain intact until the owner explicitly approves; rejection or expiry leaves an unresolved picker task. The last remaining line cannot be removed through this flow.
 
+For a fixed multi-component basket, a recorded component shortage may produce a separate component-replacement proposal. It names the missing and replacement components, exact base quantity and common unit, and states that the fixed basket total will not change. No reservation moves before explicit approval. Approval atomically reallocates the exact component and returns the order to picking with all component measurements cleared; the picker must measure the approved composition before finishing. Rejection or expiry preserves the recorded original shortage. This rule does not authorize omitted-component discounts, tolerance bands or variable basket pricing.
+
 ## Staff order paging
 
 Staff order lists now use `GET /api/ops/orders?limit=50` with the same paired `before_at` / `before_id` cursor and bounded legacy offset contract. PostgreSQL selects at most limit+1 result rows before JSON aggregation, with time/id and staff task indexes. Admin, finance and support retain complete permitted history; picker and courier lists preserve their existing assignment/claim rules. Delivered work stays on the courier list while collection or remaining cash liability is outstanding, including partial settlement. Existing list RPCs remain for compatibility.

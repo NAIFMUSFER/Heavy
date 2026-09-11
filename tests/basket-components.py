@@ -24,6 +24,12 @@ def finish(f,key=None):return rpc('jana_picking_write',f['atok'],key or 'basket-
 def stock_state(f):
  return val("SELECT jsonb_agg(to_jsonb(b) ORDER BY stock_id) FROM stock_balances b WHERE stock_id IN ("+literal(f['p']+'st')+','+literal(f['piece'])+');')
 def movements(f):return val('SELECT count(*) FROM stock_movements WHERE reference='+literal(f['order'])+';')
+def replacement_stock(f,name='بديل السلة',unit='gram',amount=10000):
+ stock=val(rpc('jana_inventory_create_stock',f['atok'],name,unit))['id']
+ lot=val('SELECT jana_inventory_receive_lot('+','.join([literal(f['atok']),literal(stock),'NULL',str(amount),'1000','4102444800000'])+');')['id']
+ val(rpc('jana_inventory_inspect_lot',f['atok'],lot,'accepted','فحص بديل السلة'));return stock
+def selected_stock(*ids):
+ return val("SELECT jsonb_agg(to_jsonb(b) ORDER BY stock_id) FROM stock_balances b WHERE stock_id IN ("+','.join(map(literal,ids))+');')
 
 f=setup();before=current(f);b=stock_state(f);n=movements(f)
 for q in [finish(f),rpc('jana_finalize_picking',f['atok'],f['order']),rpc('jana_ops_transition',f['atok'],f['order'],'ready','')]:fails(q,'basket_components_unresolved')
@@ -105,8 +111,52 @@ val(rpc('jana_picking_issue',f['atok'],f['order'],f['line'],'Physically restored
 fails(record(f,p),'component_check_changed');assert val(record(f))['matches']
 passed('unavailable and restored item transitions invalidate previously loaded measurement forms')
 
-assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('jana_picker_record_components','jana_basket_components_match','jana_order_picking_revision','jana_issue_picking_revision') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE'));")==0
-assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('jana_basket_components_match','jana_order_picking_revision','jana_issue_picking_revision') AND has_function_privilege('service_role',oid,'EXECUTE');")==0
+f=setup();replacement=replacement_stock(f);val(record(f,payload(f,1000,6)))
+before=current(f);stocks=selected_stock(f['p']+'st',f['piece'],replacement);movement_count=movements(f)
+proposal=val(rpc('jana_picking_write',f['atok'],'component-sub-propose','component.substitution.propose',dict(order_id=f['order'],line_id=f['line'],component_id=f['p']+'st',replacement_stock_id=replacement)))
+terms=proposal['proposed'];assert terms['action']=='replace_component' and terms['price_difference_halalas']==0 and terms['total_halalas']==before['total_halalas']
+assert terms['original_component']['planned_base']==2000 and terms['original_component']['actual_base']==1000 and terms['replacement_component']['planned_base']==2000
+assert selected_stock(f['p']+'st',f['piece'],replacement)==stocks and movements(f)==movement_count and current(f)['snapshot']==before['snapshot']
+passed('component proposal requires recorded shortage and freezes same-unit quantity and unchanged basket total without reserving stock')
+
+decision=rpc('jana_picking_write',f['t'],'component-sub-accept','substitution.decide',dict(substitution_id=proposal['id'],accept=True))
+rows=successful(race([decision]*16));assert len(rows)==16 and all(x==rows[0] for x in rows) and rows[0]['action']=='replace_component'
+after=current(f);line=after['snapshot']['lines'][0];assert after['total_halalas']==before['total_halalas'] and after['original_snapshot']==before['original_snapshot']
+assert 'component_check' not in line and replacement in [c['stock_id'] for c in line['components']] and f['p']+'st' not in [c['stock_id'] for c in line['components']]
+assert val('SELECT reserved_base FROM stock_balances WHERE stock_id='+literal(f['p']+'st')+';')==0
+assert val('SELECT reserved_base FROM stock_balances WHERE stock_id='+literal(replacement)+';')==2000
+assert val("SELECT count(*) FROM order_events WHERE order_id="+literal(f['order'])+" AND event='component_substitution_accepted';")==1
+fails(finish(f),'basket_components_unresolved')
+replacement_payload=dict(order_id=f['order'],line_id=f['line'],revision=after['picking_revision'],items=[dict(stock_id=replacement,actual_base=2000),dict(stock_id=f['piece'],actual_base=6)])
+assert val(record(f,replacement_payload))['matches'];val(finish(f))
+assert val('SELECT on_hand_base FROM stock_balances WHERE stock_id='+literal(replacement)+';')==8000
+assert val('SELECT on_hand_base FROM stock_balances WHERE stock_id='+literal(f['p']+'st')+';')==10000
+assert val("SELECT count(*) FROM stock_movements WHERE reference="+literal(f['order'])+" AND reason='order_picked' AND stock_id="+literal(replacement)+';')>0
+passed('concurrent consent reallocates reservations once and forces fresh measurements before consuming only the approved replacement')
+
+f=setup();replacement=replacement_stock(f,'بديل مرفوض');val(record(f,payload(f,1999,6)));before=current(f);stocks=selected_stock(f['p']+'st',f['piece'],replacement)
+proposal=val(rpc('jana_picking_write',f['atok'],'component-sub-reject-propose','component.substitution.propose',dict(order_id=f['order'],line_id=f['line'],component_id=f['p']+'st',replacement_stock_id=replacement)))
+result=val(rpc('jana_picking_write',f['t'],'component-sub-reject','substitution.decide',dict(substitution_id=proposal['id'],accept=False)))
+assert result['state']=='rejected' and current(f)['snapshot']==before['snapshot'] and selected_stock(f['p']+'st',f['piece'],replacement)==stocks
+fails(finish(f),'basket_components_unresolved')
+passed('rejection preserves the measured shortage original basket terms and reservations and still blocks finishing')
+
+f=setup();replacement=replacement_stock(f,'بديل منتهي');val(record(f,payload(f,1999,6)));before=current(f);stocks=selected_stock(f['p']+'st',f['piece'],replacement)
+proposal=val(rpc('jana_picking_write',f['atok'],'component-sub-expire-propose','component.substitution.propose',dict(order_id=f['order'],line_id=f['line'],component_id=f['p']+'st',replacement_stock_id=replacement)))
+run('UPDATE substitutions SET expires_at=0 WHERE id='+literal(proposal['id'])+';');assert val('SELECT jana_expire_substitutions();')==1
+assert current(f)['snapshot']==before['snapshot'] and selected_stock(f['p']+'st',f['piece'],replacement)==stocks and val('SELECT state FROM substitutions WHERE id='+literal(proposal['id'])+';')=='expired'
+passed('expiry records a distinct component event without implicit consent or inventory change')
+
+f=setup();replacement=replacement_stock(f,'بديل تحقق');piece_replacement=replacement_stock(f,'بديل قطع','piece',100);before=current(f)
+request=lambda key,component,repl:rpc('jana_picking_write',f['atok'],key,'component.substitution.propose',dict(order_id=f['order'],line_id=f['line'],component_id=component,replacement_stock_id=repl))
+fails(request('component-no-check',f['p']+'st',replacement),'basket_components_unresolved')
+val(record(f,payload(f,1999,6)))
+for key,component,repl in [('component-same','x',replacement),('component-unit',f['p']+'st',piece_replacement),('component-present',f['p']+'st',f['piece']),('component-self',f['p']+'st',f['p']+'st')]:fails(request(key,component,repl),'invalid_substitution')
+assert current(f)['snapshot']==before['snapshot'] or current(f)['snapshot']['lines'][0]['component_check']['items'][0]['actual_base']==1999
+passed('component replacement rejects missing shortage wrong component unit self and duplicate basket stock')
+
+assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('jana_picker_record_components','jana_basket_components_match','jana_order_picking_revision','jana_issue_picking_revision','jana_propose_component_substitution') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE'));")==0
+assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('jana_basket_components_match','jana_order_picking_revision','jana_issue_picking_revision','jana_reallocate_order') AND has_function_privilege('service_role',oid,'EXECUTE');")==0
 assert val('SELECT jana_deep_health();')['ok']
 passed('internal helpers remain private and the real database invariants hold')
 print(json.dumps(dict(passed=len(checks),checks=checks)))
