@@ -263,3 +263,17 @@ The candidate adds a service-only bounded staff paging RPC and indexes, routes E
 Candidate `b560a9756f7475f94fa6ec93d38dee8bfee0323e`: verification run `34551883225` passed all 245 Node tests. Database run `34551883103` replayed the migration and passed >100/tied-time/new-arrival paging, then the new disposable staff fixture failed because its required `verified_phone=false` value was omitted. The fixture is corrected; no production code or schema change was needed for this test failure. Added actual PostgreSQL RPC signature checks for both cursor and legacy staff requests.
 
 The same candidate recovery run `34551883115` restored all rows but stopped at index metadata comparison; the new partial-index predicate uses the already-documented PostgreSQL varchar-literal-array cast representation. The existing narrowly scoped normalization is extended to index definitions with a regression ensuring column, ordering and predicate changes still fail, plus exact schema-only difference diagnostics. Browser run `34551883140` passed the real existing journeys and customer history beyond 100, then the new test tried to close an already-closed admin dialog; the test now checks whether it is open. All affected gates must pass before deployment.
+
+
+### Validated staff paging source and backend deployment
+
+Candidate `40e0780470e9f096ebf2d8d7b53b959b273b4f75` passed every relevant gate:
+
+- Node `34552136765`: 245 tests passed.
+- Database `34552136776`: full migration replay, RPC contracts and transactional/concurrency suites, including the new staff paging/role/delivery cash checks.
+- Browser `34552136742`: 56 real gateway/Edge/PostgreSQL checks, including staff phone-width >100 history, retained cards after a 503 page failure, successful retry, no duplicates/overflow, and refresh to the first 50.
+- Recovery `34552136730`: 13 normalization/guard tests and 11 integration groups; 52 public tables (24 nonempty) restored with identical fingerprints. Schema diagnostics proved the sole raw index difference was the equivalent varchar-literal-array cast distribution in `jana_orders_picker_page_idx`. Columns, ordering, index predicate values and grants still must match.
+
+On 2026-09-11 at 01:51–01:52 UTC the approved Supabase project applied migration `20260911015144_jana_operations_order_paging` (83 total), and `jana-api` v30 deployed ACTIVE with `verify_jwt:false`. All four deployed Edge source files are read from the tested candidate. `jana-critical` v6 and `jana-ops-extra` v21 were not redeployed. The CLI-scaffolded migration file is renamed to the actual recorded application version; SQL bytes are unchanged.
+
+Post-migration checks found all three paging indexes valid, execution restricted to service_role, every stock/slot/cash/duplicate-order invariant zero, the original one production order and zero courier positions. Storefront remains unpublished and order admission closed. No customer, order, stock or cash fixtures were written to production. Web promotion and deployment verification follow; this entry does not yet claim the new web is live.

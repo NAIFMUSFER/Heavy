@@ -19,7 +19,7 @@ This matrix describes implemented source. Exact release/deployment/build evidenc
 | Warehouse/counts | Suppliers, pending inspection, accepted FEFO stock, lot costs/metadata, reorder levels, reviewed counts | Actual inspected/received/count-verified stock; canonical warehouse/bin segregation for multiple hubs |
 | Disposal/returns | Waste, damage, supplier outbound return, customer quarantine/inspection, rejected-return custody/disposition | Supplier credit reconciliation and approved physical procedures |
 | Picker/substitutions | Assignment, FEFO, weight tolerance, fixed-basket measurements, explicit customer-approved substitutions | Component-level basket substitution/variance/tolerance/pricing rules and field acceptance |
-| Courier | Assignment, dispatch, delivery code, failure/retry, destination navigation, recipient call link and explicit foreground GPS sharing | Physical devices/procedure; continuous location publishing absent |
+| Courier | Paged tasks retain outstanding collection/cash liability; assignment, dispatch, delivery code, failure/retry, destination navigation, recipient call link and explicit foreground GPS sharing | Physical devices/procedure; continuous location publishing absent |
 | Finance/COD | Delivery separated from cash collection, liability, partial settlement and source-aware completed refunds | Actual cash handover/accounting acceptance |
 | Support/reporting | Threads, order links, priority/assignment; real sales/cash/stock reports and explicit unknown/estimated costs | Staff acceptance, actual costs; tax/operating expenses not full accounting |
 | Notifications | Transactional in-app notifications; guarded outbox/leases/retries/uncertainty, Resend adapter and monitoring | Dedicated worker, verified destinations/consent/domain and approved channel activation |
@@ -41,6 +41,6 @@ Supabase-owned PostGIS advisor findings remain documented platform limitations. 
 
 The review-branch populated-fixture backup/restore workflow passed run 34548982939 on 278d1326673b87813696304989d808049b9d840c: 12 guard/normalization tests, 11 integration groups and identical data across 52 public tables (24 nonempty). Production application/schema were not changed. See [RECOVERY-REHEARSAL.md](RECOVERY-REHEARSAL.md). Do not mark actual production backup recovery or RPO/RTO complete from this regression gate.
 
-## Staff list continuation — 11 September 2026 candidate
+## Staff list continuation — 11 September 2026
 
-Operations order pagination is implemented in the review source: indexed database selection, older-page controls, retry preservation, refresh/session guards and the existing courier cash-task lifecycle. Test and deployment results are pending the candidate gates in RELEASE-EVIDENCE.md. This removes the first-100-orders UI ceiling; it does not complete field acceptance, a signed mobile release or any commercial activation prerequisite.
+Operations order pagination is implemented in the review source: indexed database selection, older-page controls, retry preservation, refresh/session guards and the existing courier cash-task lifecycle. Candidate 40e0780 passed 245 Node tests, 56 browser checks, full disposable database integrity and recovery. Migration 20260911015144 and jana-api v30 are applied; web promotion evidence follows in RELEASE-EVIDENCE.md. This removes the first-100-orders UI ceiling; it does not complete field acceptance, a signed mobile release or any commercial activation prerequisite.

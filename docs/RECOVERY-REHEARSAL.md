@@ -35,3 +35,8 @@ A script existing or an artifact uploading is not a pass. Inspect the complete w
 - Verified traffic cutover and worker/provider reactivation procedures. Keep outbound delivery disabled until approved.
 
 References: [PostgreSQL 17 pg_dump](https://www.postgresql.org/docs/17/app-pgdump.html), [pg_restore](https://www.postgresql.org/docs/17/app-pgrestore.html), and [pg_cron settings](https://github.com/citusdata/pg_cron#extension-settings).
+
+
+## Staff paging schema regression — 11 September 2026
+
+Run [34552136730](https://github.com/NAIFMUSFER/Heavy/actions/runs/34552136730) on `40e0780470e9f096ebf2d8d7b53b959b273b4f75` includes the new staff RPC and three paging indexes. All 52 public table fingerprints and 11 integration groups passed. The pure guard suite now has 13 tests. The existing exact literal-array cast normalization also applies to partial-index definitions; recorded schema diagnostics identify the equivalent source/restored representations, and changed columns/order/predicate literals still fail. Fixture archive 634317 bytes, SHA-256 `c3084af183b3ee28974e4b10b5413bd39230575ae020b1ec2674daf14a9a6d45`; dump 0.265s / restore 0.668s / fixture cycle 14.792s. These are still fixture timings, not production RPO/RTO, backup retrieval or capacity evidence.
