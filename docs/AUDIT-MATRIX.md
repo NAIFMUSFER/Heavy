@@ -58,7 +58,7 @@ Review and production passed **330 Node tests**, the complete PostgreSQL gate, *
 
 Starting from published `39715ec`, web and native now separate replacement from an explicit merge of the account-saved cart into the current device cart. The merge resolves current offering versions and prices, adds quantities for the same product family, enforces current availability, the per-line quantity ceiling and the 40-line checkout limit, and commits device storage atomically. It never changes the cloud copy until the customer explicitly saves, and it creates no quote, stock reservation, order or delivery booking. Unavailable saved items keep both carts unchanged with an actionable error.
 
-Focused shared-model and source checks pass, and the complete local Node suite passes **331 tests**. The disposable browser journey now exercises a second authenticated browser with an existing local selection and proves the merged quantity without changing stock or creating an order. CI, native builds and publication are not claimed until the candidate gates complete.
+Source **d060c815** passed **331 Node tests**, the disposable **82-check browser journey**, Expo export, Android debug and iOS simulator compilation. The browser exercised a second authenticated browser with an existing local selection and proved the merged quantity without changing stock or creating an order. PostgreSQL, Edge functions and production data are unchanged. Publication is not claimed until the reviewed source is promoted and exact-commit production smoke succeeds.
 
 ## Recovery regression extension — 11 September 2026
 
