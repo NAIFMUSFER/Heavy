@@ -8,7 +8,7 @@ async function fixture(t,upstream=async()=>Response.json({ok:true}),overrides={}
  return {base:'http://127.0.0.1:'+server.address().port,calls,logs};
 }
 test('only approved public files can be served',async t=>{const f=await fixture(t);for(const p of ['/server.js','/.env','/.git/config','/mobile/App.js','/supabase/functions/jana-api/index.ts','/tests/gateway.test.cjs','/assets/shop.part01.js'])assert.equal((await fetch(f.base+p)).status,404,p);assert.equal(f.calls.length,0)});
-test('customer and operations bundles remain valid and protected',async t=>{const f=await fixture(t);for(const p of ['/','/admin.html','/picker.html','/courier.html','/assets/shop.js','/assets/ops.js','/assets/styles.css','/assets/common.js','/assets/catalog-import.js','/assets/ops-exports.js','/assets/zone-map.js','/assets/address.js','/assets/checkout.js','/assets/local-cart.js','/assets/input.js']){const r=await fetch(f.base+p);assert.equal(r.status,200);assert.ok((await r.text()).length>100);assert.match(r.headers.get('content-security-policy'),/script-src 'self';/);assert.equal(r.headers.get('x-frame-options'),'DENY')}});
+test('customer and operations bundles remain valid and protected',async t=>{const f=await fixture(t);for(const p of ['/','/admin.html','/picker.html','/courier.html','/assets/shop.js','/assets/ops.js','/assets/styles.css','/assets/common.js','/assets/catalog-import.js','/assets/stock-import.js','/assets/ops-exports.js','/assets/zone-map.js','/assets/address.js','/assets/checkout.js','/assets/local-cart.js','/assets/input.js']){const r=await fetch(f.base+p);assert.equal(r.status,200);assert.ok((await r.text()).length>100);assert.match(r.headers.get('content-security-policy'),/script-src 'self';/);assert.equal(r.headers.get('x-frame-options'),'DENY')}});
 test('health and version do not depend on database',async t=>{const f=await fixture(t,async()=>{throw Error('offline')},{commit:'test-commit'});assert.equal((await fetch(f.base+'/health')).status,200);assert.equal((await(await fetch(f.base+'/version')).json()).commit,'test-commit');assert.equal(f.calls.length,0);assert.equal((await fetch(f.base+'/ready')).status,503)});
 test('owner handoff links are served without a database and retain real workspace destinations',async t=>{
  const f=await fixture(t,async()=>{throw Error('No backend needed for public links')});const response=await fetch(f.base+'/start.html');assert.equal(response.status,200);const html=await response.text();
@@ -33,6 +33,12 @@ test('generic analytics keys cannot enable capture without dedicated JANA config
 test('financial and staff route identifiers are redacted from telemetry',()=>{const {routeLabel}=require('../server.js');for(const p of ['/api/ops/refunds/private-id/complete','/api/ops/support/private-id','/api/ops/product-versions/private-id/activate','/api/ops/staff/private-id'])assert.ok(!routeLabel(p).includes('private-id'))});
 test('warehouse count routes remain on the fixed operations service with redacted identifiers',async t=>{
  const f=await fixture(t),{routeLabel}=require('../server.js');for(const p of ['/api/ops/counts/count-private/submit','/api/ops/count-lines/line-private/decision','/api/ops/stock/stock-private','/api/ops/suppliers/supplier-private']){const r=await fetch(f.base+p,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});assert.equal(r.status,200);assert.ok(f.calls.at(-1)[0].includes('/jana-ops-extra'+p));assert.ok(!routeLabel(p).includes('private'))}
+});
+
+test('stock master import stays on the operations Edge and preserves the idempotency key',async t=>{
+ const f=await fixture(t),body=JSON.stringify({schema_version:1,items:[]});
+ const r=await fetch(f.base+'/api/ops/stock/import',{method:'POST',headers:{'content-type':'application/json','idempotency-key':'stock-import-fixture'},body});
+ assert.equal(r.status,200);const [url,init]=f.calls.at(-1);assert.ok(url.endsWith('/jana-ops-extra/api/ops/stock/import'));assert.equal(init.headers['idempotency-key'],'stock-import-fixture');assert.equal(init.body.toString(),body);
 });
 
 test('saved list and recurring identifiers are redacted from telemetry',()=>{const {routeLabel}=require('../server.js');for(const p of ['/api/shopping-lists/private-list','/api/recurring/private-plan'])assert.ok(!routeLabel(p).includes('private-'))});

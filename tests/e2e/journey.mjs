@@ -83,6 +83,11 @@ try{
  const inventoryDownloadEvent=inventory.waitForEvent('download');await inventory.locator('[data-action=download-inventory-review]').click();const inventoryDownload=await inventoryDownloadEvent;
  assert.equal(inventoryDownload.suggestedFilename(),'jana-inventory-review.csv');const inventoryReview=await fs.readFile(await inventoryDownload.path(),'utf8');assert.equal(inventoryReview.charCodeAt(0),0xfeff);assert.match(inventoryReview,/الصالح_للبيع/);assert.deepEqual(stock(),{on_hand:1,reserved:0});
  pass('warehouse can download a read-only physical review file before receiving stock');
+ const stockMasterBefore=value("SELECT jsonb_build_object('stock',(SELECT count(*) FROM stock_items),'balances',(SELECT count(*) FROM stock_balances),'lots',(SELECT count(*) FROM inventory_lots),'movements',(SELECT count(*) FROM stock_movements));");
+ await inventory.locator('[data-action=import-stock]').click();const stockCsv='name,name_en,category,base_unit,reorder_base\r\nتفاح ملف المالك,Owner apples,fruit,gram,١٥٠٠';
+ await inventory.locator('[data-stock-file]').setInputFiles({name:'jana-stock-owner-review.csv',mimeType:'text/csv',buffer:Buffer.from(stockCsv)});await inventory.locator('[data-stock-preview]').filter({hasText:/1 تعريف مخزون.*1 بالجرام.*0 بالقطعة/}).waitFor();
+ assert.equal(await inventory.locator('[data-confirm-stock]').isDisabled(),false);assert.equal(await inventory.locator('[data-submit-stock]').isDisabled(),true);await inventory.locator('[data-confirm-stock]').check();assert.equal(await inventory.locator('[data-submit-stock]').isDisabled(),false);assert.deepEqual(value("SELECT jsonb_build_object('stock',(SELECT count(*) FROM stock_items),'balances',(SELECT count(*) FROM stock_balances),'lots',(SELECT count(*) FROM inventory_lots),'movements',(SELECT count(*) FROM stock_movements));"),stockMasterBefore);await closeModal(inventory);
+ pass('warehouse can validate an Arabic Excel stock master before any definition balance lot or movement write');
  await inventory.locator('[data-action=new-supplier]').click();await inventory.locator('#supplier-form [name=name]').fill('مورد اختبار المتصفح');
  const supplier=await change(inventory,'/api/ops/suppliers',()=>inventory.locator('#supplier-form button').click());
  await inventory.locator('[data-action=new-lot]').click();
