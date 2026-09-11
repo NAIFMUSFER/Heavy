@@ -101,6 +101,13 @@ try{
  await storagePage.reload();await storagePage.locator('#cart-count').getByText('2',{exact:true}).waitFor();
  pass('failed local cart write changes neither persisted nor visible quantities, then retry survives reload');
 
+ const twinCartPage=await storagePage.context().newPage();pages['storage-customer-twin']=twinCartPage;twinCartPage.setDefaultTimeout(15000);twinCartPage.on('pageerror',e=>errors.push({role:'storage-customer-twin',message:e.message}));
+ await twinCartPage.goto(origin);await twinCartPage.locator('#cart-count').getByText('2',{exact:true}).waitFor();
+ await Promise.all([storagePage.locator('[data-add="'+fixture.offering_id+'"]').click(),twinCartPage.locator('[data-add="'+fixture.offering_id+'"]').click()]);
+ await storagePage.locator('#cart-count').getByText('4',{exact:true}).waitFor();await twinCartPage.locator('#cart-count').getByText('4',{exact:true}).waitFor();
+ assert.equal(JSON.parse(await storagePage.evaluate(()=>localStorage.getItem('jana.live.cart')))[0].quantity,4);
+ pass('two storefront tabs serialize simultaneous cart edits and both render the committed quantity');
+
 
  phase='delivery administration';
  const admin=await login('admin');await admin.locator('[data-page=logistics]').click();await admin.locator('[data-action=new-zone]').click();

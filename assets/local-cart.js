@@ -25,8 +25,8 @@ export function readCart(raw){
  if(typeof raw!=='string'||raw.length>100000)throw invalid();
  try{return validateCart(JSON.parse(raw));}catch{throw invalid();}
 }
-export function createCartStore({storage,key,onChange=()=>{}}){
- let items=Object.freeze([]),ready=false,error=null,operations=0,queue=Promise.resolve();
+export function createCartStore({storage,key,onChange=()=>{},lock=fn=>fn(),subscribe=null}){
+ let items=Object.freeze([]),ready=false,error=null,operations=0,queue=Promise.resolve(),lastRaw=null,unsubscribe=()=>{};
  const snapshot=()=>Object.freeze({items,ready,busy:operations>0,error});
  const publish=()=>onChange(snapshot());
  function serial(fn){
@@ -40,17 +40,30 @@ export function createCartStore({storage,key,onChange=()=>{}}){
  }
  async function persist(next){
   const valid=Object.freeze(validateCart(next));
-  try{await storage.setItem(key,JSON.stringify(valid));}catch{throw unavailable();}
-  items=valid;ready=true;return items;
+  const raw=JSON.stringify(valid);
+  try{await storage.setItem(key,raw);}catch{throw unavailable();}
+  items=valid;ready=true;lastRaw=raw;return items;
  }
- return {
+ async function readLatest(){
+  let raw;try{raw=await storage.getItem(key);}catch{throw unavailable();}
+  if(!ready||raw!==lastRaw){const valid=readCart(raw);items=Object.freeze(valid);ready=true;lastRaw=raw;}
+  return items;
+ }
+ const api={
   get snapshot(){return snapshot();},
-  load:()=>serial(async()=>{let raw;try{raw=await storage.getItem(key);}catch{throw unavailable();}const valid=readCart(raw);items=Object.freeze(valid);ready=true;return items;}),
-  update:change=>serial(async()=>{if(!ready)throw error||invalid();const next=change(items);return next===items?items:persist(next);}),
+  load:()=>serial(()=>lock(readLatest)),
+  update:change=>serial(()=>lock(async()=>{if(!ready)throw error||invalid();await readLatest();const next=change(items);return next===items?items:persist(next);})),
+  sync:()=>serial(()=>lock(readLatest)),
   // Reset is an explicit user action, including when stored data cannot be read.
-  reset:()=>serial(()=>persist([])),
-  flush:async()=>{await queue;if(!ready)throw error||invalid();return items;}
+  reset:()=>serial(()=>lock(()=>persist([]))),
+  flush:async()=>{await queue;if(!ready)throw error||invalid();return items;},
+  close:()=>unsubscribe()
  };
+ if(typeof subscribe==='function'){
+  const stop=subscribe(()=>api.sync().catch(()=>{}));
+  if(typeof stop==='function')unsubscribe=stop;
+ }
+ return api;
 }
 export function changeCartQuantity(items,product,delta){
  const index=items.findIndex(x=>x.offering_id===product.id),old=items[index],quantity=(old?.quantity||0)+delta;

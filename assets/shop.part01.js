@@ -8,7 +8,13 @@ let checkoutIdentity=0;
 const state={ready:false,loading:false,loadError:null,user:null,config:null,catalog:[],cart:[],view:'shop',category:'all',addresses:[],favorites:new Set()};
 const checkoutSession=createCheckoutSession({storage:{getItem:key=>sessionStorage.getItem(key),setItem:(key,value)=>sessionStorage.setItem(key,value),removeItem:key=>sessionStorage.removeItem(key)},call:request,getSession:()=>state.user?{owner:state.user.id,token:String(checkoutIdentity)}:null,onChange:()=>{updateCheckoutBanner();updateQuoteControls?.()}});
 let updateQuoteControls;
-const cartStore=createCartStore({key:cartKey,storage:{getItem:key=>localStorage.getItem(key),setItem:(key,value)=>localStorage.setItem(key,value)},onChange:snapshot=>{state.cart=snapshot.items;updateCartBanner();const count=$('#cart-count');if(count)count.textContent=state.cart.reduce((n,x)=>n+x.quantity,0)}});
+const cartStore=createCartStore({
+ key:cartKey,
+ storage:{getItem:key=>localStorage.getItem(key),setItem:(key,value)=>localStorage.setItem(key,value)},
+ lock:fn=>navigator.locks?.request?navigator.locks.request('jana-cart-'+cartKey,fn):fn(),
+ subscribe:listener=>{const receive=e=>{if(e.storageArea===localStorage&&e.key===cartKey)listener()};addEventListener('storage',receive);return()=>removeEventListener('storage',receive)},
+ onChange:snapshot=>{state.cart=snapshot.items;updateCartBanner();const count=$('#cart-count');if(count)count.textContent=state.cart.reduce((n,x)=>n+x.quantity,0);const lines=$('#cart-lines'),subtotal=$('#cart-subtotal');if(lines&&snapshot.ready&&!snapshot.busy){lines.innerHTML=cartHtml();if(subtotal)subtotal.textContent=money(state.cart.reduce((n,x)=>n+x.price_halalas*x.quantity,0))}}
+});
 function updateCartBanner(){
  const box=$('#cart-storage');if(!box)return;const cart=cartStore.snapshot;
  box.hidden=!cart.error;

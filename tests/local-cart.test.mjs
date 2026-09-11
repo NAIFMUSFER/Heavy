@@ -66,3 +66,21 @@ test('an unavailable quantity keeps its business message and does not suggest re
  await assert.rejects(store.update(rows=>changeCartQuantity(rows,{...product,available_units:1},1)),/لا تتوفر كمية إضافية/);
  assert.equal(store.snapshot.error,null);assert.equal(storage.writes.length,0);assert.deepEqual(store.snapshot.items,[line]);
 });
+test('cooperating web tabs serialize concurrent edits and adopt the latest persisted cart',async()=>{
+ let raw=JSON.stringify([line]),locked=Promise.resolve();const listeners=new Map();
+ const tab=id=>({
+  storage:{getItem:()=>raw,setItem:(key,value)=>{raw=value;for(const [other,listener] of listeners)if(other!==id)queueMicrotask(listener)}},
+  lock:fn=>{const result=locked.then(fn);locked=result.catch(()=>{});return result},
+  subscribe:listener=>{listeners.set(id,listener);return()=>listeners.delete(id)}
+ });
+ const aOptions=tab('a'),bOptions=tab('b');
+ const a=createCartStore({key:'cart',...aOptions}),b=createCartStore({key:'cart',...bOptions});await Promise.all([a.load(),b.load()]);
+ await Promise.all([a.update(rows=>changeCartQuantity(rows,product,1)),b.update(rows=>changeCartQuantity(rows,product,1))]);
+ await new Promise(resolve=>setImmediate(resolve));await Promise.all([a.flush(),b.flush()]);
+ assert.equal(JSON.parse(raw)[0].quantity,3);assert.equal(a.snapshot.items[0].quantity,3);assert.equal(b.snapshot.items[0].quantity,3);
+ a.close();b.close();assert.equal(listeners.size,0);
+});
+test('an invalid external cart never replaces the last valid visible selection',async()=>{
+ const storage=memory(),store=createCartStore({storage,key:'cart'});await store.load();storage.raw='[null]';
+ await assert.rejects(store.sync(),{code:'CART_INVALID'});assert.deepEqual(store.snapshot.items,[line]);assert.equal(store.snapshot.error.code,'CART_INVALID');
+});
