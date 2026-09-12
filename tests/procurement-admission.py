@@ -143,7 +143,7 @@ approval_quote=val(supplier_quote('procurement-approval-quote-'+uuid.uuid4().hex
 approval_order=val(rpc('jana_supplier_pickup_order_confirm',f['t'],approval_quote['id']))
 approval_job=val('SELECT to_jsonb(j) FROM procurement_jobs j WHERE order_id='+literal(approval_order['id'])+';')
 approval_job=val(rpc('jana_procurement_job_assign',f['atok'],'procurement-approval-assign-'+uuid.uuid4().hex,approval_order['id'],p+'a',1,'Disposable approval assignment'))
-approval_line=val('SELECT requested_lines->0->>\'line_id\' FROM procurement_jobs WHERE id='+literal(approval_job['id'])+';')
+approval_line=val('SELECT to_jsonb(requested_lines->0->>\'line_id\') FROM procurement_jobs WHERE id='+literal(approval_job['id'])+';')
 approval_purchase=val(purchase_for(approval_order['id'],approval_line,'procurement-approval-purchase-'+uuid.uuid4().hex,2,1,500,'FIXTURE-APPROVAL-RECEIPT'))
 assert approval_purchase['state']=='collecting' and approval_purchase['revision']==3
 approval_request=val(rpc('jana_procurement_shortage_propose',f['atok'],'procurement-approval-shortage-'+uuid.uuid4().hex,approval_order['id'],3,'Fixture final unit unavailable'))
