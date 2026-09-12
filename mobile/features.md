@@ -8,4 +8,6 @@ Checkout uses a server quote, published seller/policy review, consent and COD. O
 
 In-app notifications/read state and ticket replies are implemented. External push/SMS/payment integrations remain disabled pending approved configuration. Forgotten-password recovery and automatic background courier tracking remain unimplemented.
 
+Admin, finance and purchasing staff sessions are separated from customer initialization. Their native workspace uses the role-scoped, read-only procurement list/detail endpoints to show assigned collection quantities, supplier visit evidence, actual cost, shortage and courier custody. Purchasing staff cannot see settlement-payment details; the native workspace exposes no customer contact and contains no purchase, settlement or order mutation control. Transaction controls remain disabled until the complete exception and operating-policy boundaries are approved.
+
 Expo, native Android debug and iOS simulator gates validate compilation/builds. Real database/browser tests validate the shared API and monetary/state model; they do not replace physical-device acceptance. Apple/Google signing, store distribution and device/network/permission acceptance remain outstanding. Historical evidence is in ../docs/RELEASE-EVIDENCE.md; current artifacts are linked in the release handoff.
