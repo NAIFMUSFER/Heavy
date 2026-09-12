@@ -23,6 +23,7 @@ CREATE TABLE public.procurement_retail_adjustments (
 );
 CREATE INDEX jana_retail_adjustment_job ON public.procurement_retail_adjustments(job_id,created_at DESC,id DESC);
 CREATE INDEX jana_retail_adjustment_order ON public.procurement_retail_adjustments(order_id,created_at DESC,id DESC);
+CREATE INDEX jana_retail_adjustment_actor ON public.procurement_retail_adjustments(actor_id,created_at DESC,id DESC);
 ALTER TABLE public.procurement_retail_adjustments ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.procurement_retail_adjustments FROM PUBLIC,anon,authenticated,service_role;
 
