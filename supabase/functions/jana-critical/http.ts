@@ -80,7 +80,7 @@ export function quoteInput(b:any) {
 export async function quoteRpcInput(b:any,token:string,key:string) {
  const {items,coupon}=quoteInput(b);
  const args:any={p_token:token,p_idem_key:key,p_slot_id:b.slot_id,p_address_id:b.address_id,p_items:items};
- if(!coupon)return {name:'jana_create_quote_idempotent',args};
+ if(!coupon)return {name:'jana_supplier_pickup_quote_gateway',args};
  if(!await couponFeature(token))throw Object.assign(new Error('feature_unavailable'),{status:409});
  return {name:'jana_create_quote_with_coupon',args:{...args,p_coupon_code:coupon}};
 }

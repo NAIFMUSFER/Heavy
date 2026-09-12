@@ -193,7 +193,7 @@ for(const name of ['jana-api','jana-critical']) {
   calls=[];const r=await handlers[name](request(name,'/api/quotes',{method:'POST',headers:bearer,body:'{"lines":[]}'}));assert.equal(r.status,422);assert.equal(calls.length,0);
  });
  test(`${name}: routes quotes through persisted idempotency`,async()=>{
-  calls=[];response={id:'quote-test'};const r=await handlers[name](request(name,'/api/quotes',{method:'POST',headers:{...bearer,'idempotency-key':'quote-test-123'},body:'{"slot_id":"slot-test","address_id":"address-test","lines":[{"offering_id":"off-test","quantity":1}]}'}));assert.equal(r.status,201);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_create_quote_idempotent'));assert.equal(calls[0].body.p_idem_key,'quote-test-123');
+  calls=[];response={id:'quote-test'};const r=await handlers[name](request(name,'/api/quotes',{method:'POST',headers:{...bearer,'idempotency-key':'quote-test-123'},body:'{"slot_id":"slot-test","address_id":"address-test","lines":[{"offering_id":"off-test","quantity":1}]}'}));assert.equal(r.status,201);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_supplier_pickup_quote_gateway'));assert.equal(calls[0].body.p_idem_key,'quote-test-123');
  });
 }
 test('login backend business error never sets authentication cookies',async()=>{
@@ -219,8 +219,10 @@ for(const name of Object.keys(handlers)) {
   calls=[];const r=await handlers[name](request(name,'/api/quotes',{method:'OPTIONS',headers:{origin:'https://jana-fresh-app.onrender.com'}}));assert.equal(r.status,204);assert.equal(r.headers.get('access-control-allow-origin'),'https://jana-fresh-app.onrender.com');assert.equal(calls.length,0);
  });
 }
+test('order confirmation routes through the supplier-pickup compatibility gateway',async()=>{
+ calls=[];response={id:'fixture-order'};const r=await handlers['jana-api'](request('jana-api','/api/orders',{method:'POST',headers:{...bearer,'idempotency-key':'critical-fixture-key'},body:'{"quote_id":"fixture-quote"}'}));assert.equal(r.status,201);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_order_confirm_gateway'));assert.equal(calls[0].body.p_idem_key,'critical-fixture-key');assert.equal(calls[0].body.p_quote_id,'fixture-quote');
+});
 for(const [name,path,operation,body] of [
- ['jana-api','/api/orders','order.confirm',{quote_id:'fixture-quote'}],
  ['jana-api','/api/ops/orders/fixture/deliver','order.deliver',{code:'123456'}],
  ['jana-ops-extra','/api/ops/orders/fixture/collect','cod.collect',{amount_halalas:2000}],
  ['jana-ops-extra','/api/ops/orders/fixture/settle','cod.settle',{reference:'fixture-deposit'}]
@@ -228,7 +230,7 @@ for(const [name,path,operation,body] of [
  test(`${operation}: persisted critical-write dispatch receives caller key`,async()=>{
   calls=[];response={id:'fixture-order'};
   const r=await handlers[name](request(name,path,{method:'POST',headers:{...bearer,'idempotency-key':'critical-fixture-key'},body:JSON.stringify(body)}));
-  assert.equal(r.status,operation==='order.confirm'?201:200);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_critical_write'));assert.equal(calls[0].body.p_key,'critical-fixture-key');assert.equal(calls[0].body.p_operation,operation);
+  assert.equal(r.status,200);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_critical_write'));assert.equal(calls[0].body.p_key,'critical-fixture-key');assert.equal(calls[0].body.p_operation,operation);
  });
  test(`${operation}: rejects missing key before write`,async()=>{
   calls=[];const r=await handlers[name](request(name,path,{method:'POST',headers:bearer,body:JSON.stringify(body)}));assert.equal(r.status,422);assert.equal(calls.length,0);

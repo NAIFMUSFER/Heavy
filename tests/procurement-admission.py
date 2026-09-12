@@ -23,6 +23,12 @@ s=write_store(f,'draft.save',dict(revision=s['revision'],profile=PROFILE))
 s=write_store(f,'profile.publish',dict(revision=s['revision'],confirmed=True))
 s=write_store(f,'intake.set',dict(revision=s['revision'],accepting_orders=True,message='Fixture only',reason='Disposable test',reference='FIXTURE-ONLY',reviewed=REVIEWED))
 run("UPDATE stock_balances SET on_hand_base=0,reserved_base=0 WHERE stock_id="+literal(p+'st')+";UPDATE inventory_lots SET on_hand_base=0,reserved_base=0 WHERE stock_id="+literal(p+'st')+';')
+catalog_offset=val("SELECT count(*) FROM offerings o CROSS JOIN offerings target WHERE target.id="+literal(p+'off')+" AND o.active AND (o.created_at<target.created_at OR (o.created_at=target.created_at AND o.id<target.id));")
+catalog=val("SELECT jana_catalog_page("+str(catalog_offset)+",1,'','');")['items']
+listed=next(x for x in catalog if x['id']==p+'off')
+assert listed['fulfillment_model']=='supplier_pickup' and listed['orderable'] is True and listed['max_order_quantity']==20
+assert listed['inventory_required'] is False and listed['legacy_available_units']==0 and listed['availability_status']=='to_be_purchased'
+passed('catalog exposes procurement orderability separately from preserved legacy stock facts')
 def business():
  return val("SELECT jsonb_build_object('balance',(SELECT to_jsonb(b) FROM stock_balances b WHERE stock_id="+literal(p+'st')+"),'lot',(SELECT to_jsonb(l) FROM inventory_lots l WHERE stock_id="+literal(p+'st')+"),'movements',(SELECT count(*) FROM stock_movements WHERE stock_id="+literal(p+'st')+"),'orders',(SELECT count(*) FROM orders WHERE user_id="+literal(p+'c')+"),'booked',(SELECT booked FROM delivery_slots WHERE id="+literal(p+'s')+'));')
 before=business();items=[dict(offering_id=p+'off',qty=2)]
@@ -36,6 +42,11 @@ assert after_quote['booked']==before['booked']+1
 snap=val('SELECT snapshot::jsonb FROM quotes WHERE id='+literal(q['id'])+';')
 assert snap['allocations']==[] and snap['fulfillment_model']=='supplier_pickup' and snap['lines'][0]['unit_price_halalas']==q['lines'][0]['unit_price_halalas']
 passed('warehouse-free quote freezes displayed retail terms and delivery capacity without stock')
+gateway_quote=val('SELECT public.jana_supplier_pickup_quote_gateway('+','.join(map(literal,[f['t'],'procurement-gateway-quote-'+uuid.uuid4().hex,p+'s',p+'addr']))+','+literal(json.dumps(items))+'::jsonb)::text;')
+assert gateway_quote['order_flow_ready'] is True and gateway_quote['inventory_reserved'] is False
+val(rpc('jana_cancel_quote',f['t'],gateway_quote['id']))
+assert business()['booked']==after_quote['booked']
+passed('customer quote gateway reserves capacity only and exposes the completed order path')
 key='procurement-retry-'+uuid.uuid4().hex
 query=supplier_quote(key,items)
 rows=successful(race([query]*6));assert len(rows)==6 and all(x==rows[0] for x in rows)
@@ -47,15 +58,22 @@ c=val(rpc('jana_cancel_quote',f['t'],cancel_id));assert c['state']=='cancelled'
 cancel_after=business();assert cancel_after['booked']==cancel_before['booked']-1
 assert cancel_after['balance']==cancel_before['balance'] and cancel_after['lot']==cancel_before['lot'] and cancel_after['movements']==cancel_before['movements']
 passed('cancelling warehouse-free quote releases only delivery capacity')
-order=val(rpc('jana_supplier_pickup_order_confirm',f['t'],q['id']))
-again=val(rpc('jana_supplier_pickup_order_confirm',f['t'],q['id']))
-assert again['id']==order['id'] and again['idempotent_replay'] is True and order['inventory_reserved'] is False
+confirm_key='procurement-confirm-'+uuid.uuid4().hex
+order=val(rpc('jana_order_confirm_gateway',f['t'],confirm_key,q['id']))
+again=val(rpc('jana_order_confirm_gateway',f['t'],confirm_key,q['id']))
+assert again==order and order['idempotent_replay'] is False and order['inventory_reserved'] is False
 job=val('SELECT to_jsonb(j) FROM procurement_jobs j WHERE order_id='+literal(order['id'])+';')
 assert job['state']=='unassigned' and job['assigned_to'] is None and len(job['requested_lines'])==1
 assert val('SELECT snapshot::jsonb FROM orders WHERE id='+literal(order['id'])+';')['total_halalas']==q['total_halalas']
+detail=val(rpc('jana_order_detail',f['t'],order['id']))
+assert [e['event'] for e in detail['timeline']]==['supplier_pickup_order_created'] and detail['timeline_has_earlier'] is False
 fails('UPDATE procurement_jobs SET requested_lines='+literal(json.dumps([dict(offering_id='tampered',qty=9)]))+'::jsonb WHERE id='+literal(job['id'])+';','procurement_identity_immutable')
 assert business()['balance']==before['balance'] and business()['lot']==before['lot'] and business()['movements']==before['movements']
 passed('confirmation creates one immutable-request order and procurement job without inventory')
+fails(rpc('jana_order_confirm_gateway',f['t'],confirm_key,cancel_id),'idempotency_conflict')
+fails(rpc('jana_order_confirm_gateway',other_token,'wrong-owner-confirm-'+uuid.uuid4().hex,q['id']),'quote_not_found')
+assert order['fulfillment_model']=='supplier_pickup'
+passed('customer gateway confirms supplier pickup idempotently and binds retries to one quote')
 assign_key='procurement-assign-'+uuid.uuid4().hex
 assigned=val(rpc('jana_ops_procurement_assign',f['atok'],assign_key,job['id'],p+'a',1,'Fixture purchasing assignment'))
 assert assigned['state']=='assigned' and assigned['assigned_to']==p+'a' and assigned['revision']==2
@@ -69,6 +87,7 @@ for token in [f['t'],f['ct']]:
 fails(rpc('jana_supplier_pickup_order_confirm',other_token,q['id']),'quote_not_found')
 assert val("SELECT count(*) FROM pg_class WHERE oid='public.procurement_jobs'::regclass AND relrowsecurity AND NOT has_table_privilege('anon',oid,'SELECT') AND NOT has_table_privilege('authenticated',oid,'SELECT');")==1
 assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_supplier_pickup_quote_create','jana_supplier_pickup_quote_idempotent','jana_supplier_pickup_order_confirm','jana_procurement_job_assign') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE') OR has_function_privilege('service_role',oid,'EXECUTE'));")==0
+assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_supplier_pickup_quote_gateway','jana_order_confirm_gateway') AND has_function_privilege('service_role',oid,'EXECUTE') AND NOT has_function_privilege('anon',oid,'EXECUTE') AND NOT has_function_privilege('authenticated',oid,'EXECUTE');")==2
 assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_ops_procurement_assign','jana_ops_procurement_purchase_record') AND has_function_privilege('service_role',oid,'EXECUTE') AND NOT has_function_privilege('anon',oid,'EXECUTE') AND NOT has_function_privilege('authenticated',oid,'EXECUTE');")==2
 passed('customer isolation private grants and dormant service boundary remain enforced')
 assert val("SELECT count(*) FROM audit_log WHERE entity_id="+literal(job['id'])+" AND action='procurement_assigned';")==1

@@ -17,6 +17,11 @@ for(const [client,merge] of [['web',webMerge],['mobile',mobileMerge]]){
  test(`${client}: merged cart respects current stock and per-line quantity bounds`,()=>{
   for(const quantity of [21,1.5,-1])assert.throws(()=>merge([],[{offering_family_id:'size-a',quantity}],[{id:'current',family_id:'size-a',name:'تفاح',available_units:50}]));assert.throws(()=>merge([{offering_id:'current',quantity:1}],[{offering_family_id:'size-a',quantity:2}],[{id:'current',family_id:'size-a',name:'تفاح',available_units:2}]));
  });
+ test(`${client}: supplier-pickup cart uses an explicit procurement limit`,()=>{
+  const product={id:'pickup',family_id:'pickup-family',name:'صنف مشتريات',price_halalas:500,available_units:0,orderable:true,fulfillment_model:'supplier_pickup',max_order_quantity:4};
+  assert.equal(merge([],[{offering_family_id:'pickup-family',quantity:4}],[product])[0].quantity,4);
+  assert.throws(()=>merge([],[{offering_family_id:'pickup-family',quantity:5}],[product]));
+ });
 }
 test('web and native saved-cart screens expose an explicit non-destructive merge choice',()=>{
  for(const client of [webCloudSource,mobileCloudSource]){
