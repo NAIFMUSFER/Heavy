@@ -1,5 +1,13 @@
 # Release evidence — JANA
 
+## Assignment and actual purchase-recording review source — 12 September 2026 (Saudi Arabia)
+
+This candidate exposes two deliberately narrow staff actions in the existing web and shared Expo procurement workspace. Admin can assign or reassign an active purchasing employee at the current job revision with a recorded reason. Only the employee currently assigned to an `assigned` or `collecting` job can append a supplier visit containing the active supplier/site, receipt or invoice reference, visit note, exact collected quantities, per-line quality note and actual supplier cost. Quantity is capped by the remaining frozen customer request. Both clients require a separate confirmation and use the existing restart-safe idempotency journal.
+
+The two service-only database wrappers bind the procurement job from the URL, derive its canonical order internally, call the existing private transactional primitives and verify that the returned job, order, employee, supplier and pickup site all match. Any mismatch raises in the same transaction and rolls every purchase/assignment row, audit and event back. Client-supplied job/order keys and unknown payload fields are rejected. The broad order-based primitives remain unavailable to `service_role`, anon and authenticated roles.
+
+Local focused Edge/web/native tests and the complete Node suite pass **383/383**. This paragraph records source-level evidence only: disposable PostgreSQL, CI, Supabase migration, Edge deployment, Render publication and post-publication integrity are not claimed until their corresponding gates complete. Intake remains closed. The actions create no inventory, customer-price change, funding, settlement, courier custody or cash movement, and no production fixture is used.
+
 ## Admin/finance exact approved shortage adjustment published — 12 September 2026 (Saudi Arabia)
 
 This release closes the deliberate gap after customer shortage approval. Admin and finance can apply the exact approved reduction from procurement detail on web and shared Expo; the purchasing employee cannot see or call it. Both clients fail closed unless the approved request, current revision and before/reduction/after totals reconcile, require an operational reason, show a separate confirmation and use durable idempotency. The action changes only the active customer snapshot by the already approved amount, retains `original_snapshot`, and advances a non-empty job to handover readiness. It does not change inventory, supplier actual cost, funding, settlement, customer cash, margin or fees.

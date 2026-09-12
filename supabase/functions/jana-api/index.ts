@@ -15,6 +15,25 @@ function clearSessionHeaders(){return {__cookies:['jana_session=; Path=/; HttpOn
 async function sb(path:string,init:RequestInit={}){const h=new Headers(init.headers||{});h.set('apikey',KEY);h.set('authorization',`Bearer ${KEY}`);if(init.body&&!h.has('content-type'))h.set('content-type','application/json');const r=await fetch(`${SB}${path}`,{...init,headers:h});const text=await r.text();let data:any=null;try{data=text?JSON.parse(text):null}catch{data=text}if(!r.ok){const e:any=new Error(data?.message||data?.error||'database_error');e.status=r.status;e.details=data;throw e}return rpcBusinessResult(data)}
 async function rpc(name:string,args:Record<string,any>={}){return sb(`/rest/v1/rpc/${name}`,{method:'POST',body:JSON.stringify(args)})}
 async function body(req:Request){if(!req.body)return {};try{return await req.json()}catch{throw Object.assign(new Error('invalid_json'),{status:422})}}
+function plainObject(value:any){return value!==null&&typeof value==='object'&&!Array.isArray(value)}
+function onlyKeys(value:any,allowed:Set<string>){return plainObject(value)&&Object.keys(value).every(key=>allowed.has(key))}
+function boundedText(value:any,min:number,max:number){if(typeof value!=='string')return null;const text=value.trim();return [...text].length>=min&&[...text].length<=max?text:null}
+function procurementPurchasePayload(value:any){
+ const keys=new Set(['expected_revision','supplier_id','pickup_site_id','document_reference','note','lines']);
+ if(!onlyKeys(value,keys)||Object.keys(value).length!==keys.size||!Number.isSafeInteger(value.expected_revision)||value.expected_revision<1
+  ||!Array.isArray(value.lines)||value.lines.length<1||value.lines.length>40)throw new Error('procurement_purchase_validation');
+ const supplierId=boundedText(value.supplier_id,1,36),pickupSiteId=boundedText(value.pickup_site_id,1,36),documentReference=boundedText(value.document_reference,3,180),note=boundedText(value.note,3,1000);
+ if(!supplierId||!pickupSiteId||!documentReference||!note||!/^pup-[0-9a-f]{32}$/.test(pickupSiteId))throw new Error('procurement_purchase_validation');
+ const seen=new Set<string>();const lines=value.lines.map((line:any)=>{
+  const lineKeys=new Set(['line_id','collected_qty','actual_cost_halalas','quality_note']);
+  if(!onlyKeys(line,lineKeys)||Object.keys(line).length!==lineKeys.size)throw new Error('procurement_purchase_validation');
+  const lineId=boundedText(line.line_id,1,80),qualityNote=boundedText(line.quality_note,3,1000),quantity=line.collected_qty,cost=line.actual_cost_halalas;
+  if(!lineId||!qualityNote||seen.has(lineId)||typeof quantity!=='number'||!Number.isFinite(quantity)||quantity<=0||!Number.isInteger(quantity*1000)
+   ||!Number.isSafeInteger(cost)||cost<0||cost>9000000000000)throw new Error('procurement_purchase_validation');
+  seen.add(lineId);return {line_id:lineId,collected_qty:quantity,actual_cost_halalas:cost,quality_note:qualityNote};
+ });
+ return {expected_revision:value.expected_revision,supplier_id:supplierId,pickup_site_id:pickupSiteId,document_reference:documentReference,note,lines};
+}
 async function currentUser(token:string){if(!token)throw Object.assign(new Error('auth_required'),{status:401});return rpc('jana_me',{p_token:token})}
 async function role(token:string,roles:string[]){const u=await currentUser(token);if(!roles.includes(u.role))throw Object.assign(new Error('forbidden'),{status:403});return u}
 function page(items:any[],u:URL){const offset=Math.max(0,Number(u.searchParams.get('offset')||0)||0),limit=Math.min(100,Math.max(1,Number(u.searchParams.get('limit')||50)||50));return {items:items.slice(offset,offset+limit),next_offset:offset+limit<items.length?offset+limit:null}}
@@ -28,7 +47,20 @@ function procurementErrPayload(e:any){
   procurement_adjustment_exists:[409,'ADJUSTMENT_EXISTS','طُبق هذا التخفيض بالفعل. حدّث المهمة'],
   procurement_order_terms_unsupported:[409,'ORDER_TERMS_UNSUPPORTED','شروط هذا الطلب تحتاج مراجعة مالية يدوية قبل تطبيق التخفيض'],
   procurement_empty_order_requires_cancellation:[409,'ORDER_REQUIRES_CANCELLATION','لا يمكن تطبيق التخفيض على جميع الأصناف؛ استخدم مسار الإلغاء الصريح'],
-  procurement_adjustment_invalid:[409,'ADJUSTMENT_INVALID','تعذر مطابقة التخفيض مع السعر الذي وافق عليه العميل'],
+	 procurement_adjustment_invalid:[409,'ADJUSTMENT_INVALID','تعذر مطابقة التخفيض مع السعر الذي وافق عليه العميل'],
+	 procurement_assignment_validation:[422,'PROCUREMENT_ASSIGNMENT_VALIDATION','اختر موظف شراء نشطًا وأدخل سبب التكليف ثم حدّث المهمة'],
+	 procurement_assignment_not_found:[404,'PROCUREMENT_ASSIGNMENT_NOT_FOUND','تعذر ربط التكليف بمهمة الشراء المطلوبة'],
+	 procurement_assignment_invalid:[409,'PROCUREMENT_ASSIGNMENT_STATE','حالة المهمة لا تسمح بالتكليف أو الموظف مسند بالفعل'],
+	 procurement_employee_invalid:[422,'PROCUREMENT_EMPLOYEE','اختر موظف شراء أو مديرًا نشطًا'],
+	 procurement_purchase_validation:[422,'PROCUREMENT_PURCHASE_VALIDATION','راجع المورد والموقع والمستند والكميات والتكلفة الفعلية وملاحظات الجودة'],
+	 procurement_purchase_not_found:[404,'PROCUREMENT_PURCHASE_NOT_FOUND','تعذر ربط سجل الشراء بمهمة الشراء المطلوبة'],
+	 procurement_custody_required:[409,'PROCUREMENT_CUSTODY','لا يمكن تسجيل الشراء إلا للموظف المسند وفي حالة جمع نشطة'],
+	 procurement_supplier_invalid:[409,'PROCUREMENT_SUPPLIER','المورد متوقف أو غير موجود؛ حدّث دليل الموردين'],
+	 procurement_site_invalid:[409,'PROCUREMENT_SITE','نقطة الاستلام متوقفة أو لا تتبع المورد المختار'],
+	 procurement_line_invalid:[422,'PROCUREMENT_LINE','أحد الأصناف لا يتبع طلب الشراء المجمد'],
+	 procurement_quantity_exceeded:[409,'PROCUREMENT_QUANTITY','الكمية المدخلة تتجاوز المتبقي المطلوب من العميل'],
+	  procurement_order_invalid:[409,'PROCUREMENT_ORDER','الطلب ليس نشطًا ضمن مسار الشراء المباشر'],
+	  procurement_job_not_found:[404,'PROCUREMENT_JOB_NOT_FOUND','مهمة الشراء غير موجودة'],
   procurement_shortage_decision_validation:[422,'SHORTAGE_DECISION_VALIDATION','أدخل ملاحظة واضحة ثم اختر الموافقة أو الرفض صراحةً'],
   procurement_shortage_not_found:[404,'SHORTAGE_NOT_FOUND','طلب معالجة النقص غير موجود لهذا الطلب'],
   procurement_shortage_decided:[409,'SHORTAGE_DECIDED','سُجّل قرار هذا النقص بالفعل. حدّث الطلب'],
@@ -138,11 +170,22 @@ Deno.serve(guard(async(req:Request)=>{const requestId=crypto.randomUUID();try{
   if(!token)throw Object.assign(new Error('auth_required'),{status:401});
   return json(await rpc('jana_procurement_job_detail',{p_token:token,p_job_id:mm[1]}),200,{'x-request-id':requestId});
  }
- mm=p.match(/^\/api\/ops\/procurement\/(prc-[0-9a-f]{32})\/shortage-adjustment$/);if(mm&&m==='POST'){
+	mm=p.match(/^\/api\/ops\/procurement\/(prc-[0-9a-f]{32})\/shortage-adjustment$/);if(mm&&m==='POST'){
   requireCsrf(req);const b=await body(req),shortageRequestId=String(b.request_id||''),revision=Number(b.expected_revision),reason=String(b.reason||'').trim();
   if(!/^shr-[0-9a-f]{32}$/.test(shortageRequestId)||!Number.isSafeInteger(revision)||revision<1||reason.length<3||reason.length>1000)throw new Error('procurement_adjustment_validation');
-  return json(await rpc('jana_ops_procurement_shortage_apply_adjustment',{p_token:token,p_idem_key:requiredIdempotency(req),p_job_id:mm[1],p_request_id:shortageRequestId,p_expected_revision:revision,p_reason:reason}),200,{'x-request-id':requestId});
- }
+	 return json(await rpc('jana_ops_procurement_shortage_apply_adjustment',{p_token:token,p_idem_key:requiredIdempotency(req),p_job_id:mm[1],p_request_id:shortageRequestId,p_expected_revision:revision,p_reason:reason}),200,{'x-request-id':requestId});
+	}
+	mm=p.match(/^\/api\/ops\/procurement\/(prc-[0-9a-f]{32})\/assignment$/);if(mm&&m==='POST'){
+	 requireCsrf(req);const b=await body(req);
+	 if(!onlyKeys(b,new Set(['employee_id','expected_revision','reason']))||Object.keys(b).length!==3)throw new Error('procurement_assignment_validation');
+	 const employeeId=boundedText(b.employee_id,1,36),reason=boundedText(b.reason,3,1000),revision=b.expected_revision;
+	 if(!employeeId||!reason||!Number.isSafeInteger(revision)||revision<1)throw new Error('procurement_assignment_validation');
+	 return json(await rpc('jana_ops_procurement_assign',{p_token:token,p_idem_key:requiredIdempotency(req),p_job_id:mm[1],p_employee_id:employeeId,p_expected_revision:revision,p_reason:reason}),200,{'x-request-id':requestId});
+	}
+	mm=p.match(/^\/api\/ops\/procurement\/(prc-[0-9a-f]{32})\/purchases$/);if(mm&&m==='POST'){
+	 requireCsrf(req);const payload=procurementPurchasePayload(await body(req));
+	 return json(await rpc('jana_ops_procurement_purchase_record',{p_token:token,p_idem_key:requiredIdempotency(req),p_job_id:mm[1],p_payload:payload}),201,{'x-request-id':requestId});
+	}
  if(p==='/api/ops/reports'&&m==='GET'){await role(token,['admin','finance']);return json(await rpc('jana_admin_reports',{p_token:token}),200,{'x-request-id':requestId})}
  if(p==='/api/ops/staff'&&m==='POST'){requireCsrf(req);const b=await body(req);return json(await rpc('jana_staff_write',{p_token:token,p_idem_key:requiredIdempotency(req),p_operation:'staff.create',p_payload:{email:b.email,name:b.name,password:b.password,role:b.role}}),201,{'x-request-id':requestId})}
  if(p==='/api/ops/staff'&&m==='GET')return json({items:await rpc('jana_list_staff',{p_token:token})},200,{'x-request-id':requestId});

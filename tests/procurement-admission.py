@@ -57,17 +57,19 @@ fails('UPDATE procurement_jobs SET requested_lines='+literal(json.dumps([dict(of
 assert business()['balance']==before['balance'] and business()['lot']==before['lot'] and business()['movements']==before['movements']
 passed('confirmation creates one immutable-request order and procurement job without inventory')
 assign_key='procurement-assign-'+uuid.uuid4().hex
-assigned=val(rpc('jana_procurement_job_assign',f['atok'],assign_key,order['id'],p+'a',1,'Fixture purchasing assignment'))
+assigned=val(rpc('jana_ops_procurement_assign',f['atok'],assign_key,job['id'],p+'a',1,'Fixture purchasing assignment'))
 assert assigned['state']=='assigned' and assigned['assigned_to']==p+'a' and assigned['revision']==2
 assert val('SELECT to_jsonb(picker_id) FROM orders WHERE id='+literal(order['id'])+';')==p+'a'
-assert val(rpc('jana_procurement_job_assign',f['atok'],assign_key,order['id'],p+'a',1,'Fixture purchasing assignment'))==assigned
-fails(rpc('jana_procurement_job_assign',f['atok'],'stale-'+uuid.uuid4().hex,order['id'],p+'a',1,'Stale assignment'),'procurement_changed')
-passed('admin assignment is idempotent revisioned and mirrored to legacy picker ownership')
+assert val(rpc('jana_ops_procurement_assign',f['atok'],assign_key,job['id'],p+'a',1,'Fixture purchasing assignment'))==assigned
+fails(rpc('jana_ops_procurement_assign',f['atok'],'stale-'+uuid.uuid4().hex,job['id'],p+'a',1,'Stale assignment'),'procurement_changed')
+fails(rpc('jana_ops_procurement_assign',f['atok'],'missing-'+uuid.uuid4().hex,'prc-'+'f'*32,p+'a',1,'Missing path job'),'procurement_job_not_found')
+passed('path-bound admin assignment is idempotent revisioned and mirrored to legacy picker ownership')
 for token in [f['t'],f['ct']]:
- fails(rpc('jana_procurement_job_assign',token,'forbidden-'+uuid.uuid4().hex,order['id'],p+'a',2,'Unauthorized assignment'),'forbidden')
+ fails(rpc('jana_ops_procurement_assign',token,'forbidden-'+uuid.uuid4().hex,job['id'],p+'a',2,'Unauthorized assignment'),'forbidden')
 fails(rpc('jana_supplier_pickup_order_confirm',other_token,q['id']),'quote_not_found')
 assert val("SELECT count(*) FROM pg_class WHERE oid='public.procurement_jobs'::regclass AND relrowsecurity AND NOT has_table_privilege('anon',oid,'SELECT') AND NOT has_table_privilege('authenticated',oid,'SELECT');")==1
 assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_supplier_pickup_quote_create','jana_supplier_pickup_quote_idempotent','jana_supplier_pickup_order_confirm','jana_procurement_job_assign') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE') OR has_function_privilege('service_role',oid,'EXECUTE'));")==0
+assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_ops_procurement_assign','jana_ops_procurement_purchase_record') AND has_function_privilege('service_role',oid,'EXECUTE') AND NOT has_function_privilege('anon',oid,'EXECUTE') AND NOT has_function_privilege('authenticated',oid,'EXECUTE');")==2
 passed('customer isolation private grants and dormant service boundary remain enforced')
 assert val("SELECT count(*) FROM audit_log WHERE entity_id="+literal(job['id'])+" AND action='procurement_assigned';")==1
 assert val("SELECT count(*) FROM order_events WHERE order_id="+literal(order['id'])+" AND event IN ('supplier_pickup_order_created','procurement_assigned');")==2
@@ -85,13 +87,18 @@ def purchase_for(target_order,target_line,key,revision,qty,cost,reference='FIXTU
  return rpc('jana_procurement_purchase_record',token or f['atok'],key,payload)
 def purchase(key,revision,qty,cost,reference='FIXTURE-RECEIPT-1',token=None,extra=None):
  return purchase_for(order['id'],line_id,key,revision,qty,cost,reference,token,extra)
+def ops_purchase(target_job,target_line,key,revision,qty,cost,reference='FIXTURE-RECEIPT-1',token=None,extra=None):
+ payload=dict(expected_revision=revision,supplier_id=supplier,pickup_site_id=site['id'],document_reference=reference,note='Disposable purchase evidence',lines=[dict(line_id=target_line,collected_qty=qty,actual_cost_halalas=cost,quality_note='Disposable quality accepted')])
+ if extra:payload.update(extra)
+ return rpc('jana_ops_procurement_purchase_record',token or f['atok'],key,target_job,payload)
 purchase_key='procurement-purchase-'+uuid.uuid4().hex
-first=val(purchase(purchase_key,2,1,500));assert first['state']=='collecting' and first['revision']==3 and not first['collection_complete']
-assert val(purchase(purchase_key,2,1,500))==first
-fails(purchase(purchase_key,2,1,501),'idempotency_conflict')
+first=val(ops_purchase(job['id'],line_id,purchase_key,2,1,500));assert first['state']=='collecting' and first['revision']==3 and not first['collection_complete']
+assert val(ops_purchase(job['id'],line_id,purchase_key,2,1,500))==first
+fails(ops_purchase(job['id'],line_id,purchase_key,2,1,501),'idempotency_conflict')
+fails(ops_purchase(job['id'],line_id,'client-order-'+uuid.uuid4().hex,3,1,500,extra=dict(order_id='client-controlled')),'procurement_purchase_validation')
 assert val('SELECT total_halalas FROM orders WHERE id='+literal(order['id'])+';')==customer_total
 assert business()['balance']==before['balance'] and business()['lot']==before['lot'] and business()['movements']==before['movements']
-passed('partial supplier purchase is durable and leaves customer price and inventory unchanged')
+passed('path-bound partial supplier purchase is durable and leaves customer price and inventory unchanged')
 
 # A shortage proposal freezes every currently missing quantity and its displayed
 # retail reduction. The customer's decision remains evidence only until the

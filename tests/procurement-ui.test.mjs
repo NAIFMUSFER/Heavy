@@ -20,11 +20,11 @@ function harness({role='picker',workspace=role==='picker'?'picker':'admin',read=
 
 const pageItem=(id=jobId)=>({id,order_number:'JN-&-1',state:'collecting',revision:2,assigned_name:'موظف <أ>',created_at:1789000000000,updated_at:1789000001000,requested_line_count:2,purchase_count:1,actual_cost_total_halalas:1250,unfunded_purchase_count:0,employee_reimbursement_outstanding_halalas:500,supplier_payable_outstanding_halalas:750,customer_total_halalas:3000});
 
-test('picker lands on the warehouse-free procurement workspace and sees only read actions',async()=>{
+test('picker lands on the warehouse-free procurement workspace with assigned purchase capability only',async()=>{
  const h=harness();await h.run('setInitialOpsPage();render()');
  assert.equal(h.paths[0],'/api/ops/procurement?limit=50');
  assert.match(h.root.innerHTML,/مهام شراء الطلبات من الموردين والمحلات/);
- assert.match(h.root.innerHTML,/مساحة قراءة فقط/);
+ assert.match(h.root.innerHTML,/يسجل موظف الشراء المسند الكميات والتكلفة الفعلية/);
  assert.match(h.root.innerHTML,/التجهيز السابق/);
  assert.doesNotMatch(h.root.innerHTML,/data-action="(?:record-purchase|record-settlement|create-stock)"/);
 });
@@ -64,6 +64,26 @@ test('finance sees the exact approved reduction while picker and malformed total
  assert.deepEqual(JSON.parse(JSON.stringify(h.run('procurementAdjustmentFacts('+JSON.stringify(detail)+')'))),{job_id:jobId,request_id:shortageId,revision:5,before:3000,reduction:500,after:2500});
  h.run("state.user.role='picker'");assert.equal(h.run('procurementAdjustmentFacts('+JSON.stringify(detail)+')'),null);
  h.run("state.user.role='finance'");assert.equal(h.run('procurementAdjustmentFacts('+JSON.stringify({...detail,customer_terms:{total_halalas:500}})+')'),null);
+});
+
+test('assignment and purchase controls are derived from role, custody, state and remaining quantity',async()=>{
+ const base={job:{id:jobId,order_number:'JN-ACTIONS',state:'unassigned',revision:1,assigned_to:null,created_at:1789000000000},customer_terms:{total_halalas:3000},lines:[{line_id:'line-1',name:'تفاح',qty:2,collected_qty:0,remaining_qty:2}],purchases:[],funding:[],settlements:[],shortage:null,handover:null,financial_detail_included:true};
+ let modalHtml='';const admin=harness({role:'admin',read:async()=>base});admin.context.modal=(title,html)=>{modalHtml=html;return {}};admin.run("state.page='procurement'");await admin.run(`procurementDetail('${jobId}')`);
+ assert.match(modalHtml,/id="procurement-assignment-open"/);assert.doesNotMatch(modalHtml,/id="procurement-purchase-open"/);
+ assert.deepEqual(JSON.parse(JSON.stringify(admin.run('procurementAssignmentFacts('+JSON.stringify(base)+')'))),{job_id:jobId,revision:1,assigned_to:''});
+
+ const assigned={...base,job:{...base.job,state:'assigned',revision:2,assigned_to:'staff-fixture',assigned_name:'المشتري'}};modalHtml='';const picker=harness({read:async()=>assigned});picker.context.modal=(title,html)=>{modalHtml=html;return {}};picker.run("state.page='procurement'");await picker.run(`procurementDetail('${jobId}')`);
+ assert.match(modalHtml,/id="procurement-purchase-open"/);assert.doesNotMatch(modalHtml,/id="procurement-assignment-open"/);
+ assert.deepEqual(JSON.parse(JSON.stringify(picker.run('procurementPurchaseFacts('+JSON.stringify(assigned)+')'))),{job_id:jobId,revision:2,lines:assigned.lines});
+ picker.run("state.user.id='another-picker'");assert.equal(picker.run('procurementPurchaseFacts('+JSON.stringify(assigned)+')'),null);
+ assert.equal(picker.run("procurementQuantityInput('١٫٢٥',2)"),1.25);assert.throws(()=>picker.run("procurementQuantityInput('2.001',2)"),/المتبقي/);
+});
+
+test('finance cannot assign or record purchases and collection copy preserves customer price boundaries',async()=>{
+ let modalHtml='';const detail={job:{id:jobId,order_number:'JN-FIN-ACTIONS',state:'assigned',revision:2,assigned_to:'finance-fixture',created_at:1789000000000},customer_terms:{total_halalas:3000},lines:[{line_id:'line-1',name:'تفاح',qty:1,collected_qty:0,remaining_qty:1}],purchases:[],funding:[],settlements:[],financial_detail_included:true};
+ const h=harness({role:'finance',read:async()=>detail});h.context.modal=(title,html)=>{modalHtml=html;return {}};h.run("state.user.id='finance-fixture';state.page='procurement'");await h.run(`procurementDetail('${jobId}')`);
+ assert.doesNotMatch(modalHtml,/procurement-(?:assignment|purchase)-open/);assert.match(modalHtml,/السعر الأصلي محفوظ/);assert.match(modalHtml,/التسوية والدفع غير متاحين/);
+ const source=readFileSync(new URL('../assets/ops.part04.js',import.meta.url),'utf8');assert.match(source,/\/assignment/);assert.match(source,/\/purchases/);assert.match(source,/لن يتغير سعر العميل أو المخزون/);
 });
 
 test('a procurement response cannot repaint after session departure',async()=>{

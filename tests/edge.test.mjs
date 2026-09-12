@@ -58,6 +58,38 @@ test('finance shortage adjustment requires a retry key and maps stale or unsafe 
  for(const [message,status,code] of [['procurement_adjustment_not_found',404,'ADJUSTMENT_NOT_FOUND'],['procurement_shortage_not_approved',409,'SHORTAGE_NOT_APPROVED'],['procurement_shortage_evidence_invalid',409,'SHORTAGE_EVIDENCE'],['procurement_adjustment_exists',409,'ADJUSTMENT_EXISTS'],['procurement_order_terms_unsupported',409,'ORDER_TERMS_UNSUPPORTED'],['procurement_empty_order_requires_cancellation',409,'ORDER_REQUIRES_CANCELLATION'],['procurement_changed',409,'PROCUREMENT_CHANGED']]){calls=[];response={_error:message,status};r=await handlers['jana-api'](request('jana-api',path,{method:'POST',headers:{...bearer,'idempotency-key':'adjustment-error-fixture'},body:JSON.stringify(body)}));assert.equal(r.status,status);assert.equal((await r.json()).error.code,code)}
  response={ok:true};
 });
+test('admin procurement assignment is path-bound, strict and revisioned before its narrow RPC',async()=>{
+ const jobId='prc-'+'4'.repeat(32),token=bearer.authorization.slice(7),headers={...bearer,'idempotency-key':'assignment-fixture'},body={employee_id:'  staff-fixture  ',expected_revision:2,reason:'  Direct supplier collection  '};
+ calls=[];response={id:jobId,state:'assigned',revision:3};
+ const assigned=await handlers['jana-api'](request('jana-api',`/api/ops/procurement/${jobId}/assignment`,{method:'POST',headers,body:JSON.stringify(body)}));
+ assert.equal(assigned.status,200);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_ops_procurement_assign'));
+ assert.deepEqual(calls[0].body,{p_token:token,p_idem_key:'assignment-fixture',p_job_id:jobId,p_employee_id:'staff-fixture',p_expected_revision:2,p_reason:'Direct supplier collection'});
+ for(const invalid of [{...body,job_id:'different-job'},{...body,expected_revision:'2'},{...body,expected_revision:0},{...body,employee_id:''},{...body,reason:'x'}]){calls=[];const bad=await handlers['jana-api'](request('jana-api',`/api/ops/procurement/${jobId}/assignment`,{method:'POST',headers,body:JSON.stringify(invalid)}));assert.equal(bad.status,422);assert.equal(calls.length,0)}
+ calls=[];const missingKey=await handlers['jana-api'](request('jana-api',`/api/ops/procurement/${jobId}/assignment`,{method:'POST',headers:bearer,body:JSON.stringify(body)}));assert.equal(missingKey.status,422);assert.equal(calls.length,0);
+});
+test('assigned procurement purchase accepts only typed immutable visit evidence for the path job',async()=>{
+ const jobId='prc-'+'5'.repeat(32),token=bearer.authorization.slice(7),headers={...bearer,'idempotency-key':'purchase-fixture'},payload={expected_revision:3,supplier_id:'supplier-fixture',pickup_site_id:'pup-'+'6'.repeat(32),document_reference:'  INV-100  ',note:'  Physical supplier visit  ',lines:[{line_id:'  line-fixture  ',collected_qty:1.25,actual_cost_halalas:1250,quality_note:'  Quality accepted  '}]};
+ calls=[];response={job_id:jobId,state:'collecting',revision:4};
+ const recorded=await handlers['jana-api'](request('jana-api',`/api/ops/procurement/${jobId}/purchases`,{method:'POST',headers,body:JSON.stringify(payload)}));
+ assert.equal(recorded.status,201);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_ops_procurement_purchase_record'));
+ assert.deepEqual(calls[0].body,{p_token:token,p_idem_key:'purchase-fixture',p_job_id:jobId,p_payload:{expected_revision:3,supplier_id:'supplier-fixture',pickup_site_id:'pup-'+'6'.repeat(32),document_reference:'INV-100',note:'Physical supplier visit',lines:[{line_id:'line-fixture',collected_qty:1.25,actual_cost_halalas:1250,quality_note:'Quality accepted'}]}});
+ const line=payload.lines[0],invalid=[{...payload,order_id:'wrong-order'},{...payload,expected_revision:'3'},{...payload,pickup_site_id:'bad'},{...payload,lines:[{...line,collected_qty:0}]},{...payload,lines:[{...line,collected_qty:1.2345}]},{...payload,lines:[{...line,actual_cost_halalas:1.5}]},{...payload,lines:[{...line,quality_note:'x'}]},{...payload,lines:[line,{...line}]}];
+ for(const body of invalid){calls=[];const bad=await handlers['jana-api'](request('jana-api',`/api/ops/procurement/${jobId}/purchases`,{method:'POST',headers,body:JSON.stringify(body)}));assert.equal(bad.status,422);assert.equal(calls.length,0)}
+ calls=[];const missingKey=await handlers['jana-api'](request('jana-api',`/api/ops/procurement/${jobId}/purchases`,{method:'POST',headers:bearer,body:JSON.stringify(payload)}));assert.equal(missingKey.status,422);assert.equal(calls.length,0);
+});
+test('procurement assignment and purchase conflicts remain actionable at the Edge boundary',async()=>{
+ const jobId='prc-'+'7'.repeat(32),assignment={employee_id:'staff-fixture',expected_revision:2,reason:'Direct supplier collection'},purchase={expected_revision:3,supplier_id:'supplier-fixture',pickup_site_id:'pup-'+'8'.repeat(32),document_reference:'INV-200',note:'Physical supplier visit',lines:[{line_id:'line-fixture',collected_qty:1,actual_cost_halalas:900,quality_note:'Quality accepted'}]};
+ for(const [path,body,message,status,code] of [
+  ['assignment',assignment,'procurement_assignment_invalid',409,'PROCUREMENT_ASSIGNMENT_STATE'],
+  ['assignment',assignment,'procurement_employee_invalid',422,'PROCUREMENT_EMPLOYEE'],
+  ['purchases',purchase,'procurement_custody_required',409,'PROCUREMENT_CUSTODY'],
+  ['purchases',purchase,'procurement_supplier_invalid',409,'PROCUREMENT_SUPPLIER'],
+  ['purchases',purchase,'procurement_site_invalid',409,'PROCUREMENT_SITE'],
+  ['purchases',purchase,'procurement_quantity_exceeded',409,'PROCUREMENT_QUANTITY'],
+  ['purchases',purchase,'procurement_job_not_found',404,'PROCUREMENT_JOB_NOT_FOUND']
+ ]){calls=[];response={_error:message,status};const r=await handlers['jana-api'](request('jana-api',`/api/ops/procurement/${jobId}/${path}`,{method:'POST',headers:{...bearer,'idempotency-key':'procurement-error-fixture'},body:JSON.stringify(body)}));assert.equal(r.status,status);assert.equal((await r.json()).error.code,code)}
+ response={ok:true};
+});
 test('customer shortage decision binds the pending request to the order and exact revision',async()=>{
  const orderId='order-fixture',requestId='shr-'+'1'.repeat(32),token=bearer.authorization.slice(7),headers={...bearer,'idempotency-key':'shortage-decision-fixture'};
  calls=[];response={order_id:orderId,decision:'approve_removal',customer_total_changed:false};
