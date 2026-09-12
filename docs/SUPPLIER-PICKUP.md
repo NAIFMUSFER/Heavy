@@ -35,11 +35,19 @@ The commercial intake remains closed during this transition. Do not bypass the c
 - Customer order total and displayed retail price remain unchanged. Production contains zero purchase records/lines and intake remains closed.
 - Release `da417eb3` publishes this dormant evidence structure through the production source and Render gateway. The exact post-publication read confirms zero rows, unchanged business fingerprints and no Edge grant or route.
 
+## Implemented phase 4 backend: dormant customer-approved shortage consent
+
+- The assigned purchasing employee can freeze one complete proposal containing every quantity still missing from the customer's immutable request. The proposal records requested, collected and missing quantities and derives the exact proposed reduction only from the frozen displayed unit prices.
+- While the proposal is pending, the job is `awaiting_customer` and further purchase evidence is blocked. Only the customer who owns the order can explicitly approve or reject the complete removal proposal.
+- Rejection returns the job to `collecting`. Approval moves it to `shortage_approved`, blocks further collection and requires a separate exact retail adjustment before courier readiness. The customer total is not changed by this phase and `ready` is never inferred from consent alone.
+- Request identity and decision evidence are immutable, revisioned, idempotent and audited. Both tables have RLS; direct table access and both functions are revoked from clients and `service_role`, and no Edge route calls them.
+- Release `fd65f645` publishes the dormant structure. Production contains zero shortage requests/decisions, intake remains closed, and the pre/post business-table fingerprints match.
+
 ## Next engineering gates — not complete
 
-1. **Complete order admission without warehouse stock.** The dormant quote/order core and slot-only reservation are implemented. Add the remaining collection/exception/handover primitives and only then grant the complete flow and replace the one-warehouse readiness prerequisite. Preserve existing-order snapshots, cancellation and retry behavior.
+1. **Complete order admission without warehouse stock.** The dormant quote/order core, slot-only reservation, collection evidence and consent checkpoint are implemented. Add the exact approved retail adjustment, handover and settlement primitives and only then grant the complete flow and replace the one-warehouse readiness prerequisite. Preserve existing-order snapshots, cancellation and retry behavior.
 2. **Complete assigned procurement work.** Job creation, assignment and immutable multi-supplier purchase evidence are implemented. Add bounded staff reads and customer-visible progress only after exceptions are complete. Keep each order's collected goods separate and preserve historical pickup snapshots.
-3. **Exceptions with customer consent.** Keep customer-approved replacement/removal and fixed-price basket constraints. Supplier cost changes must not silently change the customer's agreed retail price. No cost-plus margin, purchasing fee or delivery pricing rule is invented.
+3. **Exceptions with customer consent.** The dormant complete-removal proposal and approve/reject record are implemented. Apply an approved reduction exactly once before readiness, and add replacement only under an explicit frozen proposal. Supplier cost changes must not silently change the customer's agreed retail price. No cost-plus margin, purchasing fee or delivery pricing rule is invented.
 4. **Handover, delivery and finance.** Only confirmed collected quantities pass to courier custody. Separate supplier payable/purchase cost, employee purchasing advance/settlement and customer COD collection/refund. A receipt is not a payment; a supplier credit note is not a bank settlement. Keep cancellation after purchase and supplier returns explicit and auditable.
 5. **Web/native acceptance and launch.** Update catalog availability, carts, quote recovery, staff/customer labels and native models together. Test zero-warehouse journeys, multiple suppliers, concurrent staff actions, partial collection, refusal, cancellation and response loss in disposable environments. Only then replace commercial readiness and obtain actual owner operating acceptance. Signed stores and physical devices remain separate requirements.
 
@@ -49,6 +57,6 @@ Real supplier/shop names and pickup contacts/addresses, approved catalog and ret
 
 ## Evidence and safety
 
-Phase 1 adds the supplier directory through schema/RPC, Edge routing and web forms. Phase 2 adds a deliberately ungranted database admission/assignment core only. Refer to [RELEASE-EVIDENCE.md](RELEASE-EVIDENCE.md) for actual CI/application/publication results; source alone is not deployment. The disposable suite verifies retries, races, roles, immutable requests and unchanged warehouse/stock/order/cash/slot fingerprints. Existing legacy tests remain regression protection and are not acceptance of the new business flow.
+Phase 1 adds the supplier directory through schema/RPC, Edge routing and web forms. Phases 2–4 add deliberately ungranted database admission, assignment, purchase-evidence and shortage-consent primitives only. Refer to [RELEASE-EVIDENCE.md](RELEASE-EVIDENCE.md) for actual CI/application/publication results; source alone is not deployment. The disposable suite verifies retries, races, roles, immutable evidence and unchanged warehouse/stock/order/cash/slot fingerprints. Existing legacy tests remain regression protection and are not acceptance of the new business flow.
 
 Custom-session authentication and intentional `verify_jwt:false` are preserved. Do not create commercial fixtures in production or erase historical records to make a check pass.
