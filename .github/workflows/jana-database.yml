@@ -63,7 +63,7 @@ jobs:
         run: python3 tests/customer-saved.py
       - name: Verify delivery settings and capacity-edit concurrency
         run: python3 tests/delivery-admin.py
-      - name: Verify single-hub warehouse ownership and launch gate
+      - name: Verify legacy warehouse ownership outside supplier-pickup launch admission
         run: python3 tests/warehouses.py
       - name: Verify reference warehouse bins and stock placement
         run: python3 tests/warehouse-bins.py
