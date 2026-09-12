@@ -256,7 +256,7 @@ def funding(record,key,source,reference,token=None):
  return rpc('jana_ops_procurement_funding_record',token or f['atok'],key,record['job_id'],record['id'],source,reference,'Disposable funding evidence only')
 def settlement(job_id,funding_id,key,amount,reference,token=None):
  return rpc('jana_ops_procurement_settlement_record',token or f['atok'],key,job_id,funding_id,amount,reference,'Disposable settlement evidence only')
-fails(rpc('jana_procurement_handover_prepare',f['atok'],'missing-funding-'+uuid.uuid4().hex,order['id'],p+'c',6,'Funding attribution is intentionally missing'),'procurement_funding_required')
+fails(rpc('jana_ops_procurement_handover_prepare',f['atok'],'missing-funding-'+uuid.uuid4().hex,job['id'],p+'c',6,'Funding attribution is intentionally missing'),'procurement_funding_required')
 fund_employee_key='procurement-funding-employee-'+uuid.uuid4().hex
 fund_employee_query=funding(first,fund_employee_key,'employee_paid','FIXTURE-EMPLOYEE-FUNDED')
 fund_employee=val(fund_employee_query)
@@ -312,9 +312,9 @@ other_courier_token=secrets.token_hex(32)
 run("INSERT INTO sessions(token_hash,user_id,csrf_hash,expires_at,created_at) VALUES(encode(extensions.digest("+literal(other_courier_token)+",'sha256'),'hex'),"+literal(p+'d')+",'unused',extract(epoch from clock_timestamp())::bigint*1000+300000,extract(epoch from clock_timestamp())::bigint*1000);")
 handover_before=val('SELECT jsonb_build_object(\'order\',to_jsonb(o),\'job\',to_jsonb(j)) FROM orders o JOIN procurement_jobs j ON j.order_id=o.id WHERE o.id='+literal(order['id'])+';')
 prepare_key='procurement-handover-'+uuid.uuid4().hex
-prepare_query=rpc('jana_procurement_handover_prepare',f['atok'],prepare_key,order['id'],p+'c',6,'Disposable physical goods handover')
-fails(rpc('jana_procurement_handover_prepare',f['t'],'customer-handover-'+uuid.uuid4().hex,order['id'],p+'c',6,'Customer cannot prepare custody'),'forbidden')
-fails(rpc('jana_procurement_handover_prepare',f['atok'],'stale-handover-'+uuid.uuid4().hex,order['id'],p+'c',5,'Stale handover attempt'),'procurement_changed')
+prepare_query=rpc('jana_ops_procurement_handover_prepare',f['atok'],prepare_key,job['id'],p+'c',6,'Disposable physical goods handover')
+fails(rpc('jana_ops_procurement_handover_prepare',f['t'],'customer-handover-'+uuid.uuid4().hex,job['id'],p+'c',6,'Customer cannot prepare custody'),'forbidden')
+fails(rpc('jana_ops_procurement_handover_prepare',f['atok'],'stale-handover-'+uuid.uuid4().hex,job['id'],p+'c',5,'Stale handover attempt'),'procurement_changed')
 prepared=val(prepare_query)
 assert prepared['state']=='handover_pending' and prepared['revision']==7 and prepared['courier_id']==p+'c'
 assert prepared['courier_accepted'] is False and prepared['supplier_cost_total_halalas']==1050
@@ -326,15 +326,30 @@ assert prepared['purchase_funding_recorded'] is True
 assert prepared['employee_reimbursement_outstanding_halalas']==300
 assert prepared['supplier_payable_outstanding_halalas']==0
 assert val(prepare_query)==prepared
-fails(rpc('jana_procurement_handover_prepare',f['atok'],prepare_key,order['id'],p+'d',6,'Conflicting courier'),'idempotency_conflict')
+fails(rpc('jana_ops_procurement_handover_prepare',f['atok'],prepare_key,job['id'],p+'d',6,'Conflicting courier'),'idempotency_conflict')
 pending_order=val('SELECT jsonb_build_object(\'fulfillment_state\',fulfillment_state,\'delivery_state\',delivery_state,\'courier_id\',courier_id) FROM orders WHERE id='+literal(order['id'])+';')
 assert pending_order==dict(fulfillment_state='queued',delivery_state='unassigned',courier_id=None)
+roster=val(rpc('jana_procurement_active_couriers',f['atok']))
+assert any(row==dict(id=p+'c',name='Audit fixture') for row in roster)
+assert all(set(row)=={'id','name'} for row in roster)
+fails(rpc('jana_procurement_active_couriers',f['ct']),'forbidden')
+courier_page=val(rpc('jana_procurement_jobs_page',f['ct'],50,None,None,'handover_pending'))
+assert len(courier_page['items'])==1 and courier_page['items'][0]['id']==job['id']
+assert courier_page['courier_custody_only'] and not courier_page['financial_detail_included']
+courier_detail=val(rpc('jana_procurement_job_detail',f['ct'],job['id']))
+assert courier_detail['courier_custody_only'] and courier_detail['customer_terms'] is None
+assert courier_detail['purchases']==[] and courier_detail['funding']==[] and courier_detail['settlements']==[]
+assert courier_detail['handover']['request_id']==prepared['id'] and len(courier_detail['lines'])==1
+assert all(secret not in json.dumps(courier_detail) for secret in ['Fixture retailer','FIXTURE-RECEIPT','supplier_cost_total_halalas','customer_total_halalas','line_total_halalas','purchase_record_ids'])
+fails(rpc('jana_procurement_job_detail',other_courier_token,job['id']),'forbidden')
+fails(rpc('jana_update_staff',f['atok'],p+'c',dict(active=False),'Cannot disable pending custody courier'),'staff_has_active_orders')
+assert val('SELECT active FROM users WHERE id='+literal(p+'c')) is True
 passed('purchasing employee freezes exact collected evidence without prematurely assigning delivery')
 
 accept_key='procurement-handover-accept-'+uuid.uuid4().hex
-accept_query=rpc('jana_procurement_handover_accept',f['ct'],accept_key,prepared['id'],7,'Courier counted and accepted the physical goods')
-fails(rpc('jana_procurement_handover_accept',other_courier_token,'wrong-courier-'+uuid.uuid4().hex,prepared['id'],7,'Wrong courier cannot accept'),'procurement_handover_not_found')
-fails(rpc('jana_procurement_handover_accept',f['atok'],'admin-accept-'+uuid.uuid4().hex,prepared['id'],7,'Admin cannot impersonate courier'),'forbidden')
+accept_query=rpc('jana_ops_procurement_handover_accept',f['ct'],accept_key,job['id'],prepared['id'],7,'Courier counted and accepted the physical goods')
+fails(rpc('jana_ops_procurement_handover_accept',other_courier_token,'wrong-courier-'+uuid.uuid4().hex,job['id'],prepared['id'],7,'Wrong courier cannot accept'),'procurement_handover_not_found')
+fails(rpc('jana_ops_procurement_handover_accept',f['atok'],'admin-accept-'+uuid.uuid4().hex,job['id'],prepared['id'],7,'Admin cannot impersonate courier'),'forbidden')
 accepted=val(accept_query)
 assert accepted['state']=='handed_over' and accepted['revision']==8 and accepted['courier_accepted']
 assert accepted['fulfillment_state']=='ready' and accepted['delivery_state']=='assigned'
@@ -342,7 +357,7 @@ assert accepted['supplier_cost_total_halalas']==1050 and accepted['customer_tota
 assert accepted['inventory_changed'] is False and accepted['cash_changed'] is False
 assert accepted['supplier_settlement_recorded'] is False and accepted['employee_settlement_recorded'] is False
 assert val(accept_query)==accepted
-fails(rpc('jana_procurement_handover_accept',f['ct'],accept_key,prepared['id'],7,'Conflicting acceptance note'),'idempotency_conflict')
+fails(rpc('jana_ops_procurement_handover_accept',f['ct'],accept_key,job['id'],prepared['id'],7,'Conflicting acceptance note'),'idempotency_conflict')
 handover_after=val('SELECT jsonb_build_object(\'order\',to_jsonb(o),\'job\',to_jsonb(j)) FROM orders o JOIN procurement_jobs j ON j.order_id=o.id WHERE o.id='+literal(order['id'])+';')
 assert handover_after['order']['fulfillment_state']=='ready' and handover_after['order']['delivery_state']=='assigned'
 assert handover_after['order']['courier_id']==p+'c' and handover_after['job']['state']=='handed_over'
@@ -354,6 +369,7 @@ fails('UPDATE procurement_handover_requests SET note=\'tampered\' WHERE id='+lit
 fails('DELETE FROM procurement_handover_acceptances WHERE id='+literal(accepted['id'])+';','append_only')
 assert val("SELECT count(*) FROM pg_class WHERE relname IN ('procurement_handover_requests','procurement_handover_acceptances') AND relrowsecurity AND NOT has_table_privilege('anon',oid,'SELECT') AND NOT has_table_privilege('authenticated',oid,'SELECT') AND NOT has_table_privilege('service_role',oid,'SELECT');")==2
 assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_procurement_handover_prepare','jana_procurement_handover_accept') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE') OR has_function_privilege('service_role',oid,'EXECUTE'));")==0
+assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_procurement_active_couriers','jana_ops_procurement_handover_prepare','jana_ops_procurement_handover_accept') AND has_function_privilege('service_role',oid,'EXECUTE') AND NOT has_function_privilege('anon',oid,'EXECUTE') AND NOT has_function_privilege('authenticated',oid,'EXECUTE');")==3
 assert val("SELECT count(*) FROM audit_log WHERE entity_id IN ("+literal(prepared['id'])+','+literal(accepted['id'])+") AND action IN ('procurement_handover_prepared','procurement_handover_accepted');")==2
 assert val("SELECT count(*) FROM order_events WHERE order_id="+literal(order['id'])+" AND event IN ('procurement_handover_prepared','procurement_handover_accepted');")==2
 assert val('SELECT jana_deep_health();')['ok']

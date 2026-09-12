@@ -48,6 +48,20 @@ function procurementSettlementPayload(value:any){
  if(!fundingId||!/^pfd-[0-9a-f]{32}$/.test(fundingId)||!Number.isSafeInteger(amount)||amount<1||amount>9000000000000||!reference||!note)throw new Error('procurement_settlement_validation');
  return {funding_id:fundingId,amount_halalas:amount,payment_reference:reference,note};
 }
+function procurementHandoverPreparePayload(value:any){
+ const keys=new Set(['courier_id','expected_revision','note']);
+ if(!onlyKeys(value,keys)||Object.keys(value).length!==keys.size)throw new Error('procurement_handover_validation');
+ const courierId=boundedText(value.courier_id,1,36),revision=value.expected_revision,note=boundedText(value.note,3,1000);
+ if(!courierId||!Number.isSafeInteger(revision)||revision<1||!note)throw new Error('procurement_handover_validation');
+ return {courier_id:courierId,expected_revision:revision,note};
+}
+function procurementHandoverAcceptPayload(value:any){
+ const keys=new Set(['request_id','expected_revision','note']);
+ if(!onlyKeys(value,keys)||Object.keys(value).length!==keys.size)throw new Error('procurement_handover_validation');
+ const requestId=boundedText(value.request_id,1,36),revision=value.expected_revision,note=boundedText(value.note,3,1000);
+ if(!requestId||!/^phr-[0-9a-f]{32}$/.test(requestId)||!Number.isSafeInteger(revision)||revision<1||!note)throw new Error('procurement_handover_validation');
+ return {request_id:requestId,expected_revision:revision,note};
+}
 async function currentUser(token:string){if(!token)throw Object.assign(new Error('auth_required'),{status:401});return rpc('jana_me',{p_token:token})}
 async function role(token:string,roles:string[]){const u=await currentUser(token);if(!roles.includes(u.role))throw Object.assign(new Error('forbidden'),{status:403});return u}
 function page(items:any[],u:URL){const offset=Math.max(0,Number(u.searchParams.get('offset')||0)||0),limit=Math.min(100,Math.max(1,Number(u.searchParams.get('limit')||50)||50));return {items:items.slice(offset,offset+limit),next_offset:offset+limit<items.length?offset+limit:null}}
@@ -82,6 +96,15 @@ function procurementErrPayload(e:any){
 	 procurement_settlement_not_found:[404,'PROCUREMENT_SETTLEMENT_NOT_FOUND','تعذر ربط التسوية بمهمة الشراء المطلوبة'],
 	 procurement_settlement_not_payable:[409,'PROCUREMENT_SETTLEMENT_NOT_PAYABLE','دفع الشركة لا ينشئ مستحقًا قابلًا للتسوية'],
 	 procurement_settlement_exceeded:[409,'PROCUREMENT_SETTLEMENT_EXCEEDED','مبلغ التسوية يتجاوز الرصيد المتبقي'],
+	 procurement_handover_validation:[422,'PROCUREMENT_HANDOVER_VALIDATION','اختر مندوبًا صالحًا وراجع المهمة والملاحظة ثم حدّث البيانات'],
+	 procurement_handover_not_found:[404,'PROCUREMENT_HANDOVER_NOT_FOUND','طلب العهدة غير موجود أو لا يخص هذه المهمة والمندوب'],
+	 procurement_courier_invalid:[409,'PROCUREMENT_COURIER','اختر مندوب توصيل نشطًا'],
+	 procurement_funding_required:[409,'PROCUREMENT_FUNDING_REQUIRED','وثّق مصدر تمويل كل عملية شراء قبل تسليم العهدة'],
+	 procurement_collection_evidence_invalid:[409,'PROCUREMENT_COLLECTION_EVIDENCE','الكميات المجموعة لا تطابق الطلب الحالي. راجع سجل الشراء'],
+	 procurement_handover_exists:[409,'PROCUREMENT_HANDOVER_EXISTS','سبق إنشاء طلب عهدة لهذه المهمة. حدّث المهمة'],
+	 procurement_handover_state_invalid:[409,'PROCUREMENT_HANDOVER_STATE','لم تعد المهمة بانتظار قبول هذه العهدة'],
+	 procurement_handover_already_accepted:[409,'PROCUREMENT_HANDOVER_ACCEPTED','سبق قبول هذه العهدة. حدّث المهمة'],
+	 procurement_handover_evidence_changed:[409,'PROCUREMENT_HANDOVER_EVIDENCE','تغير دليل الشراء بعد تجهيز العهدة. أوقف الإجراء وراجع السجل'],
 	  procurement_order_invalid:[409,'PROCUREMENT_ORDER','الطلب ليس نشطًا ضمن مسار الشراء المباشر'],
 	  procurement_job_not_found:[404,'PROCUREMENT_JOB_NOT_FOUND','مهمة الشراء غير موجودة'],
   procurement_shortage_decision_validation:[422,'SHORTAGE_DECISION_VALIDATION','أدخل ملاحظة واضحة ثم اختر الموافقة أو الرفض صراحةً'],
@@ -189,6 +212,10 @@ Deno.serve(guard(async(req:Request)=>{const requestId=crypto.randomUUID();try{
    ||(state!==null&&!states.has(state)))throw new Error('invalid_orders_page');
   return json(await rpc('jana_procurement_jobs_page',{p_token:token,p_limit:limit,p_before_at:beforeAt,p_before_id:beforeId,p_state:state}),200,{'x-request-id':requestId});
  }
+ if(p==='/api/ops/procurement-couriers'&&m==='GET'){
+  if(!token)throw Object.assign(new Error('auth_required'),{status:401});
+  return json({items:await rpc('jana_procurement_active_couriers',{p_token:token})},200,{'x-request-id':requestId});
+ }
  mm=p.match(/^\/api\/ops\/procurement\/(prc-[0-9a-f]{32})$/);if(mm&&m==='GET'){
   if(!token)throw Object.assign(new Error('auth_required'),{status:401});
   return json(await rpc('jana_procurement_job_detail',{p_token:token,p_job_id:mm[1]}),200,{'x-request-id':requestId});
@@ -216,6 +243,14 @@ Deno.serve(guard(async(req:Request)=>{const requestId=crypto.randomUUID();try{
 	mm=p.match(/^\/api\/ops\/procurement\/(prc-[0-9a-f]{32})\/settlements$/);if(mm&&m==='POST'){
 	 requireCsrf(req);const b=procurementSettlementPayload(await body(req));
 	 return json(await rpc('jana_ops_procurement_settlement_record',{p_token:token,p_idem_key:requiredIdempotency(req),p_job_id:mm[1],p_funding_id:b.funding_id,p_amount_halalas:b.amount_halalas,p_payment_reference:b.payment_reference,p_note:b.note}),201,{'x-request-id':requestId});
+	}
+	mm=p.match(/^\/api\/ops\/procurement\/(prc-[0-9a-f]{32})\/handover$/);if(mm&&m==='POST'){
+	 requireCsrf(req);const b=procurementHandoverPreparePayload(await body(req));
+	 return json(await rpc('jana_ops_procurement_handover_prepare',{p_token:token,p_idem_key:requiredIdempotency(req),p_job_id:mm[1],p_courier_id:b.courier_id,p_expected_revision:b.expected_revision,p_note:b.note}),201,{'x-request-id':requestId});
+	}
+	mm=p.match(/^\/api\/ops\/procurement\/(prc-[0-9a-f]{32})\/handover-accept$/);if(mm&&m==='POST'){
+	 requireCsrf(req);const b=procurementHandoverAcceptPayload(await body(req));
+	 return json(await rpc('jana_ops_procurement_handover_accept',{p_token:token,p_idem_key:requiredIdempotency(req),p_job_id:mm[1],p_request_id:b.request_id,p_expected_revision:b.expected_revision,p_note:b.note}),201,{'x-request-id':requestId});
 	}
  if(p==='/api/ops/reports'&&m==='GET'){await role(token,['admin','finance']);return json(await rpc('jana_admin_reports',{p_token:token}),200,{'x-request-id':requestId})}
  if(p==='/api/ops/staff'&&m==='POST'){requireCsrf(req);const b=await body(req);return json(await rpc('jana_staff_write',{p_token:token,p_idem_key:requiredIdempotency(req),p_operation:'staff.create',p_payload:{email:b.email,name:b.name,password:b.password,role:b.role}}),201,{'x-request-id':requestId})}

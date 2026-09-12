@@ -3,13 +3,14 @@ import {
  appendProcurementPage,canSeeProcurementFinance,isProcurementRole,procurementAdjustmentFacts,
  procurementAssignmentFacts,procurementPageUrl,procurementPurchaseFacts,procurementPurchasePayload,
  procurementFundingFacts,procurementFundingPayload,procurementSettlementFacts,procurementSettlementPayload,
+ procurementHandoverPrepareFacts,procurementHandoverPreparePayload,procurementHandoverAcceptFacts,procurementHandoverAcceptPayload,
  procurementQuantity,procurementQuantityValue,procurementStateLabel
 } from '../mobile/procurement.mjs';
 
 const id='prc-'+'1'.repeat(32);
-test('native procurement access is limited to the three server read roles',()=>{
- for(const role of ['admin','finance','picker'])assert.equal(isProcurementRole(role),true);
- for(const role of ['customer','courier','inventory',null])assert.equal(isProcurementRole(role),false);
+test('native procurement access includes the courier custody role without finance visibility',()=>{
+ for(const role of ['admin','finance','picker','courier'])assert.equal(isProcurementRole(role),true);
+ for(const role of ['customer','inventory',null])assert.equal(isProcurementRole(role),false);
  assert.equal(canSeeProcurementFinance('finance'),true);assert.equal(canSeeProcurementFinance('picker'),false);
 });
 test('native procurement pagination encodes a bounded state and complete cursor',()=>{
@@ -55,9 +56,19 @@ test('native finance actions require explicit funding and cap settlement at the 
  assert.deepEqual(procurementSettlementPayload({facts:settlement,fundingId:entry.id,amount:'٧٫٥٠',paymentReference:' PAY-1 ',note:' سداد جزئي '}),{funding_id:entry.id,amount_halalas:750,payment_reference:'PAY-1',note:'سداد جزئي'});
  assert.throws(()=>procurementSettlementPayload({facts:settlement,fundingId:entry.id,amount:'7.51',paymentReference:'PAY-2',note:'سداد زائد'}),/المبلغ/);
 });
+test('native handover requires funded collection and explicit courier counting',()=>{
+ const purchase={id:'pur-'+'2'.repeat(32)},funding={purchase_record_id:purchase.id},ready={job:{id,state:'ready',revision:7,assigned_to:'staff-fixture'},lines:[{line_id:'line-1'}],purchases:[purchase],funding:[funding],handover:null};
+ const prepare=procurementHandoverPrepareFacts(ready,{id:'staff-fixture',role:'picker'});assert.deepEqual(prepare,{jobId:id,revision:7,lineCount:1});
+ assert.deepEqual(procurementHandoverPreparePayload({facts:prepare,courierId:'courier-fixture',note:'  عهدة معدودة  '}),{courier_id:'courier-fixture',expected_revision:7,note:'عهدة معدودة'});
+ assert.equal(procurementHandoverPrepareFacts({...ready,funding:[]},{id:'staff-fixture',role:'picker'}),null);
+ const pending={job:{id,state:'handover_pending',revision:8},lines:[{line_id:'line-1'}],handover:{request_id:'phr-'+'3'.repeat(32)},courier_custody_only:true};
+ const accept=procurementHandoverAcceptFacts(pending,'courier');assert.deepEqual(accept,{jobId:id,requestId:'phr-'+'3'.repeat(32),revision:8,lineCount:1});
+ assert.deepEqual(procurementHandoverAcceptPayload({facts:accept,note:'  استلمت فعليًا  ',confirmed:true}),{request_id:accept.requestId,expected_revision:8,note:'استلمت فعليًا'});
+ assert.throws(()=>procurementHandoverAcceptPayload({facts:accept,note:'استلمت فعليًا',confirmed:false}),/أكد/);assert.equal(procurementHandoverAcceptFacts(pending,'picker'),null);
+});
 test('native staff workspace exposes scoped assignment, purchase and approved-adjustment writes without customer contact',()=>{
  const source=readFileSync(new URL('../mobile/ProcurementWorkspace.js',import.meta.url),'utf8');
- assert.match(source,/\/api\/ops\/procurement/);assert.match(source,/\/assignment/);assert.match(source,/\/purchases/);assert.match(source,/\/funding/);assert.match(source,/\/settlements/);assert.match(source,/shortage-adjustment/);assert.match(source,/method\s*:\s*['"]POST/);assert.doesNotMatch(source,/method\s*:\s*['"](?:PATCH|PUT|DELETE)/);
+ assert.match(source,/\/api\/ops\/procurement/);assert.match(source,/\/assignment/);assert.match(source,/\/purchases/);assert.match(source,/\/funding/);assert.match(source,/\/settlements/);assert.match(source,/\/handover/);assert.match(source,/handover-accept/);assert.match(source,/shortage-adjustment/);assert.match(source,/method\s*:\s*['"]POST/);assert.doesNotMatch(source,/method\s*:\s*['"](?:PATCH|PUT|DELETE)/);
  assert.doesNotMatch(source,/customer_(?:name|phone|email|address)|recipient_(?:name|phone)/);
  assert.match(source,/financial_detail_included===true/);assert.match(source,/بيانات اتصال العميل غير معروضة/);assert.match(source,/لن تُضاف رسوم ولن يتغير السعر الأصلي/);assert.match(source,/لن يتغير سعر العميل أو المخزون/);assert.match(source,/ليست هذه تسوية دفع/);
  const app=readFileSync(new URL('../mobile/App.js',import.meta.url),'utf8');

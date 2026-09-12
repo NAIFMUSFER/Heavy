@@ -1,7 +1,7 @@
 import {moneyValue} from './input.mjs';
 import {latinDigits} from './address.mjs';
 
-export const PROCUREMENT_ROLES=new Set(['admin','finance','picker']);
+export const PROCUREMENT_ROLES=new Set(['admin','finance','picker','courier']);
 
 export const PROCUREMENT_STATES=[
  ['','الكل'],['unassigned','غير مسندة'],['assigned','مسندة'],['collecting','قيد الجمع'],
@@ -56,6 +56,30 @@ export function procurementSettlementPayload({facts,fundingId,amount,paymentRefe
  return {funding_id:entry.id,amount_halalas,payment_reference:reference,note:text};
 }
 
+export function procurementHandoverPrepareFacts(data,user){
+ const job=data?.job||{},purchases=data?.purchases||[],funded=new Set((data?.funding||[]).map(entry=>entry.purchase_record_id));
+ if(!['admin','picker'].includes(user?.role)||job.assigned_to!==user?.id||job.state!=='ready'||data?.handover||!purchases.length||purchases.some(record=>!funded.has(record.id))||!/^prc-[0-9a-f]{32}$/.test(job.id||'')||!Number.isSafeInteger(Number(job.revision))||Number(job.revision)<1)return null;
+ return {jobId:job.id,revision:Number(job.revision),lineCount:(data.lines||[]).length};
+}
+
+export function procurementHandoverPreparePayload({facts,courierId,note}){
+ const id=String(courierId||'').trim(),text=String(note||'').trim();
+ if(!facts||!id||id.length>36||text.length<3||text.length>1000)throw Error('اختر مندوبًا نشطًا وأدخل ملاحظة واضحة');
+ return {courier_id:id,expected_revision:facts.revision,note:text};
+}
+
+export function procurementHandoverAcceptFacts(data,role){
+ const job=data?.job||{},handover=data?.handover||{};
+ if(role!=='courier'||data?.courier_custody_only!==true||job.state!=='handover_pending'||!/^prc-[0-9a-f]{32}$/.test(job.id||'')||!/^phr-[0-9a-f]{32}$/.test(handover.request_id||'')||!Number.isSafeInteger(Number(job.revision))||Number(job.revision)<1)return null;
+ return {jobId:job.id,requestId:handover.request_id,revision:Number(job.revision),lineCount:(data.lines||[]).length};
+}
+
+export function procurementHandoverAcceptPayload({facts,note,confirmed}){
+ const text=String(note||'').trim();
+ if(!facts||confirmed!==true||text.length<3||text.length>1000)throw Error('أكد عد الأصناف واستلامها وأدخل ملاحظة واضحة');
+ return {request_id:facts.requestId,expected_revision:facts.revision,note:text};
+}
+
 export function procurementQuantityValue(value,max){
  const text=(typeof value==='string'||typeof value==='number'?latinDigits(value):'').replace(/٫/g,'.').trim();
  if(!/^\d+(\.\d{1,3})?$/.test(text))throw Error('أدخل كمية موجبة بحد أقصى ثلاث منازل عشرية');
@@ -105,4 +129,4 @@ export function procurementQuantity(value){
  const n=Number(value);return Number.isFinite(n)?new Intl.NumberFormat('ar-SA-u-nu-latn',{maximumFractionDigits:3}).format(n):'غير مسجلة';
 }
 
-export function procurementRoleLabel(role){return({admin:'الإدارة',finance:'المالية',picker:'موظف الشراء'})[role]||role}
+export function procurementRoleLabel(role){return({admin:'الإدارة',finance:'المالية',picker:'موظف الشراء',courier:'مندوب التوصيل'})[role]||role}

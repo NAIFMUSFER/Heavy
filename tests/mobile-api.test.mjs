@@ -28,7 +28,9 @@ for(const [operation,body] of [
  ['assignment',{employee_id:'staff-fixture',expected_revision:2,reason:'Assigned for direct supplier collection'}],
  ['purchases',{expected_revision:2,supplier_id:'supplier-fixture',pickup_site_id:'pup-'+'2'.repeat(32),document_reference:'INV-100',note:'Physical supplier visit',lines:[{line_id:'line-1',collected_qty:1,actual_cost_halalas:1250,quality_note:'Accepted quality'}]}],
  ['funding',{purchase_record_id:'pur-'+'3'.repeat(32),funding_source:'employee_paid',evidence_reference:'ADV-100',note:'Employee actually funded purchase'}],
- ['settlements',{funding_id:'pfd-'+'4'.repeat(32),amount_halalas:500,payment_reference:'PAY-100',note:'Actual partial reimbursement'}]
+ ['settlements',{funding_id:'pfd-'+'4'.repeat(32),amount_halalas:500,payment_reference:'PAY-100',note:'Actual partial reimbursement'}],
+ ['handover',{courier_id:'courier-fixture',expected_revision:7,note:'Physical custody prepared'}],
+ ['handover-accept',{request_id:'phr-'+'5'.repeat(32),expected_revision:8,note:'Courier counted physical goods'}]
 ])test(`staff procurement ${operation} retry survives restart with the original audited intent key`,async()=>{
  const storage=store(),path='/api/ops/procurement/prc-'+'1'.repeat(32)+'/'+operation,options={method:'POST',token:'staff-fixture',body};let original;
  const one=createApiClient({base,storage,fetchImpl:async(u,i)=>{original=i.headers['idempotency-key'];throw Error('offline after procurement write')}});await assert.rejects(one(path,options),e=>e.code==='NETWORK_UNKNOWN');
