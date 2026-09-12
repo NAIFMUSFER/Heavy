@@ -123,8 +123,6 @@ BEGIN
  THEN RAISE EXCEPTION 'procurement_handover_validation';END IF;
  SELECT * INTO j FROM public.procurement_jobs WHERE id=p_job_id FOR SHARE;
  IF j.id IS NULL THEN RAISE EXCEPTION 'procurement_job_not_found';END IF;
- IF j.assigned_to IS DISTINCT FROM u.id OR j.state<>'ready'
- THEN RAISE EXCEPTION 'procurement_custody_required';END IF;
  result=public.jana_procurement_handover_prepare(
   p_token,p_idem_key,j.order_id,trim(p_courier_id),p_expected_revision,p_note
  );

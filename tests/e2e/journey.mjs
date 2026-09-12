@@ -279,6 +279,7 @@ try{
 
  phase='delivery proof and separate cash collection';
  await assign('courier');const courier=await login('courier');
+ await change(courier,'/api/ops/orders',()=>courier.locator('[data-page=orders]').click(),'GET');
  await change(courier,'/api/ops/orders/'+confirmed.id+'/dispatch',()=>courier.locator('[data-action=dispatch]').click());
  const directions=new URL(await courier.locator('[data-delivery-directions]').getAttribute('href'));assert.equal(directions.origin,'https://www.google.com');assert.equal(directions.searchParams.get('destination'),'16.5,42.5');assert.match(await courier.locator('[data-delivery-phone]').getAttribute('href'),/^tel:\+9665\d{8}$/);
  pass('assigned courier can open the exact delivery destination and validated recipient telephone');
