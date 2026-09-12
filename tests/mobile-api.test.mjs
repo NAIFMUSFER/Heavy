@@ -19,6 +19,11 @@ test('customer shortage decision retry survives restart with its original decisi
  const one=createApiClient({base,storage,fetchImpl:async(u,i)=>{original=i.headers['idempotency-key'];throw Error('offline after decision')}});await assert.rejects(one(path,options),e=>e.code==='NETWORK_UNKNOWN');
  const two=createApiClient({base,storage,fetchImpl:async(u,i)=>{assert.equal(i.headers['idempotency-key'],original);return Response.json({decision:'approve_removal'})}});assert.equal((await two(path,options)).decision,'approve_removal');
 });
+test('staff shortage adjustment retry survives restart with the original audited intent key',async()=>{
+ const storage=store(),path='/api/ops/procurement/prc-'+'1'.repeat(32)+'/shortage-adjustment',options={method:'POST',token:'staff-fixture',body:{request_id:'shr-'+'2'.repeat(32),expected_revision:5,reason:'Exact customer-approved reduction'}};let original;
+ const one=createApiClient({base,storage,fetchImpl:async(u,i)=>{original=i.headers['idempotency-key'];throw Error('offline after adjustment')}});await assert.rejects(one(path,options),e=>e.code==='NETWORK_UNKNOWN');
+ const two=createApiClient({base,storage,fetchImpl:async(u,i)=>{assert.equal(i.headers['idempotency-key'],original);return Response.json({job_state:'ready'})}});assert.equal((await two(path,options)).job_state,'ready');
+});
 for(const path of ['/api/shopping-lists','/api/recurring'])test(`${path}: uncertain creation retains its key across mobile restart`,async()=>{
  const storage=store(),options={method:'POST',token:'fixture',body:{name:'Saved fixture',items:[]}};let original;const one=createApiClient({base,storage,fetchImpl:async(u,i)=>{original=i.headers['idempotency-key'];throw Error('offline')}});await assert.rejects(one(path,options));const two=createApiClient({base,storage,fetchImpl:async(u,i)=>{assert.equal(i.headers['idempotency-key'],original);return Response.json({id:'saved-fixture'})}});assert.equal((await two(path,options)).id,'saved-fixture');
 });

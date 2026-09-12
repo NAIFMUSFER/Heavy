@@ -21,6 +21,14 @@ function page(items:any[],u:URL){const offset=Math.max(0,Number(u.searchParams.g
 function procurementErrPayload(e:any){
  const raw=String(e?.message||'').toLowerCase();
  const map:Record<string,[number,string,string]>={
+  procurement_adjustment_validation:[422,'ADJUSTMENT_VALIDATION','أدخل سببًا واضحًا وراجع مهمة الشراء وطلب النقص'],
+  procurement_adjustment_not_found:[404,'ADJUSTMENT_NOT_FOUND','طلب النقص غير مرتبط بمهمة الشراء هذه'],
+  procurement_shortage_not_approved:[409,'SHORTAGE_NOT_APPROVED','يلزم قرار موافقة صريح من العميل قبل تطبيق التخفيض'],
+  procurement_shortage_evidence_invalid:[409,'SHORTAGE_EVIDENCE','تغير دليل النقص أو لا يطابق موافقة العميل. أوقف الإجراء وراجع السجل'],
+  procurement_adjustment_exists:[409,'ADJUSTMENT_EXISTS','طُبق هذا التخفيض بالفعل. حدّث المهمة'],
+  procurement_order_terms_unsupported:[409,'ORDER_TERMS_UNSUPPORTED','شروط هذا الطلب تحتاج مراجعة مالية يدوية قبل تطبيق التخفيض'],
+  procurement_empty_order_requires_cancellation:[409,'ORDER_REQUIRES_CANCELLATION','لا يمكن تطبيق التخفيض على جميع الأصناف؛ استخدم مسار الإلغاء الصريح'],
+  procurement_adjustment_invalid:[409,'ADJUSTMENT_INVALID','تعذر مطابقة التخفيض مع السعر الذي وافق عليه العميل'],
   procurement_shortage_decision_validation:[422,'SHORTAGE_DECISION_VALIDATION','أدخل ملاحظة واضحة ثم اختر الموافقة أو الرفض صراحةً'],
   procurement_shortage_not_found:[404,'SHORTAGE_NOT_FOUND','طلب معالجة النقص غير موجود لهذا الطلب'],
   procurement_shortage_decided:[409,'SHORTAGE_DECIDED','سُجّل قرار هذا النقص بالفعل. حدّث الطلب'],
@@ -129,6 +137,11 @@ Deno.serve(guard(async(req:Request)=>{const requestId=crypto.randomUUID();try{
  mm=p.match(/^\/api\/ops\/procurement\/(prc-[0-9a-f]{32})$/);if(mm&&m==='GET'){
   if(!token)throw Object.assign(new Error('auth_required'),{status:401});
   return json(await rpc('jana_procurement_job_detail',{p_token:token,p_job_id:mm[1]}),200,{'x-request-id':requestId});
+ }
+ mm=p.match(/^\/api\/ops\/procurement\/(prc-[0-9a-f]{32})\/shortage-adjustment$/);if(mm&&m==='POST'){
+  requireCsrf(req);const b=await body(req),shortageRequestId=String(b.request_id||''),revision=Number(b.expected_revision),reason=String(b.reason||'').trim();
+  if(!/^shr-[0-9a-f]{32}$/.test(shortageRequestId)||!Number.isSafeInteger(revision)||revision<1||reason.length<3||reason.length>1000)throw new Error('procurement_adjustment_validation');
+  return json(await rpc('jana_ops_procurement_shortage_apply_adjustment',{p_token:token,p_idem_key:requiredIdempotency(req),p_job_id:mm[1],p_request_id:shortageRequestId,p_expected_revision:revision,p_reason:reason}),200,{'x-request-id':requestId});
  }
  if(p==='/api/ops/reports'&&m==='GET'){await role(token,['admin','finance']);return json(await rpc('jana_admin_reports',{p_token:token}),200,{'x-request-id':requestId})}
  if(p==='/api/ops/staff'&&m==='POST'){requireCsrf(req);const b=await body(req);return json(await rpc('jana_staff_write',{p_token:token,p_idem_key:requiredIdempotency(req),p_operation:'staff.create',p_payload:{email:b.email,name:b.name,password:b.password,role:b.role}}),201,{'x-request-id':requestId})}

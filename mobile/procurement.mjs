@@ -9,6 +9,12 @@ export const PROCUREMENT_STATES=[
 export function isProcurementRole(role){return PROCUREMENT_ROLES.has(role)}
 export function canSeeProcurementFinance(role){return role==='admin'||role==='finance'}
 
+export function procurementAdjustmentFacts(data,role){
+ const job=data?.job||{},shortage=data?.shortage||{},before=Number(data?.customer_terms?.total_halalas),reduction=Number(shortage.proposed_reduction_halalas);
+ if(!canSeeProcurementFinance(role)||data?.financial_detail_included!==true||job.state!=='shortage_approved'||shortage.state!=='approved'||shortage.decision?.decision!=='approve_removal'||!/^prc-[0-9a-f]{32}$/.test(job.id||'')||!/^shr-[0-9a-f]{32}$/.test(shortage.id||'')||!Number.isSafeInteger(Number(job.revision))||Number(job.revision)<1||!Number.isSafeInteger(before)||!Number.isSafeInteger(reduction)||reduction<1||before-reduction<1)return null;
+ return {jobId:job.id,requestId:shortage.id,revision:Number(job.revision),before,reduction,after:before-reduction};
+}
+
 export function procurementStateLabel(value){
  return new Map(PROCUREMENT_STATES).get(value)||value||'غير معروفة';
 }

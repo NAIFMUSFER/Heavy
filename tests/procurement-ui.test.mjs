@@ -57,6 +57,15 @@ test('finance detail includes immutable settlement evidence but still offers no 
  assert.doesNotMatch(modalHtml,/<button|تسجيل تسوية|تعديل الطلب/);
 });
 
+test('finance sees the exact approved reduction while picker and malformed totals fail closed',async()=>{
+ let modalHtml='';const shortageId='shr-'+'2'.repeat(32),detail={job:{id:jobId,order_number:'JN-ADJUST',state:'shortage_approved',revision:5,assigned_name:'المشتري',created_at:1789000000000},customer_terms:{total_halalas:3000},lines:[],purchases:[],funding:[],settlements:[],shortage:{id:shortageId,state:'approved',proposed_reduction_halalas:500,reason:'صنف ناقص',decision:{decision:'approve_removal',note:'أوافق على الحذف'}},financial_detail_included:true};
+ const h=harness({role:'finance',read:async()=>detail});h.context.modal=(title,html)=>{modalHtml=html;return {}};h.run("state.page='procurement'");await h.run(`procurementDetail('${jobId}')`);
+ assert.match(modalHtml,/تطبيق التخفيض الموافق عليه/);assert.match(modalHtml,/30\.00 ر\.س/);assert.match(modalHtml,/5\.00 ر\.س/);assert.match(modalHtml,/25\.00 ر\.س/);assert.match(modalHtml,/لا يضيف رسومًا/);
+ assert.deepEqual(JSON.parse(JSON.stringify(h.run('procurementAdjustmentFacts('+JSON.stringify(detail)+')'))),{job_id:jobId,request_id:shortageId,revision:5,before:3000,reduction:500,after:2500});
+ h.run("state.user.role='picker'");assert.equal(h.run('procurementAdjustmentFacts('+JSON.stringify(detail)+')'),null);
+ h.run("state.user.role='finance'");assert.equal(h.run('procurementAdjustmentFacts('+JSON.stringify({...detail,customer_terms:{total_halalas:500}})+')'),null);
+});
+
 test('a procurement response cannot repaint after session departure',async()=>{
  let resolve;const h=harness({read:()=>new Promise(done=>{resolve=done})});h.run("state.page='procurement'");const pending=h.run('procurementPage()');h.run("state.user=null;clearProcurementPages();root.innerHTML='Signed out'");resolve({items:[pageItem()],next:null});await pending;
  assert.equal(h.root.innerHTML,'Signed out');assert.equal(h.run('state.procurementItems.length'),0);
