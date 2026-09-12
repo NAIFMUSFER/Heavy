@@ -55,8 +55,8 @@ BEGIN
  END IF;
  SELECT * INTO request FROM public.procurement_shortage_requests WHERE id=p_request_id FOR SHARE;
  IF request.id IS NULL OR request.state<>'approved' THEN RAISE EXCEPTION 'procurement_shortage_not_approved';END IF;
- SELECT * INTO decision FROM public.procurement_shortage_decisions
- WHERE request_id=request.id AND decision='approve_removal' FOR SHARE;
+ SELECT d.* INTO decision FROM public.procurement_shortage_decisions d
+ WHERE d.request_id=request.id AND d.decision='approve_removal' FOR SHARE OF d;
  IF decision.id IS NULL OR decision.job_id<>request.job_id OR decision.order_id<>request.order_id
   OR decision.missing_lines_snapshot<>request.missing_lines
   OR decision.proposed_reduction_halalas<>request.proposed_reduction_halalas
