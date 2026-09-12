@@ -69,7 +69,8 @@ export function changeCartQuantity(items,product,delta){
  const index=items.findIndex(x=>x.offering_id===product.id),old=items[index],quantity=(old?.quantity||0)+delta;
  if(delta>0){
   if(index<0&&items.length>=40)throw new Error('الحد الأقصى للسلة 40 صنفًا');
-  if(!Number.isInteger(product.available_units)||quantity>Math.min(20,product.available_units))throw new Error('لا تتوفر كمية إضافية من هذا الصنف');
+  const limit=product.orderable===true&&product.fulfillment_model==='supplier_pickup'?product.max_order_quantity:product.available_units;
+  if(!Number.isInteger(limit)||quantity>Math.min(20,limit))throw new Error('لا تتوفر كمية إضافية من هذا الصنف');
  }
  if(!old&&delta<0)return items;
  const next=items.map(x=>({...x}));
