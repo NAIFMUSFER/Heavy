@@ -95,6 +95,21 @@ test('finance cannot assign or record purchases and collection copy preserves cu
  const source=readFileSync(new URL('../assets/ops.part04.js',import.meta.url),'utf8');assert.match(source,/\/assignment/);assert.match(source,/\/purchases/);assert.match(source,/لن يتغير سعر العميل أو المخزون/);
 });
 
+test('courier lands on custody and sees only frozen quantities with explicit acceptance',async()=>{
+ const requestId='phr-'+'2'.repeat(32),item={...pageItem(),state:'handover_pending',purchase_count:undefined,actual_cost_total_halalas:undefined,customer_total_halalas:undefined,handover_accepted_at:null,courier_custody_only:true};
+ const detail={job:{id:jobId,order_number:'JN-CUSTODY',state:'handover_pending',revision:7,assigned_name:'موظف الشراء',created_at:1789000000000},lines:[{line_id:'line-1',name:'تفاح <أحمر>',size_label:'كبير',qty:2,collected_qty:2}],purchases:[],funding:[],settlements:[],customer_terms:null,handover:{request_id:requestId,created_at:1789000001000,accepted_at:null},courier_custody_only:true,financial_detail_included:false,customer_contact_included:false};
+ let modalHtml='';const h=harness({role:'courier',workspace:'courier',read:async path=>path.includes(jobId)?detail:{items:[item],next:null}});h.context.modal=(title,html)=>{modalHtml=html;return {}};await h.run('setInitialOpsPage();render()');
+ assert.equal(h.run('state.page'),'procurement');assert.match(h.root.innerHTML,/عهد استلام الطلبات|عهد الاستلام/);assert.match(h.root.innerHTML,/بانتظار قبولك/);assert.doesNotMatch(h.root.innerHTML,/التكلفة الفعلية|مستحق المورد|ر\.س/);
+ await h.run(`procurementDetail('${jobId}')`);assert.match(modalHtml,/الأصناف المسلمة وكمياتها/);assert.match(modalHtml,/تفاح &lt;أحمر&gt;/);assert.match(modalHtml,/id="procurement-handover-accept-open"/);assert.match(modalHtml,/لا تتضمن هذه الشاشة بيانات العميل أو المورد/);assert.doesNotMatch(modalHtml,/إجمالي العميل|مرجع المستند|زيارات الموردين|ر\.س/);
+ assert.deepEqual(JSON.parse(JSON.stringify(h.run('procurementHandoverAcceptFacts('+JSON.stringify(detail)+')'))),{job_id:jobId,request_id:requestId,revision:7,line_count:1});
+});
+
+test('assigned purchaser can prepare custody only after every purchase has funding evidence',async()=>{
+ const purchase={id:'pur-'+'3'.repeat(32),total_actual_cost_halalas:100},detail={job:{id:jobId,state:'ready',revision:6,assigned_to:'staff-fixture'},lines:[{line_id:'line-1'}],purchases:[purchase],funding:[{purchase_record_id:purchase.id}],handover:null};
+ const h=harness();assert.deepEqual(JSON.parse(JSON.stringify(h.run('procurementHandoverPrepareFacts('+JSON.stringify(detail)+')'))),{job_id:jobId,revision:6,line_count:1});assert.equal(h.run('procurementHandoverPrepareFacts('+JSON.stringify({...detail,funding:[]})+')'),null);
+ const source=readFileSync(new URL('../assets/ops.part04.js',import.meta.url),'utf8');assert.match(source,/procurement-couriers/);assert.match(source,/\/handover/);assert.match(source,/handover-accept/);assert.match(source,/لا تصبح بيد المندوب ولا جاهزة للتوصيل حتى يقبلها هو صراحة/);
+});
+
 test('a procurement response cannot repaint after session departure',async()=>{
  let resolve;const h=harness({read:()=>new Promise(done=>{resolve=done})});h.run("state.page='procurement'");const pending=h.run('procurementPage()');h.run("state.user=null;clearProcurementPages();root.innerHTML='Signed out'");resolve({items:[pageItem()],next:null});await pending;
  assert.equal(h.root.innerHTML,'Signed out');assert.equal(h.run('state.procurementItems.length'),0);
