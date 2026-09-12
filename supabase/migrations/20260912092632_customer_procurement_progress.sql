@@ -10,7 +10,6 @@ DECLARE
  result jsonb;lines jsonb;shortage jsonb;
 BEGIN
  u=public.jana_auth_user(p_token);
- IF u.role<>'customer' THEN RAISE EXCEPTION 'forbidden';END IF;
  result=public.jana_order_detail_pre_procurement_progress(p_token,p_order_id);
  SELECT * INTO o FROM public.orders WHERE id=p_order_id AND user_id=u.id;
  IF o.id IS NULL THEN RAISE EXCEPTION 'order_not_found';END IF;
