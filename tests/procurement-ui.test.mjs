@@ -56,6 +56,15 @@ test('finance detail includes immutable settlement evidence but still offers no 
  assert.match(modalHtml,/دفعات التسوية/);assert.match(modalHtml,/PAY-&amp;-1/);assert.match(modalHtml,/7\.50 ر\.س/);
  assert.doesNotMatch(modalHtml,/<button|تسجيل تسوية|تعديل الطلب/);
 });
+test('finance controls are derived only from unfunded purchases and open payable balances',async()=>{
+ const purchase={id:'pur-'+'2'.repeat(32),supplier:{name:'مورد فعلي'},document_reference:'INV-1',total_actual_cost_halalas:1250,created_at:1789000000000,lines:[]},funding={id:'pfd-'+'3'.repeat(32),purchase_record_id:'pur-'+'4'.repeat(32),funding_source:'employee_paid',principal_halalas:900,outstanding_halalas:500};
+ const detail={job:{id:jobId,order_number:'JN-FIN-WRITES',state:'collecting',revision:4,assigned_name:'المشتري',created_at:1789000000000},customer_terms:{total_halalas:3000},lines:[],purchases:[purchase],funding:[funding],settlements:[],financial_detail_included:true};
+ let modalHtml='';const h=harness({role:'finance',read:async()=>detail});h.context.modal=(title,html)=>{modalHtml=html;return {}};h.run("state.page='procurement'");await h.run(`procurementDetail('${jobId}')`);
+ assert.match(modalHtml,/id="procurement-funding-open"/);assert.match(modalHtml,/id="procurement-settlement-open"/);assert.match(modalHtml,/لا يوجد مصدر دفع أو توقيت سداد افتراضي/);
+ assert.deepEqual(JSON.parse(JSON.stringify(h.run('procurementFundingFacts('+JSON.stringify(detail)+')'))),{job_id:jobId,purchases:[purchase]});
+ assert.deepEqual(JSON.parse(JSON.stringify(h.run('procurementSettlementFacts('+JSON.stringify(detail)+')'))),{job_id:jobId,funding:[funding]});
+ h.run("state.user.role='picker'");assert.equal(h.run('procurementFundingFacts('+JSON.stringify(detail)+')'),null);assert.equal(h.run('procurementSettlementFacts('+JSON.stringify(detail)+')'),null);
+});
 
 test('finance sees the exact approved reduction while picker and malformed totals fail closed',async()=>{
  let modalHtml='';const shortageId='shr-'+'2'.repeat(32),detail={job:{id:jobId,order_number:'JN-ADJUST',state:'shortage_approved',revision:5,assigned_name:'المشتري',created_at:1789000000000},customer_terms:{total_halalas:3000},lines:[],purchases:[],funding:[],settlements:[],shortage:{id:shortageId,state:'approved',proposed_reduction_halalas:500,reason:'صنف ناقص',decision:{decision:'approve_removal',note:'أوافق على الحذف'}},financial_detail_included:true};
@@ -82,7 +91,7 @@ test('assignment and purchase controls are derived from role, custody, state and
 test('finance cannot assign or record purchases and collection copy preserves customer price boundaries',async()=>{
  let modalHtml='';const detail={job:{id:jobId,order_number:'JN-FIN-ACTIONS',state:'assigned',revision:2,assigned_to:'finance-fixture',created_at:1789000000000},customer_terms:{total_halalas:3000},lines:[{line_id:'line-1',name:'تفاح',qty:1,collected_qty:0,remaining_qty:1}],purchases:[],funding:[],settlements:[],financial_detail_included:true};
  const h=harness({role:'finance',read:async()=>detail});h.context.modal=(title,html)=>{modalHtml=html;return {}};h.run("state.user.id='finance-fixture';state.page='procurement'");await h.run(`procurementDetail('${jobId}')`);
- assert.doesNotMatch(modalHtml,/procurement-(?:assignment|purchase)-open/);assert.match(modalHtml,/السعر الأصلي محفوظ/);assert.match(modalHtml,/التسوية والدفع غير متاحين/);
+ assert.doesNotMatch(modalHtml,/procurement-(?:assignment|purchase)-open/);assert.match(modalHtml,/السعر الأصلي محفوظ/);assert.match(modalHtml,/منفصلتان عن سعر العميل والمخزون/);
  const source=readFileSync(new URL('../assets/ops.part04.js',import.meta.url),'utf8');assert.match(source,/\/assignment/);assert.match(source,/\/purchases/);assert.match(source,/لن يتغير سعر العميل أو المخزون/);
 });
 

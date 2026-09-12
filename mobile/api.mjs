@@ -8,7 +8,7 @@ export function createApiClient({base,storage,fetchImpl=fetch,timeoutMs=20000,ne
  let queue=Promise.resolve();const pending=new Map();
  const serialized=fn=>{const next=queue.then(fn,fn);queue=next.catch(()=>{});return next};
  const journalKey='jana.mobile.retry.v1';
- const critical=(method,path)=>(method==='PUT'&&path==='/api/cart')||method==='POST'&&(path==='/api/quotes'||path==='/api/orders'||path==='/api/shopping-lists'||path==='/api/recurring'||/\/refunds$/.test(path)||/\/procurement-shortage-decision$/.test(path)||/\/shortage-adjustment$/.test(path)||/^\/api\/ops\/procurement\/prc-[0-9a-f]{32}\/(?:assignment|purchases)$/.test(path)||/^\/api\/substitutions\/[^/]+\/decision$/.test(path));
+ const critical=(method,path)=>(method==='PUT'&&path==='/api/cart')||method==='POST'&&(path==='/api/quotes'||path==='/api/orders'||path==='/api/shopping-lists'||path==='/api/recurring'||/\/refunds$/.test(path)||/\/procurement-shortage-decision$/.test(path)||/\/shortage-adjustment$/.test(path)||/^\/api\/ops\/procurement\/prc-[0-9a-f]{32}\/(?:assignment|purchases|funding|settlements)$/.test(path)||/^\/api\/substitutions\/[^/]+\/decision$/.test(path));
  async function journal(token,signature,clear=false){return serialized(async()=>{
   const raw=await storage.getItemAsync(journalKey);let data=raw?JSON.parse(raw):{token,entries:{}};
   // A response may arrive after logout or after another account started work.
