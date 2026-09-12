@@ -268,7 +268,7 @@ try{
  }
  await assign('picker');const picker=await login('picker');
  await picker.getByRole('heading',{name:'مهام شراء الطلبات من الموردين والمحلات'}).waitFor();
- assert.match(await picker.locator('#ops-app').innerText(),/مساحة قراءة فقط/);pass('purchasing employee starts in the warehouse-free read-only task workspace');
+ assert.match(await picker.locator('#ops-app').innerText(),/يسجل موظف الشراء المسند الكميات والتكلفة الفعلية لكل زيارة مورد/);pass('purchasing employee starts in the warehouse-free assigned-purchase workspace');
  await change(picker,'/api/ops/orders',()=>picker.locator('[data-page=orders]').click(),'GET');
  await change(picker,'/api/ops/orders/'+confirmed.id+'/start',()=>picker.locator('[data-action=start][data-id="'+confirmed.id+'"]').click());
  await picker.locator('[data-action=open-pick]').click();await picker.locator('[data-actual] [name=actual_base]').fill('900');
