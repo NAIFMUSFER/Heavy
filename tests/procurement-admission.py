@@ -343,7 +343,7 @@ assert courier_detail['handover']['request_id']==prepared['id'] and len(courier_
 assert all(secret not in json.dumps(courier_detail) for secret in ['Fixture retailer','FIXTURE-RECEIPT','supplier_cost_total_halalas','customer_total_halalas','line_total_halalas','purchase_record_ids'])
 fails(rpc('jana_procurement_job_detail',other_courier_token,job['id']),'forbidden')
 fails(rpc('jana_update_staff',f['atok'],p+'c',dict(active=False),'Cannot disable pending custody courier'),'staff_has_active_orders')
-assert val('SELECT active FROM users WHERE id='+literal(p+'c')) is True
+assert val('SELECT to_jsonb(active) FROM users WHERE id='+literal(p+'c')) is True
 passed('purchasing employee freezes exact collected evidence without prematurely assigning delivery')
 
 accept_key='procurement-handover-accept-'+uuid.uuid4().hex
