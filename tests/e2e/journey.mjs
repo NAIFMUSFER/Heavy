@@ -100,7 +100,7 @@ try{
  pass('warehouse can validate an Arabic Excel stock master before any definition balance lot or movement write');
  await inventory.locator('[data-action=new-supplier]').click();await inventory.locator('#supplier-form [name=name]').fill('مورد اختبار المتصفح');
  const supplier=await change(inventory,'/api/ops/suppliers',()=>inventory.locator('#supplier-form button').click());
- await inventory.locator('#supplier-form').waitFor({state:'detached'});
+ await inventory.locator('#supplier-form').waitFor({state:'hidden'});
  await inventory.getByText('مورد اختبار المتصفح',{exact:false}).last().waitFor();
  const pickupBefore={stock:stock(),cash:Number(sql('SELECT count(*) FROM cash_entries;')),warehouses:Number(sql('SELECT count(*) FROM warehouses;'))};
  await inventory.locator('[data-page=pickup-sites]').click();await inventory.setViewportSize({width:390,height:844});await inventory.locator('#new-pickup-site').click();
