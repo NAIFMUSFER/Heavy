@@ -12,6 +12,24 @@ export function orderFacts(order){
   canRefund:order.delivery_state==='delivered'&&Number.isSafeInteger(collected)&&Number.isSafeInteger(refunded)&&collected>refunded,
   timeline:(order.timeline||[]).filter(e=>events[e.event]&&Number.isSafeInteger(e.created_at)&&e.created_at>0).map(e=>({id:e.id,title:events[e.event],created_at:e.created_at}))};
 }
+const procurementStates={
+ unassigned:['تم تأكيد الطلب','بانتظار تكليف موظف الشراء.'],
+ assigned:['تم تكليف موظف الشراء','سيبدأ جمع احتياجات طلبك من الموردين والمحلات.'],
+ collecting:['جارٍ جمع طلبك','يتم توثيق الكميات التي جُمعت فعليًا لكل صنف.'],
+ awaiting_customer:['موافقتك مطلوبة','تعذر توفير جزء من الطلب، ولن يُحذف أو يتغير سعره قبل موافقتك الصريحة.'],
+ shortage_approved:['تم تسجيل موافقتك','يتم تطبيق التخفيض الموافق عليه قبل تسليم الأصناف للتوصيل.'],
+ ready:['اكتمل الجمع','تُراجع الأصناف المجمعة قبل تسليمها للمندوب.'],
+ handover_pending:['بانتظار استلام المندوب','وثّق موظف الشراء العهدة، ولم يقبلها المندوب بعد.'],
+ handed_over:['استلم المندوب الطلب','انتقلت عهدة الأصناف إلى المندوب للتوصيل.'],
+ cancelled:['أُلغي مسار الجمع','لن تُسلّم أصناف من مسار الشراء لهذا الطلب.']
+};
+export function procurementProgressFacts(order){
+ const p=order?.procurement_progress;if(!p||p.version!==1||!procurementStates[p.state]||!Number.isSafeInteger(p.updated_at)||p.updated_at<=0||!Array.isArray(p.lines))return null;
+ const lines=[];for(const line of p.lines){const requested=Number(line.requested_qty),collected=Number(line.collected_qty),remaining=Number(line.remaining_qty);if(!Number.isFinite(requested)||requested<=0||!Number.isFinite(collected)||collected<0||!Number.isFinite(remaining)||remaining<0||Math.abs(requested-collected-remaining)>1e-6)return null;lines.push({lineId:String(line.line_id||''),name:String(line.name||'صنف'),sizeLabel:String(line.size_label||''),requested,collected,remaining})}
+ if(!Number.isSafeInteger(p.requested_line_count)||p.requested_line_count!==lines.length||p.inventory_reserved!==false||p.supplier_detail_included!==false||p.staff_identity_included!==false||p.actual_cost_included!==false)return null;
+ let shortage=null;const s=p.shortage;if(s!=null){if(!['pending','approved','rejected'].includes(s.state)||!Number.isSafeInteger(s.proposed_reduction_halalas)||s.proposed_reduction_halalas<=0||!Number.isSafeInteger(s.customer_total_before_halalas)||!Number.isSafeInteger(s.customer_total_if_approved_halalas)||s.customer_total_if_approved_halalas!==s.customer_total_before_halalas-s.proposed_reduction_halalas)return null;shortage={state:s.state,reduction:s.proposed_reduction_halalas,totalBefore:s.customer_total_before_halalas,totalIfApproved:s.customer_total_if_approved_halalas}}
+ const [title,message]=procurementStates[p.state];return {state:p.state,title,message,updatedAt:p.updated_at,actionRequired:p.customer_action_required===true,lines,shortage};
+}
 export function cashReceiptFacts(order){
  const receipt=order?.payment_receipt,profile=order?.original_snapshot?.store_profile||order?.snapshot?.store_profile||{},snapshot=order?.snapshot||{};
  if(!receipt||receipt.kind!=='cash_collection_receipt'||receipt.payment_method!=='cash_on_delivery'||receipt.tax_invoice!==false)return null;
