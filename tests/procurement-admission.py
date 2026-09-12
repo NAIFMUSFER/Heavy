@@ -109,14 +109,17 @@ fails(purchase('procurement-while-waiting-'+uuid.uuid4().hex,4,1,500,'FIXTURE-WA
 passed('shortage proposal freezes all missing quantities and displayed-price reduction without applying it')
 
 decision_key='procurement-shortage-decision-'+uuid.uuid4().hex
-decision_query=rpc('jana_procurement_shortage_decide',f['t'],decision_key,shortage['id'],4,'reject_removal','Please continue purchasing the requested item')
-fails(rpc('jana_procurement_shortage_decide',other_token,'wrong-owner-'+uuid.uuid4().hex,shortage['id'],4,'reject_removal','Not the order owner'),'procurement_shortage_not_found')
+fails(rpc('jana_customer_procurement_shortage_decide',f['t'],'wrong-path-'+uuid.uuid4().hex,'order-does-not-match',shortage['id'],4,'reject_removal','The URL order must match the shortage request'),'procurement_shortage_not_found')
+assert val('SELECT to_jsonb(state) FROM procurement_shortage_requests WHERE id='+literal(shortage['id'])+';')=='pending'
+assert val('SELECT count(*) FROM procurement_shortage_decisions WHERE request_id='+literal(shortage['id'])+';')==0
+decision_query=rpc('jana_customer_procurement_shortage_decide',f['t'],decision_key,order['id'],shortage['id'],4,'reject_removal','Please continue purchasing the requested item')
+fails(rpc('jana_customer_procurement_shortage_decide',other_token,'wrong-owner-'+uuid.uuid4().hex,order['id'],shortage['id'],4,'reject_removal','Not the order owner'),'procurement_shortage_not_found')
 decision=val(decision_query)
 assert decision['decision']=='reject_removal' and decision['request_state']=='rejected'
 assert decision['job_state']=='collecting' and decision['revision']==5 and decision['customer_total_changed'] is False
 assert decision['approved_adjustment_applied'] is False and decision['requires_financial_adjustment'] is False
 assert val(decision_query)==decision
-fails(rpc('jana_procurement_shortage_decide',f['t'],decision_key,shortage['id'],4,'approve_removal','Conflicting decision'),'idempotency_conflict')
+fails(rpc('jana_customer_procurement_shortage_decide',f['t'],decision_key,order['id'],shortage['id'],4,'approve_removal','Conflicting decision'),'idempotency_conflict')
 assert val('SELECT total_halalas FROM orders WHERE id='+literal(order['id'])+';')==customer_total
 passed('only the order customer can explicitly decide the shortage and rejection safely resumes collection')
 
@@ -161,9 +164,15 @@ passed('approved removal is immutable explicit consent and blocks collection pen
 
 approval_before=val('SELECT jsonb_build_object(\'total\',total_halalas,\'snapshot\',snapshot::jsonb,\'original\',original_snapshot::jsonb) FROM orders WHERE id='+literal(approval_order['id'])+';')
 adjust_key='procurement-adjust-'+uuid.uuid4().hex
-adjust_query=rpc('jana_procurement_shortage_apply_adjustment',f['atok'],adjust_key,approval_request['id'],5,'Apply only the customer-approved missing quantity reduction')
-fails(rpc('jana_procurement_shortage_apply_adjustment',f['t'],'customer-adjust-'+uuid.uuid4().hex,approval_request['id'],5,'Customer cannot execute internal adjustment'),'forbidden')
-fails(rpc('jana_procurement_shortage_apply_adjustment',f['atok'],'stale-adjust-'+uuid.uuid4().hex,approval_request['id'],4,'Stale adjustment attempt'),'procurement_changed')
+adjust_query=rpc('jana_ops_procurement_shortage_apply_adjustment',f['atok'],adjust_key,approval_job['id'],approval_request['id'],5,'Apply only the customer-approved missing quantity reduction')
+fails(rpc('jana_ops_procurement_shortage_apply_adjustment',f['t'],'customer-adjust-'+uuid.uuid4().hex,approval_job['id'],approval_request['id'],5,'Customer cannot execute internal adjustment'),'forbidden')
+fails(rpc('jana_ops_procurement_shortage_apply_adjustment',f['atok'],'stale-adjust-'+uuid.uuid4().hex,approval_job['id'],approval_request['id'],4,'Stale adjustment attempt'),'procurement_changed')
+# A valid inner adjustment paired with the wrong URL job must roll back every
+# write made by the inner primitive, leaving the real job available to apply.
+fails(rpc('jana_ops_procurement_shortage_apply_adjustment',f['atok'],'wrong-job-adjust-'+uuid.uuid4().hex,job['id'],approval_request['id'],5,'Wrong route job must roll back'),'procurement_adjustment_not_found')
+assert val('SELECT to_jsonb(state) FROM procurement_jobs WHERE id='+literal(approval_job['id'])+';')=='shortage_approved'
+assert val('SELECT count(*) FROM procurement_retail_adjustments WHERE request_id='+literal(approval_request['id'])+';')==0
+assert val('SELECT total_halalas FROM orders WHERE id='+literal(approval_order['id'])+';')==approval_before['total']
 adjusted=val(adjust_query)
 assert adjusted['job_state']=='ready' and adjusted['revision']==6 and adjusted['customer_total_changed']
 assert adjusted['customer_total_before_halalas']==approval_before['total']
@@ -185,6 +194,7 @@ assert business()['balance']==before['balance'] and business()['lot']==before['l
 fails('UPDATE procurement_retail_adjustments SET reason=\'tampered\' WHERE id='+literal(adjusted['id'])+';','append_only')
 assert val("SELECT count(*) FROM pg_class WHERE relname='procurement_retail_adjustments' AND relrowsecurity AND NOT has_table_privilege('anon',oid,'SELECT') AND NOT has_table_privilege('authenticated',oid,'SELECT') AND NOT has_table_privilege('service_role',oid,'SELECT');")==1
 assert val("SELECT count(*) FROM pg_proc WHERE proname='jana_procurement_shortage_apply_adjustment' AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE') OR has_function_privilege('service_role',oid,'EXECUTE'));")==0
+assert val("SELECT count(*) FROM pg_proc WHERE proname='jana_ops_procurement_shortage_apply_adjustment' AND has_function_privilege('service_role',oid,'EXECUTE') AND NOT has_function_privilege('anon',oid,'EXECUTE') AND NOT has_function_privilege('authenticated',oid,'EXECUTE');")==1
 assert val("SELECT count(*) FROM audit_log WHERE entity_id="+literal(adjusted['id'])+" AND action='procurement_shortage_adjusted';")==1
 assert val("SELECT count(*) FROM order_events WHERE order_id="+literal(approval_order['id'])+" AND event='procurement_shortage_adjusted';")==1
 assert val('SELECT jana_deep_health();')['ok']
@@ -383,7 +393,7 @@ passed('picker procurement reads are assignment-scoped and hide settlement refer
 # evidence remains outside this boundary; legacy orders receive a null progress.
 customer_detail=val(rpc('jana_order_detail',f['t'],order['id']))
 progress=customer_detail['procurement_progress']
-assert progress['version']==1 and progress['state']=='handed_over' and progress['inventory_reserved'] is False
+assert progress['version']==1 and progress['state']=='handed_over' and progress['revision']>=1 and progress['inventory_reserved'] is False
 assert progress['supplier_detail_included'] is False and progress['staff_identity_included'] is False and progress['actual_cost_included'] is False
 assert len(progress['lines'])==1 and progress['lines'][0]['requested_qty']==2 and progress['lines'][0]['collected_qty']==2 and progress['lines'][0]['remaining_qty']==0
 assert all(key not in json.dumps(progress) for key in ['Fixture retailer','FIXTURE-RECEIPT','total_actual_cost_halalas','assigned_to','employee_id'])
@@ -393,6 +403,8 @@ assert approval_progress['shortage']['proposed_reduction_halalas']==approval_req
 assert approval_progress['shortage']['customer_total_if_approved_halalas']==approval_request['customer_total_before_halalas']-approval_request['proposed_reduction_halalas']
 fails(rpc('jana_order_detail',other_token,order['id']),'order_not_found')
 assert val("SELECT count(*) FROM pg_proc WHERE proname='jana_order_detail' AND has_function_privilege('service_role',oid,'EXECUTE') AND NOT has_function_privilege('anon',oid,'EXECUTE') AND NOT has_function_privilege('authenticated',oid,'EXECUTE');")==1
-assert val("SELECT count(*) FROM pg_proc WHERE proname='jana_order_detail_pre_procurement_progress' AND has_function_privilege('service_role',oid,'EXECUTE');")==0
+assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_order_detail_pre_procurement_progress','jana_order_detail_pre_customer_shortage_decision') AND has_function_privilege('service_role',oid,'EXECUTE');")==0
+assert val("SELECT count(*) FROM pg_proc WHERE proname='jana_customer_procurement_shortage_decide' AND has_function_privilege('service_role',oid,'EXECUTE') AND NOT has_function_privilege('anon',oid,'EXECUTE') AND NOT has_function_privilege('authenticated',oid,'EXECUTE');")==1
+assert val("SELECT count(*) FROM pg_proc WHERE proname='jana_procurement_shortage_decide' AND has_function_privilege('service_role',oid,'EXECUTE');")==0
 passed('customer order detail shows owned collection progress without supplier staff or actual-cost leakage')
 print(json.dumps(dict(passed=len(checks),checks=checks)))

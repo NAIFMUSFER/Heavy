@@ -44,6 +44,20 @@ test('procurement staff reads validate bounded cursors and use dedicated role-sc
  for(const query of ['limit=101','limit=1.5','before_at=1','before_id='+id,'state=unknown']){calls=[];const bad=await handlers['jana-api'](request('jana-api','/api/ops/procurement?'+query,{headers:bearer}));assert.equal(bad.status,422);assert.equal(calls.length,0)}
  calls=[];const anonymous=await handlers['jana-api'](request('jana-api','/api/ops/procurement'));assert.equal(anonymous.status,401);assert.equal(calls.length,0);
 });
+test('finance shortage adjustment binds the approved request to the visible job and exact revision',async()=>{
+ const jobId='prc-'+'2'.repeat(32),requestId='shr-'+'3'.repeat(32),token=bearer.authorization.slice(7),headers={...bearer,'idempotency-key':'adjustment-fixture'};
+ calls=[];response={job_id:jobId,request_id:requestId,job_state:'ready',approved_reduction_halalas:500};
+ const applied=await handlers['jana-api'](request('jana-api',`/api/ops/procurement/${jobId}/shortage-adjustment`,{method:'POST',headers,body:JSON.stringify({request_id:requestId,expected_revision:5,reason:'  Apply exact approved reduction  ',job_id:'ignored'})}));
+ assert.equal(applied.status,200);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_ops_procurement_shortage_apply_adjustment'));
+ assert.deepEqual(calls[0].body,{p_token:token,p_idem_key:'adjustment-fixture',p_job_id:jobId,p_request_id:requestId,p_expected_revision:5,p_reason:'Apply exact approved reduction'});
+ for(const body of [{request_id:'bad',expected_revision:5,reason:'valid reason'},{request_id:requestId,expected_revision:0,reason:'valid reason'},{request_id:requestId,expected_revision:5,reason:'x'}]){calls=[];const bad=await handlers['jana-api'](request('jana-api',`/api/ops/procurement/${jobId}/shortage-adjustment`,{method:'POST',headers,body:JSON.stringify(body)}));assert.equal(bad.status,422);assert.equal(calls.length,0)}
+});
+test('finance shortage adjustment requires a retry key and maps stale or unsafe terms without masking them',async()=>{
+ const jobId='prc-'+'2'.repeat(32),path=`/api/ops/procurement/${jobId}/shortage-adjustment`,body={request_id:'shr-'+'3'.repeat(32),expected_revision:5,reason:'Apply exact approved reduction'};
+ calls=[];let r=await handlers['jana-api'](request('jana-api',path,{method:'POST',headers:bearer,body:JSON.stringify(body)}));assert.equal(r.status,422);assert.equal(calls.length,0);
+ for(const [message,status,code] of [['procurement_adjustment_not_found',404,'ADJUSTMENT_NOT_FOUND'],['procurement_shortage_not_approved',409,'SHORTAGE_NOT_APPROVED'],['procurement_shortage_evidence_invalid',409,'SHORTAGE_EVIDENCE'],['procurement_adjustment_exists',409,'ADJUSTMENT_EXISTS'],['procurement_order_terms_unsupported',409,'ORDER_TERMS_UNSUPPORTED'],['procurement_empty_order_requires_cancellation',409,'ORDER_REQUIRES_CANCELLATION'],['procurement_changed',409,'PROCUREMENT_CHANGED']]){calls=[];response={_error:message,status};r=await handlers['jana-api'](request('jana-api',path,{method:'POST',headers:{...bearer,'idempotency-key':'adjustment-error-fixture'},body:JSON.stringify(body)}));assert.equal(r.status,status);assert.equal((await r.json()).error.code,code)}
+ response={ok:true};
+});
 test('customer shortage decision binds the pending request to the order and exact revision',async()=>{
  const orderId='order-fixture',requestId='shr-'+'1'.repeat(32),token=bearer.authorization.slice(7),headers={...bearer,'idempotency-key':'shortage-decision-fixture'};
  calls=[];response={order_id:orderId,decision:'approve_removal',customer_total_changed:false};

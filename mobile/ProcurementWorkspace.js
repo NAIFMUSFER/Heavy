@@ -1,6 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
-import {Alert,FlatList,Pressable,ScrollView,Text,View} from 'react-native';
-import {appendProcurementPage,canSeeProcurementFinance,PROCUREMENT_STATES,procurementPageUrl,procurementQuantity,procurementStateLabel} from './procurement.mjs';
+import {Alert,FlatList,Pressable,ScrollView,Text,TextInput,View} from 'react-native';
+import {appendProcurementPage,canSeeProcurementFinance,procurementAdjustmentFacts,PROCUREMENT_STATES,procurementPageUrl,procurementQuantity,procurementStateLabel} from './procurement.mjs';
 
 export default function ProcurementWorkspace({call,role,ui}){
  const {Card,Btn,s,money,when}=ui;
@@ -33,7 +33,8 @@ export default function ProcurementWorkspace({call,role,ui}){
  }
  function close(){detailGeneration.current++;setDetail(null);setDetailBusy(false)}
 
- if(detail)return <ProcurementDetail data={detail} role={role} close={close} ui={ui}/>;
+ async function applied(id){await Promise.all([open(id),refresh()])}
+ if(detail)return <ProcurementDetail data={detail} role={role} close={close} call={call} applied={applied} ui={ui}/>;
  const finance=canSeeProcurementFinance(role);
  return <FlatList contentContainerStyle={s.list} data={items} keyExtractor={item=>item.id} refreshing={busy&&!next} onRefresh={refresh}
   ListHeaderComponent={<View style={{gap:10}}><Text style={s.pageTitle}>مهام شراء الطلبات</Text><Text style={s.muted}>جمع مباشر من الموردين والمحلات بلا مخزن. هذه المساحة للمتابعة فقط ولا تسجل شراءً أو تسوية.</Text>{error!==''&&<Card><Text accessibilityRole="alert">{error}</Text><Btn title="إعادة المحاولة" disabled={busy} onPress={refresh}/></Card>}<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.row}>{PROCUREMENT_STATES.map(([key,label])=><Btn key={key||'all'} title={label} kind={filter===key?'primary':'outline'} disabled={busy&&filter!==key} onPress={()=>setFilter(key)}/>)}</ScrollView></View>}
@@ -42,9 +43,14 @@ export default function ProcurementWorkspace({call,role,ui}){
   ListFooterComponent={next?<Btn title="عرض مهام أقدم" kind="outline" disabled={busy} onPress={loadMore}/>:null}/>;
 }
 
-function ProcurementDetail({data,role,close,ui}){
- const {Card,Btn,s,money,when}=ui,job=data.job||{},finance=canSeeProcurementFinance(role)&&data.financial_detail_included===true;
+function ProcurementDetail({data,role,close,call,applied,ui}){
+ const {Card,Btn,s,money,when}=ui,job=data.job||{},finance=canSeeProcurementFinance(role)&&data.financial_detail_included===true,facts=procurementAdjustmentFacts(data,role);
+ const [reason,setReason]=useState(''),[adjusting,setAdjusting]=useState(false);
  const fundingName=value=>({company_paid:'دفع الشركة',employee_paid:'دفع الموظف',supplier_credit:'آجل المورد'})[value]||value;
+ function applyAdjustment(){
+  const note=reason.trim();if(!facts||note.length<3||note.length>1000){Alert.alert('راجع سبب التطبيق','أدخل سببًا واضحًا من 3 إلى 1000 حرف.');return}
+  Alert.alert('تطبيق التخفيض الموافق عليه',`الإجمالي: ${money(facts.before)} ← ${money(facts.after)}\nالتخفيض: ${money(facts.reduction)}\nلن تُضاف رسوم ولن يتغير السعر الأصلي.`,[{text:'رجوع',style:'cancel'},{text:'تطبيق التخفيض',style:'destructive',onPress:async()=>{setAdjusting(true);try{await call('/api/ops/procurement/'+encodeURIComponent(facts.jobId)+'/shortage-adjustment',{method:'POST',body:{request_id:facts.requestId,expected_revision:facts.revision,reason:note}});setReason('');await applied(facts.jobId);Alert.alert('تم التطبيق','أصبحت المهمة جاهزة لتسليم العهدة.')}catch(e){Alert.alert('تعذر تطبيق التخفيض',e.message)}finally{setAdjusting(false)}}}]);
+ }
  return <ScrollView contentContainerStyle={s.list}><View style={s.between}><Text style={s.pageTitle}>{job.order_number||'مهمة شراء'}</Text><Btn title="رجوع" kind="outline" onPress={close}/></View><Card><Text style={s.productTitle}>{procurementStateLabel(job.state)}</Text><Text>موظف الشراء: {job.assigned_name||'غير مسند'} · المراجعة {Number(job.revision)||0}</Text><Text style={s.muted}>آخر تحديث {when(job.updated_at||job.created_at)}</Text></Card>
   <Text style={s.productTitle}>الأصناف والكميات</Text>{(data.lines||[]).map(line=><Card key={line.line_id}><Text style={s.productTitle}>{line.name||'صنف'}</Text><Text>المطلوب {procurementQuantity(line.qty)} · جُمع {procurementQuantity(line.collected_qty)} · المتبقي {procurementQuantity(line.remaining_qty)}</Text></Card>)}{!(data.lines||[]).length&&<Card><Text>لا توجد أصناف مسجلة.</Text></Card>}
   <Card><Text>إجمالي العميل الحالي: {money(Number(data.customer_terms?.total_halalas))}</Text><Text style={s.muted}>بيانات اتصال العميل غير معروضة، وسعره لا يُعاد احتسابه من تكلفة المورد.</Text></Card>
@@ -52,6 +58,7 @@ function ProcurementDetail({data,role,close,ui}){
   <Text style={s.productTitle}>تمويل المشتريات</Text>{(data.funding||[]).map(entry=><Card key={entry.id}><Text>{fundingName(entry.funding_source)} · {money(Number(entry.principal_halalas))}</Text><Text>المتبقي للتسوية: {money(Number(entry.outstanding_halalas))}</Text></Card>)}{!(data.funding||[]).length&&<Card><Text>لم يُسجل مصدر تمويل.</Text></Card>}
   {finance?<><Text style={s.productTitle}>دفعات التسوية</Text>{(data.settlements||[]).map(entry=><Card key={entry.id}><Text>{money(Number(entry.amount_halalas))} · {entry.payment_reference||'بلا مرجع'}</Text><Text>{when(entry.created_at)}{entry.note?' · '+entry.note:''}</Text></Card>)}{!(data.settlements||[]).length&&<Card><Text>لا توجد دفعات تسوية.</Text></Card>}</>:<Card><Text>تفاصيل دفع التسويات محجوبة عن موظف الشراء، وتظهر للمالية والإدارة فقط.</Text></Card>}
   {data.shortage&&<Card><Text style={s.productTitle}>النقص: {data.shortage.state}</Text><Text>التخفيض المقترح: {money(Number(data.shortage.proposed_reduction_halalas))}</Text><Text>{data.shortage.reason||''}</Text></Card>}
+  {facts&&<Card><Text style={s.productTitle}>تطبيق التخفيض الموافق عليه</Text><Text>الإجمالي الحالي: {money(facts.before)}</Text><Text>التخفيض المعتمد: − {money(facts.reduction)}</Text><Text>الإجمالي بعد التطبيق: {money(facts.after)}</Text><TextInput accessibilityLabel="سبب تطبيق التخفيض" value={reason} onChangeText={setReason} multiline maxLength={1000} editable={!adjusting} placeholder="سبب التطبيق في سجل التدقيق" placeholderTextColor="#89928d" textAlign="right" style={s.input}/><Text style={s.muted}>يحفظ السعر الأصلي ولا يضيف رسومًا أو يسجل دفعًا أو مخزونًا.</Text><Btn title="مراجعة التخفيض وتطبيقه" disabled={adjusting||reason.trim().length<3} onPress={applyAdjustment}/></Card>}
   {data.handover&&<Card><Text style={s.productTitle}>عهدة التوصيل</Text><Text>{data.handover.accepted_at?'قبل المندوب العهدة':'بانتظار قبول المندوب'}</Text></Card>}
-  <Text style={s.muted}>متابعة ومطابقة فقط؛ لا تنفذ هذه الشاشة شراءً أو دفعًا أو تعديلًا في الطلب.</Text></ScrollView>;
+  <Text style={s.muted}>عدا التخفيض المطابق لموافقة العميل عند ظهوره، هذه الشاشة للمتابعة فقط ولا تسجل شراءً أو دفعًا.</Text></ScrollView>;
 }
