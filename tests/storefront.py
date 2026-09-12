@@ -42,13 +42,21 @@ passed('VAT-registered profile can be saved and published but cannot open unsupp
 s=write_store(f,'draft.save',dict(revision=s['revision'],profile=PROFILE))
 s=write_store(f,'profile.publish',dict(revision=s['revision'],confirmed=True))
 payload['revision']=s['revision']
-fails(rpc('jana_storefront_write',f['atok'],'review-fixture','intake.set',dict(payload,reviewed=dict(REVIEWED,inventory=False))),'storefront_review_required')
+fails(rpc('jana_storefront_write',f['atok'],'review-fixture','intake.set',dict(payload,reviewed=dict(REVIEWED,procurement=False))),'storefront_review_required')
+run("UPDATE users SET active=false WHERE role='picker';")
+fails(rpc('jana_storefront_write',f['atok'],'missing-picker-fixture','intake.set',payload),'storefront_not_ready')
+run("UPDATE users SET active=true WHERE role='picker';")
+passed('opening requires an active purchasing employee in addition to explicit review')
 preview=val(rpc('jana_admin_create_product_version',f['atok'],'',dict(title='Fixture preview',description='بيانات معاينة تجريبية',category='fruit',kind='individual',offerings=[dict(sellable_key='preview',size_label='Fixture',sale_unit='kg',price_halalas=2000,components=[dict(stock_id=f['p']+'st',base_qty=1000)])])))
 val(rpc('jana_admin_activate_product_version',f['atok'],preview['id']))
 fails(rpc('jana_storefront_write',f['atok'],'preview-fixture','intake.set',payload),'storefront_not_ready')
 run('UPDATE offerings SET active=false WHERE id='+literal(preview['offerings'][0]['id'])+';')
 s=intake(f,True)
 passed('opening requires complete operations attestation and rejects known preview merchandise')
+readiness=val('SELECT jana_storefront_readiness();')
+assert readiness['fulfillment_model']=='supplier_pickup' and readiness['warehouse_required'] is False and readiness['inventory_required'] is False
+assert readiness['supplier_pickup_launch_ready'] and readiness['active_supplier_pickup_sites']>=1 and readiness['active_purchasing_staff']>=1 and readiness['active_couriers']>=1
+passed('opening readiness uses supplier pickup staff sites couriers and delivery capacity without requiring inventory')
 opened=get_store(f);review=opened['last_opening_review']
 assert review['reference']=='CI-FIXTURE-ONLY' and review['reviewed']==REVIEWED and review['actor']['id']==f['p']+'a'
 assert review['published_id']==opened['published_id'] and opened['opening_review_matches_published'] is True
@@ -78,7 +86,7 @@ else:assert 'storefront_closed' in rows[0]['error'] and balance(f)==b
 passed('concurrent closure and quotation serialize admission without partial reservations')
 intake(f,True)
 assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('jana_public_storefront','jana_admin_storefront','jana_storefront_write','jana_storefront_readiness','jana_create_quote_store_base') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE'));")==0
-assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('jana_storefront_readiness','jana_storefront_profile_valid','jana_create_quote_store_base','jana_admin_storefront_pre_acceptance','jana_storefront_write_pre_acceptance') AND has_function_privilege('service_role',oid,'EXECUTE');")==0
+assert val("SELECT count(*) FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname IN ('jana_storefront_readiness','jana_storefront_profile_valid','jana_create_quote_store_base','jana_admin_storefront_pre_acceptance','jana_storefront_write_pre_acceptance','jana_storefront_readiness_pre_supplier_pickup_launch','jana_admin_storefront_pre_supplier_pickup_launch','jana_storefront_write_pre_supplier_pickup_launch') AND has_function_privilege('service_role',oid,'EXECUTE');")==0
 assert val("SELECT count(*) FROM pg_trigger WHERE tgrelid='storefront_profiles'::regclass AND tgfoid='jana_append_only()'::regprocedure AND NOT tgisinternal;")==1
 assert val('SELECT jana_deep_health();')['ok']
 passed('immutable published versions private helpers and business invariants remain enforced')

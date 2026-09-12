@@ -26,12 +26,13 @@ zone=val(rpc('jana_delivery_admin_write',f['atok'],'zone-with-hub-'+uuid.uuid4()
 assert zone['warehouse_id']==active['id'] and val('SELECT count(*) FROM delivery_zone_warehouses WHERE zone_id='+literal(zone['id'])+';')==1
 passed('zone creation is atomic with an explicit active warehouse route')
 
-before=val('SELECT jana_storefront_readiness();');assert before['warehouse_ready'] and before['active_warehouses']==1 and before['unrouted_available_slots']==0
+before=val('SELECT jana_storefront_readiness();');assert before['warehouse_ready'] and before['active_warehouses']==1 and before['unrouted_available_slots']==0 and before['supplier_pickup_launch_ready']
+intake(f,False)
 run('DELETE FROM delivery_zone_warehouses WHERE zone_id='+literal(f['p']+'z')+';')
 after=val('SELECT jana_storefront_readiness();');assert not after['warehouse_ready'] and after['unrouted_available_slots']>=1
-s=get_store(f);fails(rpc('jana_storefront_write',f['atok'],'warehouse-gate-'+uuid.uuid4().hex,'intake.set',dict(revision=s['revision'],accepting_orders=True,message='Fixture ordering remains open',reason='Disposable opening verification',reference='FIXTURE-WAREHOUSE-GATE',reviewed=REVIEWED)),'storefront_not_ready')
+s=intake(f,True);assert s['accepting_orders'] and after['supplier_pickup_launch_ready'] and after['available_slots']>=1
 run('INSERT INTO delivery_zone_warehouses(zone_id,warehouse_id,assigned_by,assigned_at) VALUES('+literal(f['p']+'z')+','+literal(active['id'])+','+literal(f['p']+'a')+',extract(epoch from clock_timestamp())::bigint*1000);')
-passed('unrouted available slots block commercial opening without changing inventory')
+passed('supplier-pickup admission opens without a warehouse route while legacy readiness stays visible')
 
 fails(save(f,'warehouse-disable-open-'+uuid.uuid4().hex,dict(active=False),active['id'],active['revision']),'delivery_changed')
 assert val("SELECT to_jsonb(active) FROM warehouses WHERE id="+literal(active['id'])+';') is True
