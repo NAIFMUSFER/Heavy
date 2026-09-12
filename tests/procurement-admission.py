@@ -42,7 +42,7 @@ assert after_quote['booked']==before['booked']+1
 snap=val('SELECT snapshot::jsonb FROM quotes WHERE id='+literal(q['id'])+';')
 assert snap['allocations']==[] and snap['fulfillment_model']=='supplier_pickup' and snap['lines'][0]['unit_price_halalas']==q['lines'][0]['unit_price_halalas']
 passed('warehouse-free quote freezes displayed retail terms and delivery capacity without stock')
-gateway_quote=val(rpc('jana_supplier_pickup_quote_gateway',f['t'],'procurement-gateway-quote-'+uuid.uuid4().hex,p+'s',p+'addr',items))
+gateway_quote=val('SELECT public.jana_supplier_pickup_quote_gateway('+','.join(map(literal,[f['t'],'procurement-gateway-quote-'+uuid.uuid4().hex,p+'s',p+'addr']))+','+literal(json.dumps(items))+'::jsonb)::text;')
 assert gateway_quote['order_flow_ready'] is True and gateway_quote['inventory_reserved'] is False
 val(rpc('jana_cancel_quote',f['t'],gateway_quote['id']))
 assert business()['booked']==after_quote['booked']
