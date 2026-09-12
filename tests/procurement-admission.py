@@ -280,6 +280,7 @@ fails('UPDATE procurement_purchase_funding SET note=\'tampered\' WHERE id='+lite
 fails('DELETE FROM procurement_settlement_entries WHERE id='+literal(employee_payment['id'])+';','append_only')
 assert val("SELECT count(*) FROM pg_class WHERE relname IN ('procurement_purchase_funding','procurement_settlement_entries') AND relrowsecurity AND NOT has_table_privilege('anon',oid,'SELECT') AND NOT has_table_privilege('authenticated',oid,'SELECT') AND NOT has_table_privilege('service_role',oid,'SELECT');")==2
 assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_procurement_funding_record','jana_procurement_settlement_record') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE') OR has_function_privilege('service_role',oid,'EXECUTE'));")==0
+assert val("SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND indexname IN ('jana_procurement_funding_actor','jana_procurement_settlement_actor','jana_procurement_settlement_purchase');")==3
 assert val("SELECT count(*) FROM audit_log WHERE entity_id IN ("+literal(fund_employee['id'])+','+literal(fund_supplier['id'])+','+literal(fund_company['id'])+") AND action='procurement_funding_recorded';")==3
 assert val("SELECT count(*) FROM audit_log WHERE entity_id IN ("+literal(employee_payment['id'])+','+literal(supplier_payments[0]['id'])+") AND action='procurement_settlement_recorded';")==2
 health=val('SELECT jana_deep_health();');assert health['ok'] and health['procurement_funding_invariant_violations']==0
