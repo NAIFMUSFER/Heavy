@@ -232,6 +232,59 @@ assert val("SELECT count(*) FROM order_events WHERE order_id="+literal(cancel_or
 assert val('SELECT jana_deep_health();')['ok']
 passed('explicit all-unavailable cancellation preserves historical terms and releases capacity exactly once')
 
+# Each immutable supplier purchase must identify its actual funding source before
+# physical custody leaves purchasing. Repayments are a separate evidence ledger
+# and never change the frozen customer price, inventory, or courier cash ledger.
+def funding(record,key,source,reference,token=None):
+ return rpc('jana_procurement_funding_record',token or f['atok'],key,record['id'],source,reference,'Disposable funding evidence only')
+def settlement(funding_id,key,amount,reference,token=None):
+ return rpc('jana_procurement_settlement_record',token or f['atok'],key,funding_id,amount,reference,'Disposable settlement evidence only')
+fails(rpc('jana_procurement_handover_prepare',f['atok'],'missing-funding-'+uuid.uuid4().hex,order['id'],p+'c',6,'Funding attribution is intentionally missing'),'procurement_funding_required')
+fund_employee_key='procurement-funding-employee-'+uuid.uuid4().hex
+fund_employee_query=funding(first,fund_employee_key,'employee_paid','FIXTURE-EMPLOYEE-FUNDED')
+fund_employee=val(fund_employee_query)
+assert fund_employee['principal_halalas']==500 and fund_employee['liability_type']=='employee_reimbursement'
+assert fund_employee['employee_id']==p+'a' and fund_employee['outstanding_halalas']==500
+assert val(fund_employee_query)==fund_employee
+fails(funding(first,fund_employee_key,'supplier_credit','FIXTURE-CONFLICTING-FUNDING'),'idempotency_conflict')
+fails(funding(first,'duplicate-funding-'+uuid.uuid4().hex,'employee_paid','FIXTURE-DUPLICATE-FUNDING'),'procurement_funding_exists')
+fund_supplier=val(funding(second,'procurement-funding-supplier-'+uuid.uuid4().hex,'supplier_credit','FIXTURE-SUPPLIER-CREDIT'))
+assert fund_supplier['principal_halalas']==550 and fund_supplier['liability_type']=='supplier_payable'
+assert fund_supplier['supplier_id']==supplier and fund_supplier['outstanding_halalas']==550
+fund_company=val(funding(approval_purchase,'procurement-funding-company-'+uuid.uuid4().hex,'company_paid','FIXTURE-COMPANY-PAID'))
+assert fund_company['principal_halalas']==500 and fund_company['liability_type']=='none'
+assert fund_company['outstanding_halalas']==0 and fund_company['employee_id'] is None and fund_company['supplier_id'] is None
+fails(settlement(fund_company['id'],'company-settlement-'+uuid.uuid4().hex,1,'FIXTURE-COMPANY-DUPLICATE'),'procurement_settlement_not_payable')
+fails(funding(second,'customer-funding-'+uuid.uuid4().hex,'supplier_credit','FIXTURE-CUSTOMER-DENIED',f['t']),'forbidden')
+passed('funding attribution separates company payment employee reimbursement and supplier payable from purchase cost')
+
+cash_before=val('SELECT count(*) FROM cash_entries;')
+employee_payment_key='procurement-employee-payment-'+uuid.uuid4().hex
+employee_payment_query=settlement(fund_employee['id'],employee_payment_key,200,'FIXTURE-EMPLOYEE-PAYMENT-1')
+employee_payment=val(employee_payment_query)
+assert employee_payment['beneficiary_type']=='employee' and employee_payment['beneficiary_id']==p+'a'
+assert employee_payment['settled_halalas']==200 and employee_payment['outstanding_halalas']==300 and not employee_payment['fully_settled']
+assert val(employee_payment_query)==employee_payment
+fails(settlement(fund_employee['id'],employee_payment_key,201,'FIXTURE-EMPLOYEE-PAYMENT-1'),'idempotency_conflict')
+fails(settlement(fund_employee['id'],'employee-overpay-'+uuid.uuid4().hex,301,'FIXTURE-EMPLOYEE-OVERPAY'),'procurement_settlement_exceeded')
+supplier_payment_key='procurement-supplier-payment-'+uuid.uuid4().hex
+supplier_payment_query=settlement(fund_supplier['id'],supplier_payment_key,550,'FIXTURE-SUPPLIER-PAYMENT-1')
+supplier_payments=successful(race([supplier_payment_query]*8));assert len(supplier_payments)==8 and all(x==supplier_payments[0] for x in supplier_payments)
+assert supplier_payments[0]['fully_settled'] and supplier_payments[0]['outstanding_halalas']==0
+assert supplier_payments[0]['beneficiary_type']=='supplier' and supplier_payments[0]['beneficiary_id']==supplier
+fails(settlement(fund_supplier['id'],'supplier-overpay-'+uuid.uuid4().hex,1,'FIXTURE-SUPPLIER-OVERPAY'),'procurement_settlement_exceeded')
+assert val('SELECT count(*) FROM cash_entries;')==cash_before
+assert val('SELECT total_halalas FROM orders WHERE id='+literal(order['id'])+';')==customer_total
+assert business()['balance']==before['balance'] and business()['lot']==before['lot'] and business()['movements']==before['movements']
+fails('UPDATE procurement_purchase_funding SET note=\'tampered\' WHERE id='+literal(fund_employee['id'])+';','append_only')
+fails('DELETE FROM procurement_settlement_entries WHERE id='+literal(employee_payment['id'])+';','append_only')
+assert val("SELECT count(*) FROM pg_class WHERE relname IN ('procurement_purchase_funding','procurement_settlement_entries') AND relrowsecurity AND NOT has_table_privilege('anon',oid,'SELECT') AND NOT has_table_privilege('authenticated',oid,'SELECT') AND NOT has_table_privilege('service_role',oid,'SELECT');")==2
+assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_procurement_funding_record','jana_procurement_settlement_record') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE') OR has_function_privilege('service_role',oid,'EXECUTE'));")==0
+assert val("SELECT count(*) FROM audit_log WHERE entity_id IN ("+literal(fund_employee['id'])+','+literal(fund_supplier['id'])+','+literal(fund_company['id'])+") AND action='procurement_funding_recorded';")==3
+assert val("SELECT count(*) FROM audit_log WHERE entity_id IN ("+literal(employee_payment['id'])+','+literal(supplier_payments[0]['id'])+") AND action='procurement_settlement_recorded';")==2
+health=val('SELECT jana_deep_health();');assert health['ok'] and health['procurement_funding_invariant_violations']==0
+passed('partial and complete settlements are bounded immutable auditable and independent of customer and courier cash')
+
 # Physical custody is a two-party checkpoint. The assigned purchasing employee
 # freezes the exact collected evidence for one courier; only that courier can
 # accept it and make the order ready for the existing delivery flow.
@@ -249,6 +302,9 @@ assert len(prepared['collected_lines'])==1 and prepared['collected_lines'][0]['q
 assert prepared['collected_lines'][0]['collected_qty']==2 and len(prepared['purchase_record_ids'])==2
 assert prepared['inventory_changed'] is False and prepared['cash_changed'] is False
 assert prepared['supplier_settlement_recorded'] is False and prepared['employee_settlement_recorded'] is False
+assert prepared['purchase_funding_recorded'] is True
+assert prepared['employee_reimbursement_outstanding_halalas']==300
+assert prepared['supplier_payable_outstanding_halalas']==0
 assert val(prepare_query)==prepared
 fails(rpc('jana_procurement_handover_prepare',f['atok'],prepare_key,order['id'],p+'d',6,'Conflicting courier'),'idempotency_conflict')
 pending_order=val('SELECT jsonb_build_object(\'fulfillment_state\',fulfillment_state,\'delivery_state\',delivery_state,\'courier_id\',courier_id) FROM orders WHERE id='+literal(order['id'])+';')
