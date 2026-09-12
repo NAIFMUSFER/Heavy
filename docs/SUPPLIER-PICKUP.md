@@ -51,12 +51,21 @@ The commercial intake remains closed during this transition. Do not bypass the c
 - Adjustment evidence is append-only with before/after snapshot hashes, idempotency, revision locks, audit and customer notification. Its table has RLS; direct table access and the function are revoked from clients and `service_role`, and no Edge route calls it.
 - Release `e7a2e885` publishes the dormant structure. Production contains zero procurement rows/adjustments, intake remains closed, and business fingerprints remain unchanged.
 
+## Implemented phase 6 backend: dual-confirmed courier custody
+
+- The assigned purchasing employee prepares one immutable handover request only after procurement is `ready`. The request freezes the retained order lines, exact collected quantities, contributing purchase records, actual-cost total and hashes of the purchase evidence and current customer snapshot.
+- Preparing a handover does not assign delivery or make the order ready: it moves only the procurement job to `handover_pending` and names one active courier.
+- Only that selected courier can accept at the current revision. Acceptance creates a second immutable record, moves procurement to `handed_over`, and only then sets the existing order to fulfillment `ready` and delivery `assigned`.
+- The customer price and original snapshot are unchanged. No stock, payable, employee reimbursement, COD collection or settlement entry is created.
+- Both functions remain deliberately unavailable to Edge, clients and `service_role` until settlement, cancellation and the complete interfaces are ready.
+- Release `cf191d15` publishes this dormant handover. Production contains zero handover rows; intake remains closed and all monitored business fingerprints remain unchanged.
+
 ## Next engineering gates — not complete
 
-1. **Complete order admission without warehouse stock.** The dormant quote/order core, slot-only reservation, collection evidence, consent and exact approved retail adjustment are implemented. Add handover, settlement and explicit all-items-unavailable cancellation primitives and only then grant the complete flow and replace the one-warehouse readiness prerequisite. Preserve existing-order snapshots, cancellation and retry behavior.
+1. **Complete order admission without warehouse stock.** The dormant quote/order core, slot-only reservation, collection evidence, consent, exact approved retail adjustment and dual-confirmed courier handover are implemented. Add settlement and explicit all-items-unavailable cancellation primitives and only then grant the complete flow and replace the one-warehouse readiness prerequisite. Preserve existing-order snapshots, cancellation and retry behavior.
 2. **Complete assigned procurement work.** Job creation, assignment and immutable multi-supplier purchase evidence are implemented. Add bounded staff reads and customer-visible progress only after exceptions are complete. Keep each order's collected goods separate and preserve historical pickup snapshots.
 3. **Exceptions with customer consent.** The dormant complete-removal proposal, approve/reject record and exact one-time reduction are implemented. Add explicit cancellation when approval removes every merchandise line, and add replacement only under an explicit frozen proposal. Supplier cost changes must not silently change the customer's agreed retail price. No cost-plus margin, purchasing fee or delivery pricing rule is invented.
-4. **Handover, delivery and finance.** Only confirmed collected quantities pass to courier custody. Separate supplier payable/purchase cost, employee purchasing advance/settlement and customer COD collection/refund. A receipt is not a payment; a supplier credit note is not a bank settlement. Keep cancellation after purchase and supplier returns explicit and auditable.
+4. **Delivery and finance.** Only dual-confirmed collected quantities pass to courier custody. Separate supplier payable/purchase cost, employee purchasing advance/settlement and customer COD collection/refund. A receipt is not a payment; a supplier credit note is not a bank settlement. Keep cancellation after purchase and supplier returns explicit and auditable.
 5. **Web/native acceptance and launch.** Update catalog availability, carts, quote recovery, staff/customer labels and native models together. Test zero-warehouse journeys, multiple suppliers, concurrent staff actions, partial collection, refusal, cancellation and response loss in disposable environments. Only then replace commercial readiness and obtain actual owner operating acceptance. Signed stores and physical devices remain separate requirements.
 
 ## Owner inputs
@@ -65,6 +74,6 @@ Real supplier/shop names and pickup contacts/addresses, approved catalog and ret
 
 ## Evidence and safety
 
-Phase 1 adds the supplier directory through schema/RPC, Edge routing and web forms. Phases 2–5 add deliberately ungranted database admission, assignment, purchase-evidence, shortage-consent and approved-adjustment primitives only. Refer to [RELEASE-EVIDENCE.md](RELEASE-EVIDENCE.md) for actual CI/application/publication results; source alone is not deployment. The disposable suite verifies retries, races, roles, immutable evidence and unchanged warehouse/stock/order/cash/slot fingerprints. Existing legacy tests remain regression protection and are not acceptance of the new business flow.
+Phase 1 adds the supplier directory through schema/RPC, Edge routing and web forms. Phases 2–6 add deliberately ungranted database admission, assignment, purchase-evidence, shortage-consent, approved-adjustment and courier-custody primitives only. Refer to [RELEASE-EVIDENCE.md](RELEASE-EVIDENCE.md) for actual CI/application/publication results; source alone is not deployment. The disposable suite verifies retries, races, roles, immutable evidence and unchanged warehouse/stock/order/cash/slot fingerprints. Existing legacy tests remain regression protection and are not acceptance of the new business flow.
 
 Custom-session authentication and intentional `verify_jwt:false` are preserved. Do not create commercial fixtures in production or erase historical records to make a check pass.
