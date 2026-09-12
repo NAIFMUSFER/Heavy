@@ -73,4 +73,36 @@ assert val("SELECT count(*) FROM audit_log WHERE entity_id="+literal(job['id'])+
 assert val("SELECT count(*) FROM order_events WHERE order_id="+literal(order['id'])+" AND event IN ('supplier_pickup_order_created','procurement_assigned');")==2
 assert val('SELECT jana_deep_health();')['ok']
 passed('audit events and existing business health remain intact')
+# Purchase evidence remains a dormant owner-level primitive. It records actual
+# supplier collection without touching the customer price or legacy inventory.
+supplier=p+'supplier';run("INSERT INTO suppliers(id,name,phone,active) VALUES("+literal(supplier)+",'Fixture retailer','+966500000001',true);")
+site=val(rpc('jana_supplier_pickup_site_write',f['atok'],'procurement-site-create',dict(id=None,revision=None,reason='Disposable retailer',changes=dict(supplier_id=supplier,name='Fixture local shop'))))
+site=val(rpc('jana_supplier_pickup_site_write',f['atok'],'procurement-site-active',dict(id=site['id'],revision=1,reason='Disposable reviewed address',changes=dict(city='Fixture city',address_line='Disposable shop only',latitude=16.5,longitude=42.5,active=True))))
+customer_total=val('SELECT total_halalas FROM orders WHERE id='+literal(order['id'])+';');line_id=job['requested_lines'][0]['line_id']
+def purchase(key,revision,qty,cost,reference='FIXTURE-RECEIPT-1',token=None,extra=None):
+ payload=dict(order_id=order['id'],expected_revision=revision,supplier_id=supplier,pickup_site_id=site['id'],document_reference=reference,note='Disposable purchase evidence',lines=[dict(line_id=line_id,collected_qty=qty,actual_cost_halalas=cost,quality_note='Disposable quality accepted')])
+ if extra:payload.update(extra)
+ return rpc('jana_procurement_purchase_record',token or f['atok'],key,payload)
+purchase_key='procurement-purchase-'+uuid.uuid4().hex
+first=val(purchase(purchase_key,2,1,500));assert first['state']=='collecting' and first['revision']==3 and not first['collection_complete']
+assert val(purchase(purchase_key,2,1,500))==first
+fails(purchase(purchase_key,2,1,501),'idempotency_conflict')
+assert val('SELECT total_halalas FROM orders WHERE id='+literal(order['id'])+';')==customer_total
+assert business()['balance']==before['balance'] and business()['lot']==before['lot'] and business()['movements']==before['movements']
+passed('partial supplier purchase is durable and leaves customer price and inventory unchanged')
+fails(purchase('procurement-over-'+uuid.uuid4().hex,3,2,900,'FIXTURE-OVER'),'procurement_quantity_exceeded')
+fails(purchase('procurement-customer-'+uuid.uuid4().hex,3,1,500,'FIXTURE-CUSTOMER',f['t']),'forbidden')
+fails(purchase('procurement-stale-'+uuid.uuid4().hex,2,1,500,'FIXTURE-STALE'),'procurement_changed')
+passed('assignment custody revision and requested quantity bounds reject unsafe collection')
+second=val(purchase('procurement-finish-'+uuid.uuid4().hex,3,1,550,'FIXTURE-RECEIPT-2'))
+assert second['state']=='ready' and second['revision']==4 and second['collection_complete'] and second['customer_total_halalas']==customer_total
+assert val('SELECT sum(total_actual_cost_halalas) FROM procurement_purchase_records WHERE job_id='+literal(job['id'])+';')==1050
+assert val('SELECT sum(collected_qty) FROM procurement_purchase_lines WHERE job_id='+literal(job['id'])+' AND requested_line_id='+literal(line_id)+';')==2
+fails('UPDATE procurement_purchase_records SET note=\'tampered\' WHERE id='+literal(first['id'])+';','append_only')
+fails('DELETE FROM procurement_purchase_lines WHERE record_id='+literal(first['id'])+';','append_only')
+assert val("SELECT count(*) FROM pg_class WHERE relname IN ('procurement_purchase_records','procurement_purchase_lines') AND relrowsecurity AND NOT has_table_privilege('anon',oid,'SELECT') AND NOT has_table_privilege('authenticated',oid,'SELECT') AND NOT has_table_privilege('service_role',oid,'SELECT');")==2
+assert val("SELECT count(*) FROM pg_proc WHERE proname='jana_procurement_purchase_record' AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE') OR has_function_privilege('service_role',oid,'EXECUTE')); ")==0
+assert val("SELECT count(*) FROM audit_log WHERE entity_id IN ("+literal(first['id'])+','+literal(second['id'])+") AND action='procurement_purchase_recorded';")==2
+assert val('SELECT jana_deep_health();')['ok']
+passed('complete collection is immutable private audited evidence without settlement or handover')
 print(json.dumps(dict(passed=len(checks),checks=checks)))
