@@ -60,8 +60,8 @@ BEGIN
  SELECT r.* INTO request FROM public.procurement_shortage_requests r
  JOIN public.orders x ON x.id=r.order_id WHERE r.id=p_request_id AND x.user_id=u.id FOR SHARE OF r;
  IF request.id IS NULL OR request.state<>'approved' THEN RAISE EXCEPTION 'procurement_shortage_not_found';END IF;
- SELECT * INTO decision FROM public.procurement_shortage_decisions
- WHERE request_id=request.id AND customer_id=u.id AND decision='approve_removal' FOR SHARE;
+ SELECT d.* INTO decision FROM public.procurement_shortage_decisions d
+ WHERE d.request_id=request.id AND d.customer_id=u.id AND d.decision='approve_removal' FOR SHARE OF d;
  IF decision.id IS NULL OR decision.missing_lines_snapshot<>request.missing_lines
   OR decision.proposed_reduction_halalas<>request.proposed_reduction_halalas
   OR decision.customer_total_before_halalas<>request.customer_total_before_halalas
