@@ -1,3 +1,45 @@
+const procurementStates=[['','كل الحالات'],['unassigned','غير مسندة'],['assigned','مسندة للشراء'],['collecting','قيد الجمع'],['awaiting_customer','بانتظار قرار العميل'],['shortage_approved','نقص وافق عليه العميل'],['ready','جاهزة لتسليم العهدة'],['handover_pending','بانتظار قبول المندوب'],['handed_over','بيد المندوب'],['cancelled','ملغاة']];
+const procurementStateName=value=>procurementStates.find(([state])=>state===value)?.[1]||value||'غير محددة';
+const procurementCount=value=>Number.isSafeInteger(Number(value))&&Number(value)>=0?number(Number(value)):'غير مسجل';
+const procurementQuantity=value=>Number.isFinite(Number(value))&&Number(value)>=0?number(Number(value)):'غير مسجلة';
+function procurementStateBadge(value){const kind=value==='handed_over'?'success':value==='cancelled'?'danger':'neutral';return `<span class="badge ${kind}">${esc(procurementStateName(value))}</span>`}
+function clearProcurementPages(){state.procurementGeneration++;state.procurementLoading=null;state.procurementItems=[];state.procurementNext=null}
+function procurementCard(item){
+ const financial=state.user.role!=='picker';
+ return `<article class="task-card" data-procurement-job="${esc(item.id)}"><div class="row between"><h3>${esc(item.order_number||'طلب بلا رقم')}</h3>${procurementStateBadge(item.state)}</div><p>${item.assigned_name?`موظف الشراء: ${esc(item.assigned_name)}`:'لم تُسند لموظف شراء'}</p><div class="task-meta"><span>${date(item.updated_at||item.created_at)}</span><strong>${money(Number(item.customer_total_halalas))}</strong></div><p>${procurementCount(item.requested_line_count)} أصناف مطلوبة · ${procurementCount(item.purchase_count)} زيارات شراء</p><p>التكلفة الفعلية المسجلة: ${money(Number(item.actual_cost_total_halalas))}</p>${financial?`<p>مشتريات بلا مصدر تمويل: ${procurementCount(item.unfunded_purchase_count)} · مستحق موظف: ${money(Number(item.employee_reimbursement_outstanding_halalas))} · مستحق مورد: ${money(Number(item.supplier_payable_outstanding_halalas))}</p>`:''}<div class="ops-actions"><button class="btn outline" data-action="procurement-detail" data-id="${esc(item.id)}">عرض سجل الشراء</button></div></article>`;
+}
+async function procurementPage(more=false){
+ if(!state.user||state.page!=='procurement'||(more&&(!state.procurementNext||state.procurementLoading!==null)))return;
+ const user=state.user,generation=++state.procurementGeneration,query=new URLSearchParams({limit:'50'});
+ if(state.procurementFilter)query.set('state',state.procurementFilter);
+ if(more)for(const [key,value] of Object.entries(state.procurementNext))query.set(key,String(value));
+ state.procurementLoading=generation;
+ try{
+  const data=await get('/api/ops/procurement?'+query);
+  if(state.user!==user||state.page!=='procurement'||state.procurementGeneration!==generation)return;
+  state.procurementItems=Array.from(new Map([...(more?state.procurementItems:[]),...(data.items||[])].map(item=>[item.id,item])).values());
+  state.procurementNext=data.next||null;
+  shell(`<section class="panel stack"><h2>مهام شراء الطلبات من الموردين والمحلات</h2><p class="notice">مساحة قراءة فقط: تعرض المطلوب وما جُمع والتكلفة والمستحقات الموثقة. لا تنشئ مخزونًا ولا تغيّر سعر العميل، ولا تتيح تسجيل شراء أو تسوية قبل اكتمال مسار الاستثناءات واعتماده.</p><div id="procurement-filter">${selectField('procurement_state','تصفية حسب الحالة',procurementStates,state.procurementFilter,{required:false})}</div><p role="status">المعروض: ${number(state.procurementItems.length)} مهمة${state.procurementNext?' · توجد مهام أقدم':''}</p></section><section class="task-grid ops-section">${state.procurementItems.map(procurementCard).join('')||empty('لا توجد مهام شراء','تظهر هنا المهام الحقيقية بعد تأكيد طلب بلا حجز مخزون وإسناده للموظف.')}</section>${state.procurementNext?'<button class="btn outline" data-action="procurement-more">عرض مهام أقدم</button>':''}`);
+  const filter=$('[name="procurement_state"]');if(filter)filter.onchange=()=>{state.procurementFilter=filter.value;clearProcurementPages();procurementPage().catch(error=>toast(error.message,true))};
+ }catch(error){
+  if(state.user!==user||state.page!=='procurement'||state.procurementGeneration!==generation)return;
+  if(error.code==='AUTH_REQUIRED'){state.user=null;clearProcurementPages();login()}
+  throw error;
+ }finally{if(state.procurementLoading===generation)state.procurementLoading=null}
+}
+async function procurementDetail(id){
+ const user=state.user,data=await get('/api/ops/procurement/'+encodeURIComponent(id));
+ if(state.user!==user||state.page!=='procurement')return;
+ const job=data.job||{},lines=data.lines||[],purchases=data.purchases||[],funding=data.funding||[],settlements=data.settlements||[],shortage=data.shortage,handover=data.handover;
+ const lineRows=lines.map(line=>`<div class="component-row"><span><strong>${esc(line.name||line.title||'صنف')}</strong>${line.size_label?' · '+esc(line.size_label):''}<small>المطلوب ${procurementQuantity(line.qty)} · جُمع ${procurementQuantity(line.collected_qty)} · المتبقي ${procurementQuantity(line.remaining_qty)}</small></span>${Number.isSafeInteger(Number(line.line_total_halalas))?`<strong>${money(Number(line.line_total_halalas))}</strong>`:''}</div>`).join('');
+ const purchaseRows=purchases.map(purchase=>`<article class="panel stack"><div class="row between"><strong>${esc(purchase.supplier?.name||'مورد غير مسمى')}</strong><strong>${money(Number(purchase.total_actual_cost_halalas))}</strong></div><p>${esc([purchase.pickup_site?.name,purchase.pickup_site?.city,purchase.pickup_site?.address_line].filter(Boolean).join(' — ')||'موقع الاستلام محفوظ')}</p><p>مرجع المستند: ${esc(purchase.document_reference||'غير مسجل')} · ${date(purchase.created_at)}</p>${(purchase.lines||[]).map(line=>`<div class="component-row"><span>${procurementQuantity(line.collected_qty)} من ${procurementQuantity(line.requested_qty)}<small>${esc(line.quality_note||'')}</small></span><strong>${money(Number(line.actual_cost_halalas))}</strong></div>`).join('')}</article>`).join('');
+ const fundingRows=funding.map(entry=>`<div class="component-row"><span>${esc(({company_paid:'دفعت الشركة',employee_paid:'دفع الموظف',supplier_credit:'آجل المورد'})[entry.funding_source]||entry.funding_source)}<small>${esc(entry.evidence_reference||'')}</small></span><strong>${money(Number(entry.principal_halalas))} · متبقٍ ${money(Number(entry.outstanding_halalas))}</strong></div>`).join('');
+ const settlementRows=data.financial_detail_included?settlements.map(entry=>`<div class="component-row"><span>${date(entry.created_at)} · ${esc(entry.payment_reference||'')}<small>${esc(entry.note||'')}</small></span><strong>${money(Number(entry.amount_halalas))}</strong></div>`).join(''):'';
+ const shortageMarkup=shortage?`<section class="panel stack"><h3>النقص وقرار العميل</h3><div class="row between">${procurementStateBadge(shortage.state)}<strong>التخفيض المقترح ${money(Number(shortage.proposed_reduction_halalas))}</strong></div><p>${esc(shortage.reason||'')}</p><p>القرار: ${esc(({approve_removal:'وافق على النقص',reject:'رفض النقص'})[shortage.decision?.decision]||shortage.decision?.decision||'بانتظار العميل')}${shortage.decision?.note?' · '+esc(shortage.decision.note):''}</p></section>`:'';
+ const handoverMarkup=handover?`<section class="panel stack"><h3>عهدة التوصيل</h3><p>${handover.accepted_at?'قبل المندوب العهدة في '+date(handover.accepted_at):'بانتظار قبول المندوب المحدد للعهدة'}.</p></section>`:'';
+ modal('سجل شراء '+(job.order_number||''),`<div class="stack"><div class="row between">${procurementStateBadge(job.state)}<span>المراجعة ${procurementCount(job.revision)}</span></div><p>موظف الشراء: ${esc(job.assigned_name||'غير مسند')} · آخر تحديث ${date(job.updated_at||job.created_at)}</p><section class="panel stack"><h3>الأصناف والكميات</h3>${lineRows||'<p>لا توجد أصناف مسجلة.</p>'}<div class="row between"><strong>إجمالي العميل الحالي</strong><strong>${money(Number(data.customer_terms?.total_halalas))}</strong></div><p class="notice">بيانات اتصال العميل غير معروضة هنا، والسعر الأصلي محفوظ ولا يُعاد احتسابه من تكلفة المورد.</p></section><section class="stack"><h3>زيارات الموردين ومستندات الشراء</h3>${purchaseRows||'<p class="panel">لم تُسجل زيارة شراء.</p>'}</section><section class="panel stack"><h3>مصدر تمويل المشتريات</h3>${fundingRows||'<p>لم يُسجل مصدر تمويل.</p>'}</section>${data.financial_detail_included?`<section class="panel stack"><h3>دفعات التسوية</h3>${settlementRows||'<p>لا توجد دفعات تسوية.</p>'}</section>`:'<p class="notice">تفاصيل دفع التسويات محجوبة عن موظف الشراء وتظهر للمالية والإدارة فقط.</p>'}${shortageMarkup}${handoverMarkup}<p class="notice">هذه الشاشة للمتابعة والمطابقة فقط؛ لا تنفذ شراءً أو تسوية أو تغييرًا في الطلب.</p></div>`);
+}
+
 // Direct supplier collection is independent of legacy warehouse balances.
 async function pickupSitesPage(more=false){
  const user=state.user,generation=(state.pickupGeneration||0)+1;state.pickupGeneration=generation;
