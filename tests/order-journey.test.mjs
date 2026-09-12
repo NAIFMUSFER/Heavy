@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {cashReceiptFacts,cashReceiptHtml,orderFacts,orderLinks,trackingView,orderPageUrl,appendOrderPage,passwordProblem} from '../mobile/order.mjs';
+import {cashReceiptFacts,cashReceiptHtml,orderFacts,orderLinks,procurementProgressFacts,trackingView,orderPageUrl,appendOrderPage,passwordProblem} from '../mobile/order.mjs';
 
 test('web and native order presentation use the same validated model',()=>{
  assert.equal(readFileSync('mobile/order.mjs','utf8'),readFileSync('assets/order.js','utf8').replace("from './address.js'","from './address.mjs'"));
@@ -47,4 +47,10 @@ test('password form checks confirmation and the database UTF-8 bcrypt boundary i
 test('customer timeline maps recorded public events and ignores internal entries without inventing timestamps',()=>{
  const f=orderFacts({timeline:[{id:'1',event:'order_created',created_at:1800000000000},{id:'2',event:'start_picking',created_at:1800000000001},{id:'3',event:'line_removal_proposed',created_at:1800000000002},{id:'4',event:'line_removal_accepted',created_at:1800000000003},{id:'5',event:'component_substitution_proposed',created_at:1800000000004},{id:'6',event:'component_substitution_accepted',created_at:1800000000005},{id:'7',event:'cash_settled',created_at:1800000000006},{id:'8',event:'delivered',created_at:null}]});
  assert.deepEqual(f.timeline.map(x=>x.title),['تم تأكيد الطلب','بدأ تجهيز الطلب','طُلبت موافقتك على حذف صنف','وافقت على حذف الصنف','طُلبت موافقتك على مكوّن بديل للسلة','وافقت على مكوّن السلة البديل']);
+});
+test('customer procurement progress validates quantities and exposes no supplier staff or actual-cost detail',()=>{
+ const progress=procurementProgressFacts({procurement_progress:{version:1,state:'awaiting_customer',updated_at:1800000000000,requested_line_count:1,lines:[{line_id:'line-1',name:'مانجو',size_label:'1 كجم',requested_qty:2,collected_qty:1,remaining_qty:1}],customer_action_required:true,shortage:{state:'pending',proposed_reduction_halalas:750,customer_total_before_halalas:2000,customer_total_if_approved_halalas:1250},inventory_reserved:false,supplier_detail_included:false,staff_identity_included:false,actual_cost_included:false}});
+ assert.equal(progress.title,'موافقتك مطلوبة');assert.equal(progress.actionRequired,true);assert.equal(progress.lines[0].remaining,1);assert.equal(progress.shortage.reduction,750);
+ assert.equal(procurementProgressFacts({procurement_progress:{...progress,version:2}}),null);
+ for(const patch of [{state:'unknown'},{lines:[{line_id:'x',requested_qty:2,collected_qty:2,remaining_qty:1}]},{inventory_reserved:true},{supplier_detail_included:true},{actual_cost_included:true}])assert.equal(procurementProgressFacts({procurement_progress:{version:1,state:'collecting',updated_at:1,requested_line_count:1,lines:[{line_id:'x',requested_qty:2,collected_qty:1,remaining_qty:1}],customer_action_required:false,shortage:null,inventory_reserved:false,supplier_detail_included:false,staff_identity_included:false,actual_cost_included:false,...patch}}),null);
 });

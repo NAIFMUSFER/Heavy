@@ -377,4 +377,22 @@ assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_procurement_fun
 assert val("SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND indexname='jana_procurement_jobs_created_page';")==1
 assert val('SELECT jana_deep_health();')['ok']
 passed('picker procurement reads are assignment-scoped and hide settlement references while writes stay dormant')
+
+# Customer order detail exposes only the customer's own collection quantities and
+# consent-safe shortage totals. Supplier, employee, document and actual-cost
+# evidence remains outside this boundary; legacy orders receive a null progress.
+customer_detail=val(rpc('jana_order_detail',f['t'],order['id']))
+progress=customer_detail['procurement_progress']
+assert progress['version']==1 and progress['state']=='handed_over' and progress['inventory_reserved'] is False
+assert progress['supplier_detail_included'] is False and progress['staff_identity_included'] is False and progress['actual_cost_included'] is False
+assert len(progress['lines'])==1 and progress['lines'][0]['requested_qty']==2 and progress['lines'][0]['collected_qty']==2 and progress['lines'][0]['remaining_qty']==0
+assert all(key not in json.dumps(progress) for key in ['Fixture retailer','FIXTURE-RECEIPT','total_actual_cost_halalas','assigned_to','employee_id'])
+approval_progress=val(rpc('jana_order_detail',f['t'],approval_order['id']))['procurement_progress']
+assert approval_progress['shortage']['state']=='approved'
+assert approval_progress['shortage']['proposed_reduction_halalas']==approval_request['proposed_reduction_halalas']
+assert approval_progress['shortage']['customer_total_if_approved_halalas']==approval_request['customer_total_before_halalas']-approval_request['proposed_reduction_halalas']
+fails(rpc('jana_order_detail',other_token,order['id']),'order_not_found')
+assert val("SELECT count(*) FROM pg_proc WHERE proname='jana_order_detail' AND has_function_privilege('service_role',oid,'EXECUTE') AND NOT has_function_privilege('anon',oid,'EXECUTE') AND NOT has_function_privilege('authenticated',oid,'EXECUTE');")==1
+assert val("SELECT count(*) FROM pg_proc WHERE proname='jana_order_detail_pre_procurement_progress' AND has_function_privilege('service_role',oid,'EXECUTE');")==0
+passed('customer order detail shows owned collection progress without supplier staff or actual-cost leakage')
 print(json.dumps(dict(passed=len(checks),checks=checks)))

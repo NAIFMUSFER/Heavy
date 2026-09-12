@@ -1,6 +1,6 @@
 import {createCartStore,changeCartQuantity} from './local-cart.js';
 import {createCheckoutSession,quoteState,quoteRemaining,cartMatchesQuote} from './checkout.js';
-import {orderFacts,cashReceiptFacts,cashReceiptHtml,orderLinks,trackingView,orderPageUrl,appendOrderPage,passwordProblem} from './order.js';
+import {orderFacts,cashReceiptFacts,cashReceiptHtml,orderLinks,procurementProgressFacts,trackingView,orderPageUrl,appendOrderPage,passwordProblem} from './order.js';
 import {addressPayload,googleMapsLink,googleMapsSearch,parseMapLocation,locationPoint,locationFailure} from './address.js';
 import {workspacePath,productImage,substitutionReview,qty,$,$$,esc,money,number,date,badge,empty,get,getAll,request,post,patch,remove,modal,closeModal,toast,busy,formData,identity,loginDialog,setupConnectivity,field,parseMoney,ticketCategories,ticketThread,selectField,downloadText} from './common.js';
 const cartKey='jana.live.cart';
