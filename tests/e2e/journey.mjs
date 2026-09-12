@@ -242,12 +242,12 @@ try{
  const inside=await change(customer,'/api/coverage/'+savedAddress.id,()=>customer.locator('[data-check-coverage]').first().click(),'GET');assert.equal(inside.covered,true);assert.ok(inside.slots.some(x=>x.id===fixture.slot_id));pass('editing the saved delivery pin retains address details and restores the correct zone and slots');
  await closeModal(customer);await customer.locator('[data-action=cart]').first().click();await customer.locator('#checkout').click();await customer.locator('[data-address]').first().click();
  const quote=await change(customer,'/api/quotes',()=>customer.locator('[data-slot="'+fixture.slot_id+'"]').click());
- assert.equal(quote.total_halalas,2000);assert.deepEqual(stock(),{on_hand:10001,reserved:1000});assert.equal(Number(sql('SELECT booked FROM delivery_slots WHERE id='+literal(fixture.slot_id)+';')),1);
- assert.equal(Number(sql('SELECT count(*) FROM orders;')),0);pass('quote reserves stock and zone capacity before any permanent order');
+ assert.equal(quote.total_halalas,2000);assert.equal(quote.fulfillment_model,'supplier_pickup');assert.equal(quote.inventory_reserved,false);assert.deepEqual(stock(),{on_hand:10001,reserved:0});assert.equal(Number(sql('SELECT booked FROM delivery_slots WHERE id='+literal(fixture.slot_id)+';')),1);
+ assert.equal(Number(sql('SELECT count(*) FROM orders;')),0);pass('supplier-pickup quote freezes customer price and reserves only delivery capacity');
  assert.equal(quote.store_profile.id,merchant.published.id);await customer.locator('#quote-store-policies').getByText('متجر اختبار السياسات',{exact:true}).waitFor();pass('checkout loads the immutable published merchant policy before enabling confirmation');
  await customer.reload();await customer.locator('[data-resume-checkout]').waitFor();
- const restoredQuote=await change(customer,'/api/quotes/'+quote.id,()=>customer.locator('[data-resume-checkout]').click(),'GET');assert.equal(restoredQuote.id,quote.id);assert.ok(restoredQuote.server_now>=restoredQuote.created_at);assert.equal(Number(sql('SELECT count(*) FROM orders;')),0);assert.deepEqual(stock(),{on_hand:10001,reserved:1000});
- await customer.locator('#quote-store-policies').getByText('متجر اختبار السياسات',{exact:true}).waitFor();pass('page reload restores the same quote and policies without another reservation or an automatic order');
+ const restoredQuote=await change(customer,'/api/quotes/'+quote.id,()=>customer.locator('[data-resume-checkout]').click(),'GET');assert.equal(restoredQuote.id,quote.id);assert.ok(restoredQuote.server_now>=restoredQuote.created_at);assert.equal(Number(sql('SELECT count(*) FROM orders;')),0);assert.deepEqual(stock(),{on_hand:10001,reserved:0});
+ await customer.locator('#quote-store-policies').getByText('متجر اختبار السياسات',{exact:true}).waitFor();pass('page reload restores the supplier-pickup quote and policies without stock or another capacity reservation');
  const confirmed=await change(customer,'/api/orders',()=>customer.locator('#confirm-order').click());
  const code=(await customer.locator('.delivery-code').innerText()).trim();assert.match(code,/^\d{6}$/);assert.equal(order().id,confirmed.id);assert.equal(order().total,2000);pass('reviewed COD confirmation creates one immutable commercial order');
  await customer.screenshot({path:output+'/order-confirmed.png',fullPage:true});
@@ -260,25 +260,21 @@ try{
  pass('customer order shows frozen address appointment recorded timeline and separate COD amounts');
 
 
- phase='picker assignment and actual weight';
- async function assign(role){
-  await admin.locator('[data-page=orders]').click();await admin.locator('[data-action=assign-order][data-id="'+confirmed.id+'"]').click();
-  const form=admin.locator('#assignment-form');const id=sql('SELECT id FROM users WHERE email='+literal(fixture.accounts[role])+';');await form.locator('[name='+role+'_id]').selectOption(id);await form.locator('[name=reason]').fill('إسناد رحلة المتصفح');
-  await change(admin,'/api/ops/orders/'+confirmed.id+'/assignment',()=>form.locator('button').click());
- }
- await assign('picker');const picker=await login('picker');
+ phase='supplier purchase funding and courier custody';
+ const procurementJob=confirmed.procurement_job_id,pickerId=sql('SELECT id FROM users WHERE email='+literal(fixture.accounts.picker)+';'),courierId=sql('SELECT id FROM users WHERE email='+literal(fixture.accounts.courier)+';');
+ await admin.locator('[data-page=procurement]').click();await admin.locator('[data-procurement-job="'+procurementJob+'"] [data-action=procurement-detail]').click();await admin.locator('#procurement-assignment-open').click();
+ const procurementAssignment=admin.locator('#procurement-assignment-form');await procurementAssignment.locator('[name=employee_id]').selectOption(pickerId);await procurementAssignment.locator('[name=reason]').fill('تكليف شراء رحلة المتصفح المعزولة');
+ await change(admin,'/api/ops/procurement/'+procurementJob+'/assignment',()=>procurementAssignment.locator('button').click());
+ const picker=await login('picker');
  await picker.getByRole('heading',{name:'مهام شراء الطلبات من الموردين والمحلات'}).waitFor();
  assert.match(await picker.locator('#ops-app').innerText(),/يسجل موظف الشراء المسند الكميات والتكلفة الفعلية لكل زيارة مورد/);pass('purchasing employee starts in the warehouse-free assigned-purchase workspace');
- await change(picker,'/api/ops/orders',()=>picker.locator('[data-page=orders]').click(),'GET');
- await change(picker,'/api/ops/orders/'+confirmed.id+'/start',()=>picker.locator('[data-action=start][data-id="'+confirmed.id+'"]').click());
- await picker.locator('[data-action=open-pick]').click();await picker.locator('[data-actual] [name=actual_base]').fill('900');
- await change(picker,'/api/ops/orders/'+confirmed.id+'/actual',()=>picker.locator('[data-actual] button').click());
- assert.equal(order().total,1800);
- await change(picker,'/api/ops/orders/'+confirmed.id+'/finalize',()=>picker.locator('[data-finalize]').click());
- assert.equal(order().fulfillment,'ready');assert.deepEqual(stock(),{on_hand:9101,reserved:0});pass('assigned picker records actual weight and consumes FEFO inventory');
+ await picker.locator('[data-procurement-job="'+procurementJob+'"] [data-action=procurement-detail]').click();await picker.locator('#procurement-purchase-open').click();const purchaseForm=picker.locator('#procurement-purchase-form');await purchaseForm.locator('[name=pickup_site_id]').selectOption(pickupSite.id);await purchaseForm.locator('[name=document_reference]').fill('E2E-PURCHASE-001');await purchaseForm.locator('[name=note]').fill('جمع فعلي معزول من المورد');await purchaseForm.locator('[name=quantity_0]').fill('1');await purchaseForm.locator('[name=cost_0]').fill('15');await purchaseForm.locator('[name=quality_0]').fill('مطابق للجودة المطلوبة');
+ await change(picker,'/api/ops/procurement/'+procurementJob+'/purchases',()=>purchaseForm.locator('button').click());assert.equal(order().total,2000);assert.deepEqual(stock(),{on_hand:10001,reserved:0});pass('assigned employee records supplier quantity cost and evidence without changing customer price or inventory');
+ await admin.locator('[data-page=procurement]').click();await admin.locator('[data-procurement-job="'+procurementJob+'"] [data-action=procurement-detail]').click();await admin.locator('#procurement-funding-open').click();const fundingForm=admin.locator('#procurement-funding-form');await fundingForm.locator('[name=funding_source]').selectOption('company_paid');await fundingForm.locator('[name=evidence_reference]').fill('E2E-COMPANY-PAYMENT-001');await fundingForm.locator('[name=note]').fill('دفع شركة مثبت في البيئة المعزولة');await fundingForm.locator('[name=confirmed]').check();await change(admin,'/api/ops/procurement/'+procurementJob+'/funding',()=>fundingForm.locator('button').click());
+ await picker.locator('[data-action=refresh]').click();await picker.locator('[data-procurement-job="'+procurementJob+'"] [data-action=procurement-detail]').click();await picker.locator('#procurement-handover-open').click();const handoverForm=picker.locator('#procurement-handover-form');await handoverForm.locator('[name=courier_id]').selectOption(courierId);await handoverForm.locator('[name=note]').fill('عد وتسليم عهدة رحلة المتصفح');await handoverForm.locator('[name=confirmed]').check();await change(picker,'/api/ops/procurement/'+procurementJob+'/handover',()=>handoverForm.locator('button').click());
+ const courier=await login('courier');await courier.locator('[data-page=procurement]').click();await courier.locator('[data-procurement-job="'+procurementJob+'"] [data-action=procurement-detail]').click();assert.equal(await courier.locator('#procurement-handover-accept-open').count(),1);assert.doesNotMatch(await courier.locator('dialog[open]').innerText(),/15\.00|E2E-PURCHASE|مورد اختبار/);await courier.locator('#procurement-handover-accept-open').click();const acceptForm=courier.locator('#procurement-handover-accept-form');await acceptForm.locator('[name=note]').fill('طابقت الكمية واستلمت العهدة');await acceptForm.locator('[name=confirmed]').check();await change(courier,'/api/ops/procurement/'+procurementJob+'/handover-accept',()=>acceptForm.locator('button').click());assert.equal(order().fulfillment,'ready');assert.deepEqual(stock(),{on_hand:10001,reserved:0});pass('company funding and dual courier custody complete without exposing supplier finance or touching warehouse balances');
 
  phase='delivery proof and separate cash collection';
- await assign('courier');const courier=await login('courier');
  await change(courier,'/api/ops/orders',()=>courier.locator('[data-page=orders]').click(),'GET');
  await change(courier,'/api/ops/orders/'+confirmed.id+'/dispatch',()=>courier.locator('[data-action=dispatch]').click());
  const directions=new URL(await courier.locator('[data-delivery-directions]').getAttribute('href'));assert.equal(directions.origin,'https://www.google.com');assert.equal(directions.searchParams.get('destination'),'16.5,42.5');assert.match(await courier.locator('[data-delivery-phone]').getAttribute('href'),/^tel:\+9665\d{8}$/);
@@ -288,7 +284,7 @@ try{
  await customer.locator('#order-tracking').getByText(/آخر موقع مسجل للمندوب/).waitFor();assert.match(await customer.locator('#order-tracking a').getAttribute('href'),/16.51%2C42.51/);await closeModal(customer);
  pass('customer tracking displays a real recorded point and its timestamp without a fabricated live route');
 
- await change(courier,'/api/ops/orders/'+confirmed.id+'/fail',()=>courier.locator('[data-action=fail]').click());assert.equal(order().delivery,'failed');assert.equal(order().collected,0);assert.equal(order().settled,0);assert.deepEqual(stock(),{on_hand:9101,reserved:0});
+ await change(courier,'/api/ops/orders/'+confirmed.id+'/fail',()=>courier.locator('[data-action=fail]').click());assert.equal(order().delivery,'failed');assert.equal(order().collected,0);assert.equal(order().settled,0);assert.deepEqual(stock(),{on_hand:10001,reserved:0});
  const failedEvent=value('SELECT jsonb_build_object(\'actor_id\',actor_id,\'reason\',reason,\'created_at\',created_at) FROM order_events WHERE order_id='+literal(confirmed.id)+" AND event='delivery_failed';");assert.equal(failedEvent.actor_id,sql('SELECT id FROM users WHERE email='+literal(fixture.accounts.courier)+';'));assert.equal(failedEvent.reason,'تم التحقق في اختبار المستودع');assert.ok(failedEvent.created_at>0);
  await change(courier,'/api/ops/orders/'+confirmed.id+'/dispatch',()=>courier.locator('[data-action=dispatch]').click());pass('failed delivery preserves reason actor time and consumed stock without collecting cash before a real retry');
  await courier.locator('[data-action=deliver]').click();await courier.locator('#deliver-form [name=code]').fill(code);
@@ -298,7 +294,7 @@ try{
  pass('completed delivery removes location sharing while uncollected cash remains distinguishable');
 
  await change(courier,'/api/ops/orders/'+confirmed.id+'/collect',()=>courier.locator('[data-action=collect]').click());
- assert.equal(order().collected,1800);assert.equal(order().settled,0);
+ assert.equal(order().collected,2000);assert.equal(order().settled,0);
  await customer.locator('[data-order="'+confirmed.id+'"]').click();await customer.getByText('إيصال التحصيل النقدي',{exact:true}).waitFor();assert.equal(await customer.getByText(/ليس فاتورة ضريبية/).count(),1);
  const receiptDownload=customer.waitForEvent('download');await customer.locator('#download-cash-receipt').click();const downloaded=await receiptDownload;assert.match(downloaded.suggestedFilename(),/^jana-cash-receipt-/);const receiptHtml=await fs.readFile(await downloaded.path(),'utf8');assert.match(receiptHtml,/إيصال تحصيل نقدي/);assert.match(receiptHtml,/ليس فاتورة ضريبية/);assert.match(receiptHtml,/متجر اختبار السياسات/);assert.doesNotMatch(receiptHtml,/<script/);await closeModal(customer);
  pass('separate courier collection creates cash liability and a printable customer-safe non-tax receipt');
@@ -308,7 +304,7 @@ try{
  await finance.goto(origin+'/admin.html#launch');await finance.locator('.stat-grid').first().waitFor();assert.equal(new URL(finance.url()).hash,'#dashboard');assert.deepEqual(deniedLaunchReads,[]);assert.equal(await finance.locator('[data-launch-center]').count(),0);
  await finance.locator('.ops-menu [data-page=orders]').click();await finance.locator('[data-action=settle]').click();await finance.locator('#settlement-form [name=reference]').fill('E2E-DEPOSIT-001');
  pass('a finance bookmark cannot request the admin launch data and returns to its permitted workspace');
- await change(finance,'/api/ops/orders/'+confirmed.id+'/settle',()=>finance.locator('#settlement-form button').click());assert.equal(order().settled,1800);pass('finance settlement records actual reference and clears liability');
+ await change(finance,'/api/ops/orders/'+confirmed.id+'/settle',()=>finance.locator('#settlement-form button').click());assert.equal(order().settled,2000);pass('finance settlement records actual reference and clears liability');
 
  phase='customer support and staff response';
  await customer.locator('[data-order="'+confirmed.id+'"]').click();await customer.locator('[data-support="'+confirmed.id+'"]').click();
@@ -334,16 +330,17 @@ try{
  await change(customer,'/api/shopping-lists',()=>customer.locator('#saved-list-form button').click());await customer.locator('[data-remind-list]').click();await customer.locator('#reminder-form [name=next_at]').fill(nextSaudiDate());await customer.locator('#reminder-form [name=consent]').check();
  const reminder=await change(customer,'/api/recurring',()=>customer.locator('#reminder-form button').click());
  await change(customer,'/api/recurring/'+reminder.id,()=>customer.locator('[data-plan-state][data-state=paused]').click(),'PATCH');
- assert.equal(sql('SELECT state FROM recurring_plans WHERE id='+literal(reminder.id)+';'),'paused');assert.equal(Number(sql('SELECT count(*) FROM orders;')),1);assert.deepEqual(stock(),{on_hand:9101,reserved:0});pass('saved lists and explicit recurring reminder consent do not create or charge orders');
+ assert.equal(sql('SELECT state FROM recurring_plans WHERE id='+literal(reminder.id)+';'),'paused');assert.equal(Number(sql('SELECT count(*) FROM orders;')),1);assert.deepEqual(stock(),{on_hand:10001,reserved:0});pass('saved lists and explicit recurring reminder consent do not create or charge orders');
  await customer.screenshot({path:output+'/customer-reminders.png',fullPage:true});
 
  phase='optional email account';
  const phoneCustomer=await pageFor('phone_customer');await phoneCustomer.locator('[data-view=account]').first().click();await phoneCustomer.locator('[data-register]').click();await phoneCustomer.locator('#auth-form [name=name]').fill('عميل تسجيل الجوال');await phoneCustomer.locator('#auth-form [name=phone]').fill('0500000002');await phoneCustomer.locator('#auth-form [name=password]').fill(password);const phoneLogin=await change(phoneCustomer,'/api/auth/login',()=>phoneCustomer.locator('#auth-form button[type=submit]').click());assert.equal(phoneLogin.user.email,null);assert.equal(phoneLogin.user.verified_phone,false);await phoneCustomer.locator('[data-action=profile]').waitFor();await change(phoneCustomer,'/api/auth/logout',()=>phoneCustomer.locator('[data-action=logout]').click());await phoneCustomer.locator('[data-login]').click();await phoneCustomer.locator('#auth-form [name=email]').fill('+966500000002');await phoneCustomer.locator('#auth-form [name=password]').fill(password);const restoredPhone=await change(phoneCustomer,'/api/auth/login',()=>phoneCustomer.locator('#auth-form button[type=submit]').click());assert.equal(restoredPhone.user.id,phoneLogin.user.id);pass('customer registers without email and signs in using either phone format without false verification');
 
  phase='administrator customer review';
- await admin.locator('[data-page=customers]').click();await admin.locator('#customer-search [name=q]').fill('عميل رحلة جنى');await change(admin,'/api/ops/customers',()=>admin.locator('#customer-search button').click(),'GET');const customerId=sql('SELECT id FROM users WHERE email='+literal(fixture.prefix+'browser@example.invalid')+';');const review=await change(admin,'/api/ops/customers/'+customerId,()=>admin.locator('[data-action=customer-detail][data-id="'+customerId+'"]').click(),'GET');assert.equal(review.orders_count,1);assert.equal(review.orders[0].total_halalas,1800);assert.equal(review.orders[0].refunded_halalas,100);assert.ok(Number(sql("SELECT count(*) FROM audit_log WHERE action='customer_record_viewed' AND entity_id="+literal(customerId)+';'))>=1);pass('administrator searches real customers and reviews audited order activity');
+ await admin.locator('[data-page=customers]').click();await admin.locator('#customer-search [name=q]').fill('عميل رحلة جنى');await change(admin,'/api/ops/customers',()=>admin.locator('#customer-search button').click(),'GET');const customerId=sql('SELECT id FROM users WHERE email='+literal(fixture.prefix+'browser@example.invalid')+';');const review=await change(admin,'/api/ops/customers/'+customerId,()=>admin.locator('[data-action=customer-detail][data-id="'+customerId+'"]').click(),'GET');assert.equal(review.orders_count,1);assert.equal(review.orders[0].total_halalas,2000);assert.equal(review.orders[0].refunded_halalas,100);assert.ok(Number(sql("SELECT count(*) FROM audit_log WHERE action='customer_record_viewed' AND entity_id="+literal(customerId)+';'))>=1);pass('administrator searches real customers and reviews audited order activity');
 
  phase='versioned weight policy and picking';
+ customerNetwork.legacyAdmission=true;
  await closeModal(admin);await admin.locator('[data-page=catalog]').click();await admin.locator('[data-action=new-product]').click();const productForm=admin.locator('#product-version-form');
  await productForm.locator('[name=title]').fill('فاكهة بحدود وزن الاختبار');await productForm.locator('[name=size_label]').fill('1 كجم');await productForm.locator('[name=price]').fill('20');await productForm.locator('[name=image_url]').fill(origin+'/assets/icon.svg');await productForm.locator('[name=stock_id]').selectOption(fixture.stock_id);await productForm.locator('[name=base_qty]').fill('1000');await productForm.locator('[name=weight_under]').fill('20');await productForm.locator('[name=weight_over]').fill('20');
  const weightVersion=await change(admin,'/api/ops/products',()=>productForm.locator('button[type=submit]').click());assert.equal(weightVersion.offerings[0].weight_over_bps,2000);assert.equal(weightVersion.offerings[0].weight_under_bps,2000);
@@ -351,17 +348,17 @@ try{
  await change(admin,'/api/ops/product-versions/'+weightVersion.id+'/activate',()=>admin.locator('[data-action=activate-product-version][data-id="'+weightVersion.id+'"]').click());pass('administrator creates and activates an immutable sellable weight policy');
  await customer.reload();const publishedImage=customer.locator('[data-product="'+weightVersion.offerings[0].id+'"] img');await publishedImage.waitFor();await publishedImage.scrollIntoViewIfNeeded();await publishedImage.evaluate(img=>img.decode());assert.ok(await publishedImage.evaluate(img=>img.naturalWidth>0));pass('configured product image is rendered and decoded on the real storefront');await customer.locator('[data-add="'+weightVersion.offerings[0].id+'"]').click();await customer.locator('[data-action=cart]').first().click();await customer.locator('#checkout').click();await customer.locator('[data-address]').first().click();
  const weightQuote=await change(customer,'/api/quotes',()=>customer.locator('[data-slot="'+fixture.slot_id+'"]').click());assert.equal(weightQuote.lines[0].weight_policy.max_base,1200);await customer.getByText(/الزيادة المسموحة مجانًا/).waitFor();
- const weightOrder=await change(customer,'/api/orders',()=>customer.locator('#confirm-order').click());assert.deepEqual(stock(),{on_hand:9101,reserved:1000});
+ const weightOrder=await change(customer,'/api/orders',()=>customer.locator('#confirm-order').click());assert.deepEqual(stock(),{on_hand:10001,reserved:1000});
  await admin.locator('[data-page=orders]').click();await change(admin,'/api/ops/orders/'+weightOrder.id+'/start',()=>admin.locator('[data-action=start][data-id="'+weightOrder.id+'"]').click());await admin.locator('[data-action=open-pick][data-id="'+weightOrder.id+'"]').click();
  const actualInput=admin.locator('[data-actual] [name=actual_base]');assert.equal(await actualInput.getAttribute('min'),'800');assert.equal(await actualInput.getAttribute('max'),'1200');await actualInput.fill('1100');
- const weightResult=await change(admin,'/api/ops/orders/'+weightOrder.id+'/actual',()=>admin.locator('[data-actual] button').click());assert.equal(weightResult.total_halalas,2000);assert.deepEqual(stock(),{on_hand:9101,reserved:1100});
- await change(admin,'/api/ops/orders/'+weightOrder.id+'/finalize',()=>admin.locator('[data-finalize]').click());assert.deepEqual(stock(),{on_hand:8001,reserved:0});pass('reviewed weight range permits real extra stock with no extra customer charge and consumes actual quantity');
+ const weightResult=await change(admin,'/api/ops/orders/'+weightOrder.id+'/actual',()=>admin.locator('[data-actual] button').click());assert.equal(weightResult.total_halalas,2000);assert.deepEqual(stock(),{on_hand:10001,reserved:1100});
+ await change(admin,'/api/ops/orders/'+weightOrder.id+'/finalize',()=>admin.locator('[data-finalize]').click());assert.deepEqual(stock(),{on_hand:8901,reserved:0});pass('reviewed weight range permits real extra stock with no extra customer charge and consumes actual quantity');
  phase='inventory disposal and finance evidence';
  await inventory.locator('[data-action=refresh]').click();
  let disposed=0;
  for(const [kind,quantity]of [['waste',100],['damage',50],['supplier_return',50]]){
   await inventory.locator('[data-action=dispose-lot][data-id="'+lot.id+'"]').click();const form=inventory.locator('#disposal-form');await form.locator('[name=kind]').selectOption(kind);await form.locator('[name=quantity_base]').fill(String(quantity));await form.locator('[name=reference]').fill('E2E-DISPOSAL-'+kind);await form.locator('[name=reason]').fill('إخراج موثق في اختبار المستودع');
-  const event=await change(inventory,'/api/ops/lots/'+lot.id+'/disposal',()=>form.locator('button[type=submit]').click());assert.equal(event.kind,kind);assert.equal(event.quantity_base,quantity);assert.equal(event.value_halalas,quantity);assert.equal(event.cost_basis,'recorded');disposed+=quantity;assert.deepEqual(stock(),{on_hand:8001-disposed,reserved:0});
+  const event=await change(inventory,'/api/ops/lots/'+lot.id+'/disposal',()=>form.locator('button[type=submit]').click());assert.equal(event.kind,kind);assert.equal(event.quantity_base,quantity);assert.equal(event.value_halalas,quantity);assert.equal(event.cost_basis,'recorded');disposed+=quantity;assert.deepEqual(stock(),{on_hand:8901-disposed,reserved:0});
  }
  pass('warehouse records waste damage and supplier return with actual stock and cost movements');
  await finance.locator('[data-page=disposals]').click();await finance.getByText('E2E-DISPOSAL-supplier_return',{exact:false}).waitFor();assert.equal(await finance.locator('.data-table tbody tr').count(),3);assert.equal(await finance.locator('[data-action=dispose-lot]').count(),0);assert.equal(Number(sql("SELECT count(*) FROM audit_log WHERE action='inventory_disposed';")),3);
@@ -375,17 +372,17 @@ try{
  phase='stock movement ledger';
  await finance.locator('[data-page=movements]').click();const movementForm=finance.locator('#movement-filters');await movementForm.locator('[name=reason]').selectOption('waste');await movementForm.locator('[name=reference]').fill('E2E-DISPOSAL-waste');
  const ledger=await change(finance,'/api/ops/movements',()=>movementForm.locator('button[type=submit]').click(),'GET');assert.equal(ledger.items.length,1);assert.equal(ledger.items[0].on_hand_delta,-100);assert.equal(ledger.items[0].reserved_delta,0);assert.equal(ledger.items[0].value_delta_halalas,-100);await finance.locator('[data-movement="'+ledger.items[0].id+'"]').waitFor();assert.equal(await finance.locator('.data-table tbody tr').count(),1);
- await change(finance,'/api/ops/movements',()=>finance.locator('#movements-reset').click(),'GET');assert.ok(await finance.locator('.data-table tbody tr').count()>3);assert.deepEqual(stock(),{on_hand:7801,reserved:0});
+ await change(finance,'/api/ops/movements',()=>finance.locator('#movements-reset').click(),'GET');assert.ok(await finance.locator('.data-table tbody tr').count()>3);assert.deepEqual(stock(),{on_hand:8701,reserved:0});
  pass('finance filters real signed stock and cost ledger by document then restores history without changing inventory');
  phase='customer return receipt and quality inspection';
  const beforeReturnOrder=value('SELECT to_jsonb(o) FROM orders o WHERE id='+literal(confirmed.id)+';');
  await inventory.locator('[data-page=customer-returns]').click();await inventory.locator('[data-action=new-customer-return]').click();await inventory.locator('#return-lookup [name=order_number]').fill(confirmed.number);
  const returnContext=await change(inventory,'/api/ops/customer-returns/context',()=>inventory.locator('#return-lookup button').click(),'GET');const returnSource=returnContext.items.find(x=>x.lot_id===lot.id);assert.ok(returnSource&&returnSource.returnable_base>=130);
  const returnForm=inventory.locator('#customer-return-form');await returnForm.locator('[name=source_movement_id]').selectOption(returnSource.source_movement_id);await returnForm.locator('[name=quantity_base]').fill('100');await returnForm.locator('[name=reference]').fill('E2E-CUSTOMER-RETURN');await returnForm.locator('[name=reason]').fill('استلام مرتجع فعلي في اختبار المستودع');
- const receipt=await change(inventory,'/api/ops/customer-returns',()=>returnForm.locator('button[type=submit]').click());assert.equal(receipt.state,'pending');assert.deepEqual(stock(),{on_hand:7801,reserved:0});assert.deepEqual(value('SELECT to_jsonb(o) FROM orders o WHERE id='+literal(confirmed.id)+';'),beforeReturnOrder);
+ const receipt=await change(inventory,'/api/ops/customer-returns',()=>returnForm.locator('button[type=submit]').click());assert.equal(receipt.state,'pending');assert.deepEqual(stock(),{on_hand:8701,reserved:0});assert.deepEqual(value('SELECT to_jsonb(o) FROM orders o WHERE id='+literal(confirmed.id)+';'),beforeReturnOrder);
  pass('physical customer return is linked to a shipped lot and stays quarantined without altering cash or usable stock');
  await inventory.locator('[data-action=inspect-customer-return][data-id="'+receipt.id+'"]').click();const inspectionForm=inventory.locator('#return-inspection-form');assert.equal(await inspectionForm.locator('[name=accepted_base]').inputValue(),'');await inspectionForm.locator('[name=accepted_base]').fill('60');await inspectionForm.locator('[name=note]').fill('قبول ستين جرامًا وعزل الباقي بعد الفحص');
- const inspected=await change(inventory,'/api/ops/customer-returns/'+receipt.id+'/inspection',()=>inspectionForm.locator('button[type=submit]').click());assert.equal(inspected.accepted_base,60);assert.equal(inspected.rejected_base,40);assert.equal(inspected.restored_cost_halalas,60);assert.deepEqual(stock(),{on_hand:7861,reserved:0});assert.deepEqual(value('SELECT to_jsonb(o) FROM orders o WHERE id='+literal(confirmed.id)+';'),beforeReturnOrder);
+ const inspected=await change(inventory,'/api/ops/customer-returns/'+receipt.id+'/inspection',()=>inspectionForm.locator('button[type=submit]').click());assert.equal(inspected.accepted_base,60);assert.equal(inspected.rejected_base,40);assert.equal(inspected.restored_cost_halalas,60);assert.deepEqual(stock(),{on_hand:8761,reserved:0});assert.deepEqual(value('SELECT to_jsonb(o) FROM orders o WHERE id='+literal(confirmed.id)+';'),beforeReturnOrder);
  pass('warehouse quality approval restores only accepted quantity at original cost and preserves rejected quarantine and financial history');
  const returnFinance=await change(finance,'/api/ops/customer-returns',()=>finance.locator('[data-page=customer-returns]').click(),'GET');assert.equal(returnFinance.items.find(x=>x.id===receipt.id).inspection.restored_cost_halalas,60);assert.equal(await finance.locator('[data-action=new-customer-return]').count(),0);assert.equal(await finance.locator('[data-action=inspect-customer-return]').count(),0);
  const returnSupport=await change(support,'/api/ops/customer-returns',()=>support.locator('[data-page=customer-returns]').click(),'GET');assert.equal(returnSupport.items.find(x=>x.id===receipt.id).inspection.restored_cost_halalas,undefined);assert.equal(await support.locator('[data-action=inspect-customer-return]').count(),0);
@@ -424,7 +421,7 @@ try{
  await admin.locator('details').filter({has:admin.locator('[data-action=activate-product-version][data-id="'+basketVersion.id+'"]')}).locator('summary').click();await change(admin,'/api/ops/product-versions/'+basketVersion.id+'/activate',()=>admin.locator('[data-action=activate-product-version][data-id="'+basketVersion.id+'"]').click());
  await customer.reload();await customer.locator('[data-add="'+basketVersion.offerings[0].id+'"]').click();await customer.locator('[data-add="'+basketVersion.offerings[0].id+'"]').click();await customer.locator('[data-action=cart]').first().click();await customer.locator('#checkout').click();await customer.locator('[data-address]').first().click();
  const basketQuote=await change(customer,'/api/quotes',()=>customer.locator('[data-slot="'+fixture.slot_id+'"]').click());assert.equal(basketQuote.lines[0].qty,2);assert.equal(basketQuote.total_halalas,4000);
- const basketOrder=await change(customer,'/api/orders',()=>customer.locator('#confirm-order').click());const basketBalance=stock();assert.deepEqual(basketBalance,{on_hand:7861,reserved:2000});
+ const basketOrder=await change(customer,'/api/orders',()=>customer.locator('#confirm-order').click());const basketBalance=stock();assert.deepEqual(basketBalance,{on_hand:8761,reserved:2000});
  await admin.locator('[data-page=orders]').click();await change(admin,'/api/ops/orders/'+basketOrder.id+'/start',()=>admin.locator('[data-action=start][data-id="'+basketOrder.id+'"]').click());await admin.locator('[data-action=open-pick][data-id="'+basketOrder.id+'"]').click();
  await admin.locator('[data-components]').waitFor();assert.equal(await admin.locator('[data-components] [name=component_0]').inputValue(),'');assert.ok(await admin.locator('[data-finalize]').isDisabled());
  pass('fixed basket editor and checkout retain both sold components while preparation requires actual measurements');
@@ -433,7 +430,7 @@ try{
  pass('real component shortage is recorded and blocks finishing without changing price or stock');
  await admin.locator('[data-components] [name=component_0]').fill('2000');await admin.locator('[data-components] [name=measured]').check();
  const completeBasket=await change(admin,'/api/ops/orders/'+basketOrder.id+'/components',()=>admin.locator('[data-components] button').click());assert.ok(completeBasket.matches);await admin.getByText('تم تسجيل جميع المكونات بالكميات المطلوبة',{exact:true}).waitFor();
- await change(admin,'/api/ops/orders/'+basketOrder.id+'/finalize',()=>admin.locator('[data-finalize]').click());assert.deepEqual(stock(),{on_hand:5861,reserved:0});assert.equal(Number(sql('SELECT on_hand_base FROM stock_balances WHERE stock_id='+literal(basketPiece.id)+';')),94);assert.equal(Number(sql('SELECT total_halalas FROM orders WHERE id='+literal(basketOrder.id)+';')),4000);
+ await change(admin,'/api/ops/orders/'+basketOrder.id+'/finalize',()=>admin.locator('[data-finalize]').click());assert.deepEqual(stock(),{on_hand:6761,reserved:0});assert.equal(Number(sql('SELECT on_hand_base FROM stock_balances WHERE stock_id='+literal(basketPiece.id)+';')),94);assert.equal(Number(sql('SELECT total_halalas FROM orders WHERE id='+literal(basketOrder.id)+';')),4000);
  pass('corrected gram and piece measurements permit exact FEFO consumption at the customer-approved basket price');
 
  phase='customer-approved basket component replacement';
@@ -467,12 +464,12 @@ try{
  await change(customer,'/api/orders/'+componentOrder.id,()=>customer.locator('#refresh-order').click(),'GET');await customer.locator('[data-sub="'+approvedComponent.id+'"][data-accept=true]').waitFor();
  assert.ok(await customer.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await customer.screenshot({path:output+'/component-consent-phone.png',fullPage:false});
  const componentDecision=await change(customer,'/api/substitutions/'+approvedComponent.id+'/decision',()=>customer.locator('[data-sub="'+approvedComponent.id+'"][data-accept=true]').click());assert.equal(componentDecision.action,'replace_component');assert.equal(componentDecision.total_halalas,2000);
- assert.deepEqual(stock(),{on_hand:5861,reserved:0});assert.deepEqual(componentBalance(),{on_hand:4000,reserved:1000});
+ assert.deepEqual(stock(),{on_hand:6761,reserved:0});assert.deepEqual(componentBalance(),{on_hand:4000,reserved:1000});
  await change(admin,'/api/ops/orders/'+componentOrder.id+'/picking',()=>admin.locator('[data-pick-refresh]').click(),'GET');await admin.locator('[data-components]').waitFor();assert.equal(await admin.locator('[name=component_0]').inputValue(),'');assert.equal(await admin.locator('[name=component_1]').inputValue(),'');assert.ok(await admin.locator('[data-finalize]').isDisabled());
  pass('explicit phone consent reallocates the replacement once at the frozen total and requires fresh measurements');
  await admin.locator('[name=component_0]').fill('1000');await admin.locator('[name=component_1]').fill('3');await admin.locator('[name=measured]').check();
  await change(admin,'/api/ops/orders/'+componentOrder.id+'/components',()=>admin.locator('[data-components] button').click());await admin.getByText('تم تسجيل جميع المكونات بالكميات المطلوبة',{exact:true}).waitFor();
- await change(admin,'/api/ops/orders/'+componentOrder.id+'/finalize',()=>admin.locator('[data-finalize]').click());assert.deepEqual(stock(),{on_hand:5861,reserved:0});assert.deepEqual(componentBalance(),{on_hand:3000,reserved:0});assert.equal(Number(sql('SELECT on_hand_base FROM stock_balances WHERE stock_id='+literal(basketPiece.id)+';')),91);
+ await change(admin,'/api/ops/orders/'+componentOrder.id+'/finalize',()=>admin.locator('[data-finalize]').click());assert.deepEqual(stock(),{on_hand:6761,reserved:0});assert.deepEqual(componentBalance(),{on_hand:3000,reserved:0});assert.equal(Number(sql('SELECT on_hand_base FROM stock_balances WHERE stock_id='+literal(basketPiece.id)+';')),91);
  assert.equal(Number(sql('SELECT total_halalas FROM orders WHERE id='+literal(componentOrder.id)+';')),2000);
  pass('preparation consumes only the approved component composition and preserves the agreed basket price');
  phase='external notification state';
@@ -565,7 +562,7 @@ try{
  await fs.writeFile(output+'/results.json',JSON.stringify({status:'passed',checks},null,2));
  console.log('Browser journey complete: '+checks.length+' checks');
 }catch(error){
- console.error('FAILED PHASE: '+phase);console.error(error);for(const [role,page] of Object.entries(pages))console.error('FIXTURE PAGE '+role+': '+(await page.locator('body').innerText()).slice(0,8000));
+ console.error('FAILED PHASE: '+phase);console.error(error);for(const [role,page] of Object.entries(pages))if(!page.isClosed())console.error('FIXTURE PAGE '+role+': '+(await page.locator('body').innerText()).slice(0,8000));
  for(const [role,page] of Object.entries(pages)){await page.screenshot({path:output+'/failure-'+role+'.png',fullPage:true}).catch(()=>{});await fs.writeFile(output+'/failure-'+role+'.txt',await page.locator('body').innerText()).catch(()=>{})}
  await fs.writeFile(output+'/results.json',JSON.stringify({status:'failed',phase,checks,error:String(error),browserErrors:errors,gatewayErrors:harness.failures},null,2));process.exitCode=1;
 }finally{await browser.close();await harness.close()}
