@@ -1,6 +1,6 @@
 """Dormant warehouse-free quote/order/assignment in disposable PostgreSQL only."""
 from database_support import *
-from storefront_fixture import PROFILE,REVIEWED,get_store,write_store
+from storefront_fixture import PROFILE,REVIEWED,get_store,intake,write_store
 checks=[]
 def passed(name):checks.append(name);print('PASS '+name,flush=True)
 def fails(query,code):
