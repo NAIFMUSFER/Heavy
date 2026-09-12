@@ -222,7 +222,7 @@ assert cancel_after['order']['snapshot']==cancel_before['order']['snapshot']
 assert cancel_after['order']['original_snapshot']==cancel_before['order']['original_snapshot']
 assert cancel_after['order']['total_halalas']==cancel_before['order']['total_halalas']
 assert cancel_after['booked']==cancel_before['booked']-1 and cancel_after['job']['state']=='cancelled'
-assert val('SELECT count(*) FROM procurement_purchase_records WHERE order_id='+literal(cancel_order['id'])+';')==0
+assert val('SELECT count(*) FROM procurement_purchase_records r JOIN procurement_jobs j ON j.id=r.job_id WHERE j.order_id='+literal(cancel_order['id'])+';')==0
 fails(rpc('jana_cancel_order',f['t'],cancel_order['id']),'order_not_cancellable')
 fails('UPDATE procurement_unavailable_cancellations SET note=\'tampered\' WHERE id='+literal(cancelled['id'])+';','append_only')
 assert val("SELECT count(*) FROM pg_class WHERE relname='procurement_unavailable_cancellations' AND relrowsecurity AND NOT has_table_privilege('anon',oid,'SELECT') AND NOT has_table_privilege('authenticated',oid,'SELECT') AND NOT has_table_privilege('service_role',oid,'SELECT');")==1
