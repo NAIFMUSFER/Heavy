@@ -65,6 +65,8 @@ assert again==order and order['idempotent_replay'] is False and order['inventory
 job=val('SELECT to_jsonb(j) FROM procurement_jobs j WHERE order_id='+literal(order['id'])+';')
 assert job['state']=='unassigned' and job['assigned_to'] is None and len(job['requested_lines'])==1
 assert val('SELECT snapshot::jsonb FROM orders WHERE id='+literal(order['id'])+';')['total_halalas']==q['total_halalas']
+detail=val(rpc('jana_order_detail',f['t'],order['id']))
+assert [e['event'] for e in detail['timeline']]==['supplier_pickup_order_created'] and detail['timeline_has_earlier'] is False
 fails('UPDATE procurement_jobs SET requested_lines='+literal(json.dumps([dict(offering_id='tampered',qty=9)]))+'::jsonb WHERE id='+literal(job['id'])+';','procurement_identity_immutable')
 assert business()['balance']==before['balance'] and business()['lot']==before['lot'] and business()['movements']==before['movements']
 passed('confirmation creates one immutable-request order and procurement job without inventory')

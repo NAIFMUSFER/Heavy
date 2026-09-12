@@ -75,9 +75,30 @@ BEGIN
  RETURN result;
 END$$;
 
+-- The supplier-pickup confirmation event is customer-visible and must follow the
+-- same bounded, timestamp-only timeline contract as the legacy confirmation.
+ALTER FUNCTION public.jana_order_detail(text,text)
+ RENAME TO jana_order_detail_pre_supplier_pickup_admission;
+
+CREATE FUNCTION public.jana_order_detail(p_token text,p_order_id text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE result jsonb;history jsonb;has_earlier boolean;
+BEGIN
+ result=public.jana_order_detail_pre_supplier_pickup_admission(p_token,p_order_id);
+ WITH events AS MATERIALIZED (
+  SELECT id,event,created_at FROM public.order_events WHERE order_id=p_order_id
+  AND event IN ('order_created','supplier_pickup_order_created','picking','start_picking','ready','out_for_delivery','delivery_failed','delivered','cancelled','substitution_proposed','substitution_accepted','substitution_rejected','line_removal_proposed','line_removal_accepted','line_removal_rejected','line_removal_expired','component_substitution_proposed','component_substitution_accepted','component_substitution_rejected','component_substitution_expired','refund_completed')
+  ORDER BY created_at DESC,id DESC LIMIT 101
+ ), selected AS (SELECT * FROM events ORDER BY created_at DESC,id DESC LIMIT 100)
+ SELECT coalesce((SELECT jsonb_agg(to_jsonb(e) ORDER BY e.created_at,e.id) FROM selected e),'[]'::jsonb),(SELECT count(*) FROM events)>100
+ INTO history,has_earlier;
+ RETURN jsonb_set(jsonb_set(result,'{timeline}',history),'{timeline_has_earlier}',to_jsonb(has_earlier));
+END$$;
+
 REVOKE ALL ON FUNCTION
  public.jana_catalog_page_pre_supplier_pickup(integer,integer,text,text),
  public.jana_public_catalog_pre_supplier_pickup(),
+ public.jana_order_detail_pre_supplier_pickup_admission(text,text),
  public.jana_supplier_pickup_quote_gateway(text,text,text,text,jsonb),
  public.jana_order_confirm_gateway(text,text,text)
 FROM PUBLIC,anon,authenticated,service_role;
@@ -85,6 +106,7 @@ FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION
  public.jana_catalog_page(integer,integer,text,text),
  public.jana_public_catalog(),
+ public.jana_order_detail(text,text),
  public.jana_supplier_pickup_quote_gateway(text,text,text,text,jsonb),
  public.jana_order_confirm_gateway(text,text,text)
 FROM PUBLIC,anon,authenticated;
@@ -92,7 +114,7 @@ FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION
  public.jana_catalog_page(integer,integer,text,text),
  public.jana_public_catalog(),
+ public.jana_order_detail(text,text),
  public.jana_supplier_pickup_quote_gateway(text,text,text,text,jsonb),
  public.jana_order_confirm_gateway(text,text,text)
 TO service_role;
-
