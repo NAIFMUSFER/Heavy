@@ -33,6 +33,7 @@ The commercial intake remains closed during this transition. Do not bypass the c
 - Partial collection remains `collecting`; exact completion becomes `ready`. Neither state creates courier custody, supplier payable, employee reimbursement or cash settlement.
 - The two tables have RLS and append-only triggers. Direct table access and the write function remain revoked from clients and `service_role`, so this structure is not reachable through Edge.
 - Customer order total and displayed retail price remain unchanged. Production contains zero purchase records/lines and intake remains closed.
+- Release `da417eb3` publishes this dormant evidence structure through the production source and Render gateway. The exact post-publication read confirms zero rows, unchanged business fingerprints and no Edge grant or route.
 
 ## Next engineering gates — not complete
 
