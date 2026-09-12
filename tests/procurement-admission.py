@@ -339,4 +339,42 @@ assert val("SELECT count(*) FROM audit_log WHERE entity_id IN ("+literal(prepare
 assert val("SELECT count(*) FROM order_events WHERE order_id="+literal(order['id'])+" AND event IN ('procurement_handover_prepared','procurement_handover_accepted');")==2
 assert val('SELECT jana_deep_health();')['ok']
 passed('only the selected courier accepts immutable custody before the order becomes delivery-ready')
+
+# Read-only staff surfaces are independently safe to expose before writes. They
+# are bounded, role-scoped and omit customer contact. Picker views omit payment
+# references while admin/finance retain the evidence required for reconciliation.
+def procurement_page(token,limit=50,before_at=None,before_id=None,state=None):
+ return rpc('jana_procurement_jobs_page',token,limit,before_at,before_id,state).replace("'None'",'NULL')
+admin_page=val(procurement_page(f['atok'],1))
+assert len(admin_page['items'])==1 and admin_page['items'][0]['customer_contact_included'] is False
+assert admin_page['items'][0]['id'] and admin_page['limit']==1
+if admin_page['next']:
+ next_page=val(procurement_page(f['atok'],1,admin_page['next']['before_at'],admin_page['next']['before_id']))
+ assert all(x['id']!=admin_page['items'][0]['id'] for x in next_page['items'])
+filtered=val(procurement_page(f['atok'],100,state='handed_over'))
+assert any(x['id']==job['id'] for x in filtered['items'])
+fails(procurement_page(f['atok'],101),'procurement_query_invalid')
+fails(procurement_page(f['atok'],10,1,None),'procurement_query_invalid')
+detail=val(rpc('jana_procurement_job_detail',f['atok'],job['id']))
+assert detail['job']['state']=='handed_over' and detail['customer_contact_included'] is False
+assert detail['customer_terms']['total_halalas']==customer_total and len(detail['purchases'])==2
+assert len(detail['funding'])==2 and len(detail['settlements'])==2 and detail['financial_detail_included']
+passed('admin procurement pages are bounded and reconcile purchase funding without customer contact')
+
+other_picker=p+'pick';other_picker_token=secrets.token_hex(32)
+run("INSERT INTO users(id,email,name,password_hash,role,verified_phone,active,created_at) VALUES("+literal(other_picker)+","+literal(p+'pick@example.invalid')+",'Other picker','unused','picker',false,true,extract(epoch from clock_timestamp())::bigint*1000);INSERT INTO sessions(token_hash,user_id,csrf_hash,expires_at,created_at) VALUES(encode(extensions.digest("+literal(other_picker_token)+",'sha256'),'hex'),"+literal(other_picker)+",'unused',extract(epoch from clock_timestamp())::bigint*1000+300000,extract(epoch from clock_timestamp())::bigint*1000);")
+run("UPDATE users SET role='picker' WHERE id="+literal(p+'a')+';')
+picker_page=val(procurement_page(f['atok'],100))
+assert any(x['id']==job['id'] for x in picker_page['items']) and all(x['assigned_to']==p+'a' for x in picker_page['items'])
+picker_detail=val(rpc('jana_procurement_job_detail',f['atok'],job['id']))
+assert picker_detail['financial_detail_included'] is False and picker_detail['settlements']==[]
+assert len(picker_detail['funding'])==2 and picker_detail['customer_contact_included'] is False
+assert val(procurement_page(other_picker_token,100))['items']==[]
+fails(rpc('jana_procurement_job_detail',other_picker_token,job['id']),'forbidden')
+fails(procurement_page(f['t'],10),'forbidden')
+assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_procurement_jobs_page','jana_procurement_job_detail') AND has_function_privilege('service_role',oid,'EXECUTE') AND NOT has_function_privilege('anon',oid,'EXECUTE') AND NOT has_function_privilege('authenticated',oid,'EXECUTE');")==2
+assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_procurement_funding_record','jana_procurement_settlement_record','jana_procurement_handover_prepare','jana_procurement_handover_accept') AND has_function_privilege('service_role',oid,'EXECUTE');")==0
+assert val("SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND indexname='jana_procurement_jobs_created_page';")==1
+assert val('SELECT jana_deep_health();')['ok']
+passed('picker procurement reads are assignment-scoped and hide settlement references while writes stay dormant')
 print(json.dumps(dict(passed=len(checks),checks=checks)))

@@ -32,6 +32,18 @@ test('staff order pages use one bounded role-scoped RPC and preserve legacy offs
  calls=[];const anonymous=await handlers['jana-api'](request('jana-api','/api/ops/orders'));assert.equal(anonymous.status,401);assert.equal(calls.length,0);
  response={_error:'forbidden',status:403};const denied=await handlers['jana-api'](request('jana-api','/api/ops/orders',{headers:bearer}));assert.equal(denied.status,403);
 });
+test('procurement staff reads validate bounded cursors and use dedicated role-scoped RPCs',async()=>{
+ calls=[];response={items:[],next:null,customer_contact_included:false};
+ const id='prc-'+'1'.repeat(32),token=bearer.authorization.slice(7);
+ const page=await handlers['jana-api'](request('jana-api',`/api/ops/procurement?limit=25&before_at=1800000000000&before_id=${id}&state=collecting`,{headers:bearer}));
+ assert.equal(page.status,200);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_procurement_jobs_page'));
+ assert.deepEqual(calls[0].body,{p_token:token,p_limit:25,p_before_at:1800000000000,p_before_id:id,p_state:'collecting'});
+ calls=[];response={job:{id},customer_contact_included:false};
+ const detail=await handlers['jana-api'](request('jana-api',`/api/ops/procurement/${id}`,{headers:bearer}));
+ assert.equal(detail.status,200);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_procurement_job_detail'));assert.deepEqual(calls[0].body,{p_token:token,p_job_id:id});
+ for(const query of ['limit=101','limit=1.5','before_at=1','before_id='+id,'state=unknown']){calls=[];const bad=await handlers['jana-api'](request('jana-api','/api/ops/procurement?'+query,{headers:bearer}));assert.equal(bad.status,422);assert.equal(calls.length,0)}
+ calls=[];const anonymous=await handlers['jana-api'](request('jana-api','/api/ops/procurement'));assert.equal(anonymous.status,401);assert.equal(calls.length,0);
+});
 test('courier foreground location preserves the path order and validates coordinates before its scoped RPC',async()=>{
  calls=[];response={order_id:'fixture-order',latitude:16.5,longitude:42.5};
  const r=await handlers['jana-api'](request('jana-api','/api/ops/orders/fixture-order/location',{method:'POST',headers:bearer,body:JSON.stringify({order_id:'ignored-body-order',latitude:'١٦٫٥',longitude:'٤٢٫٥',accuracy_m:15})}));

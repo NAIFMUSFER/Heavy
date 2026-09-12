@@ -47,7 +47,7 @@ function eventName(method,p,status){
   if(method==='POST'&&/^\/api\/substitutions\/.+\/decision$/.test(p))return'jana_substitution_decided';
   if(!['GET','HEAD'].includes(method)&&/^\/api\/ops\//.test(p))return'jana_ops_change';return'jana_api_request';
 }
-function routeLabel(p){return p.replace(/^(\/api\/ops\/customer-returns)\/[^/]+\/(inspection|dispositions)$/,'$1/:id/$2').replace(/(\/orders|\/quotes|\/addresses|\/coverage|\/tickets|\/substitutions|\/notifications|\/lots|\/families|\/offerings|\/coupons|\/slots|\/zones|\/favorites|\/refunds|\/product-versions|\/support|\/customers|\/staff|\/stock|\/suppliers|\/counts|\/count-lines|\/disposals|\/bins|\/pickup-sites|\/shopping-lists|\/recurring)\/[^/]+/g,'$1/:id')}
+function routeLabel(p){return p.replace(/^(\/api\/ops\/customer-returns)\/[^/]+\/(inspection|dispositions)$/,'$1/:id/$2').replace(/(\/orders|\/quotes|\/addresses|\/coverage|\/tickets|\/substitutions|\/notifications|\/lots|\/families|\/offerings|\/coupons|\/slots|\/zones|\/favorites|\/refunds|\/product-versions|\/support|\/customers|\/staff|\/stock|\/suppliers|\/counts|\/count-lines|\/disposals|\/bins|\/pickup-sites|\/procurement|\/shopping-lists|\/recurring)\/[^/]+/g,'$1/:id')}
 function createGateway({settings=config(),fetchImpl=fetch,log=entry=>console.log(JSON.stringify(entry)),root=__dirname}={}){
   const salt=crypto.randomBytes(32),statics=new Map();let active=0;
   for(const file of PUBLIC_FILES)statics.set('/'+file,fs.readFileSync(path.join(root,file)));

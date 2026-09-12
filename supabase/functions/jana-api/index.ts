@@ -97,6 +97,21 @@ Deno.serve(guard(async(req:Request)=>{const requestId=crypto.randomUUID();try{
       const integer=(key:string,fallback:number|null)=>{const v=url.searchParams.get(key);if(v===null)return fallback;if(!/^\d+$/.test(v)||!Number.isSafeInteger(Number(v)))throw new Error('invalid_orders_page');return Number(v)};
       return json(await rpc('jana_ops_orders_page',{p_token:token,p_limit:integer('limit',50),p_offset:integer('offset',0),p_before_at:integer('before_at',null),p_before_id:url.searchParams.get('before_id')}),200,{'x-request-id':requestId});
     }
+ if(p==='/api/ops/procurement'&&m==='GET'){
+  if(!token)throw Object.assign(new Error('auth_required'),{status:401});
+  const rawLimit=url.searchParams.get('limit'),rawBefore=url.searchParams.get('before_at'),beforeId=url.searchParams.get('before_id'),state=url.searchParams.get('state');
+  const limit=rawLimit===null?50:Number(rawLimit),beforeAt=rawBefore===null?null:Number(rawBefore);
+  const states=new Set(['unassigned','assigned','collecting','awaiting_customer','shortage_approved','ready','handover_pending','handed_over','cancelled']);
+  if(!Number.isSafeInteger(limit)||limit<1||limit>100
+   ||(beforeAt!==null&&(!Number.isSafeInteger(beforeAt)||beforeAt<0))
+   ||((beforeAt===null)!==(beforeId===null))||(beforeId!==null&&!/^prc-[0-9a-f]{32}$/.test(beforeId))
+   ||(state!==null&&!states.has(state)))throw new Error('invalid_orders_page');
+  return json(await rpc('jana_procurement_jobs_page',{p_token:token,p_limit:limit,p_before_at:beforeAt,p_before_id:beforeId,p_state:state}),200,{'x-request-id':requestId});
+ }
+ mm=p.match(/^\/api\/ops\/procurement\/(prc-[0-9a-f]{32})$/);if(mm&&m==='GET'){
+  if(!token)throw Object.assign(new Error('auth_required'),{status:401});
+  return json(await rpc('jana_procurement_job_detail',{p_token:token,p_job_id:mm[1]}),200,{'x-request-id':requestId});
+ }
  if(p==='/api/ops/reports'&&m==='GET'){await role(token,['admin','finance']);return json(await rpc('jana_admin_reports',{p_token:token}),200,{'x-request-id':requestId})}
  if(p==='/api/ops/staff'&&m==='POST'){requireCsrf(req);const b=await body(req);return json(await rpc('jana_staff_write',{p_token:token,p_idem_key:requiredIdempotency(req),p_operation:'staff.create',p_payload:{email:b.email,name:b.name,password:b.password,role:b.role}}),201,{'x-request-id':requestId})}
  if(p==='/api/ops/staff'&&m==='GET')return json({items:await rpc('jana_list_staff',{p_token:token})},200,{'x-request-id':requestId});
