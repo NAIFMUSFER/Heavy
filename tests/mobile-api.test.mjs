@@ -24,6 +24,14 @@ test('staff shortage adjustment retry survives restart with the original audited
  const one=createApiClient({base,storage,fetchImpl:async(u,i)=>{original=i.headers['idempotency-key'];throw Error('offline after adjustment')}});await assert.rejects(one(path,options),e=>e.code==='NETWORK_UNKNOWN');
  const two=createApiClient({base,storage,fetchImpl:async(u,i)=>{assert.equal(i.headers['idempotency-key'],original);return Response.json({job_state:'ready'})}});assert.equal((await two(path,options)).job_state,'ready');
 });
+for(const [operation,body] of [
+ ['assignment',{employee_id:'staff-fixture',expected_revision:2,reason:'Assigned for direct supplier collection'}],
+ ['purchases',{expected_revision:2,supplier_id:'supplier-fixture',pickup_site_id:'pup-'+'2'.repeat(32),document_reference:'INV-100',note:'Physical supplier visit',lines:[{line_id:'line-1',collected_qty:1,actual_cost_halalas:1250,quality_note:'Accepted quality'}]}]
+])test(`staff procurement ${operation} retry survives restart with the original audited intent key`,async()=>{
+ const storage=store(),path='/api/ops/procurement/prc-'+'1'.repeat(32)+'/'+operation,options={method:'POST',token:'staff-fixture',body};let original;
+ const one=createApiClient({base,storage,fetchImpl:async(u,i)=>{original=i.headers['idempotency-key'];throw Error('offline after procurement write')}});await assert.rejects(one(path,options),e=>e.code==='NETWORK_UNKNOWN');
+ const two=createApiClient({base,storage,fetchImpl:async(u,i)=>{assert.equal(i.headers['idempotency-key'],original);assert.deepEqual(JSON.parse(i.body),body);return Response.json({ok:true})}});assert.equal((await two(path,options)).ok,true);
+});
 for(const path of ['/api/shopping-lists','/api/recurring'])test(`${path}: uncertain creation retains its key across mobile restart`,async()=>{
  const storage=store(),options={method:'POST',token:'fixture',body:{name:'Saved fixture',items:[]}};let original;const one=createApiClient({base,storage,fetchImpl:async(u,i)=>{original=i.headers['idempotency-key'];throw Error('offline')}});await assert.rejects(one(path,options));const two=createApiClient({base,storage,fetchImpl:async(u,i)=>{assert.equal(i.headers['idempotency-key'],original);return Response.json({id:'saved-fixture'})}});assert.equal((await two(path,options)).id,'saved-fixture');
 });

@@ -69,7 +69,7 @@ jobs:
         run: python3 tests/warehouse-bins.py
       - name: Verify supplier pickup directory without inventory or cash changes
         run: python3 tests/supplier-pickup.py
-      - name: Verify dormant warehouse-free quote order and procurement assignment
+      - name: Verify warehouse-free order procurement and exposed staff write boundaries
         run: python3 tests/procurement-admission.py
       - name: Verify catalog pagination and usable availability
         run: python3 tests/catalog.py

@@ -44,7 +44,7 @@ try{
  const handoffSnapshot=()=>value("SELECT jsonb_build_object('store',(SELECT to_jsonb(s) FROM storefront_state s WHERE singleton),'profiles',(SELECT count(*) FROM storefront_profiles),'orders',(SELECT count(*) FROM orders),'quotes',(SELECT count(*) FROM quotes),'stock',(SELECT jsonb_agg(to_jsonb(b) ORDER BY stock_id) FROM stock_balances b),'movements',(SELECT count(*) FROM stock_movements));");
  const handoffBefore=handoffSnapshot();const owner=await pageFor('owner-handoff','/start.html');await owner.setViewportSize({width:390,height:844});
  assert.equal(await owner.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
- const roleLinks=await owner.locator('.handoff-grid a').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('href')));assert.deepEqual(roleLinks,['/','/admin.html#pickup-sites','/picker.html#orders','/courier.html#orders','/admin.html#finance','/admin.html#support']);
+ const roleLinks=await owner.locator('.handoff-grid a').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('href')));assert.deepEqual(roleLinks,['/','/admin.html#pickup-sites','/picker.html#procurement','/courier.html#orders','/admin.html#finance','/admin.html#support']);
  await owner.screenshot({path:output+'/owner-links-phone.png',fullPage:true});await owner.getByRole('link',{name:'فتح مركز إعداد الإطلاق'}).click();await owner.locator('#ops-login').waitFor();assert.equal(new URL(owner.url()).hash,'#launch');
  await owner.locator('#ops-login').click();await owner.locator('#auth-form [name=email]').fill(fixture.accounts.admin);await owner.locator('#auth-form [name=password]').fill(password);
  await change(owner,'/api/auth/login',()=>owner.locator('#auth-form button[type=submit]').click());await owner.locator('[data-launch-center]').waitFor();assert.equal(await owner.locator('[data-launch-check]').count(),8);
@@ -268,7 +268,7 @@ try{
  }
  await assign('picker');const picker=await login('picker');
  await picker.getByRole('heading',{name:'مهام شراء الطلبات من الموردين والمحلات'}).waitFor();
- assert.match(await picker.locator('#ops-app').innerText(),/مساحة قراءة فقط/);pass('purchasing employee starts in the warehouse-free read-only task workspace');
+ assert.match(await picker.locator('#ops-app').innerText(),/يسجل موظف الشراء المسند الكميات والتكلفة الفعلية لكل زيارة مورد/);pass('purchasing employee starts in the warehouse-free assigned-purchase workspace');
  await change(picker,'/api/ops/orders',()=>picker.locator('[data-page=orders]').click(),'GET');
  await change(picker,'/api/ops/orders/'+confirmed.id+'/start',()=>picker.locator('[data-action=start][data-id="'+confirmed.id+'"]').click());
  await picker.locator('[data-action=open-pick]').click();await picker.locator('[data-actual] [name=actual_base]').fill('900');

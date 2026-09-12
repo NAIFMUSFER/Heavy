@@ -1,5 +1,5 @@
 /* Public static resources only. Never cache APIs, auth, order responses, addresses, or private HTML. */
-const VERSION='jana-static-v17';
+const VERSION='jana-static-v18';
 const SHELL=['/offline.html','/assets/styles.css','/assets/common.js','/assets/catalog-import.js','/assets/stock-import.js','/assets/ops-exports.js','/assets/status.js','/assets/address.js','/assets/order.js','/assets/checkout.js','/assets/local-cart.js','/assets/input.js','/assets/zone-map.js','/assets/shop.js','/assets/ops.js','/assets/icon.svg'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(VERSION).then(c=>c.addAll(SHELL)));self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==VERSION).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
