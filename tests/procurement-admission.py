@@ -110,7 +110,7 @@ passed('shortage proposal freezes all missing quantities and displayed-price red
 
 decision_key='procurement-shortage-decision-'+uuid.uuid4().hex
 fails(rpc('jana_customer_procurement_shortage_decide',f['t'],'wrong-path-'+uuid.uuid4().hex,'order-does-not-match',shortage['id'],4,'reject_removal','The URL order must match the shortage request'),'procurement_shortage_not_found')
-assert val('SELECT state FROM procurement_shortage_requests WHERE id='+literal(shortage['id'])+';')=='pending'
+assert val('SELECT to_jsonb(state) FROM procurement_shortage_requests WHERE id='+literal(shortage['id'])+';')=='pending'
 assert val('SELECT count(*) FROM procurement_shortage_decisions WHERE request_id='+literal(shortage['id'])+';')==0
 decision_query=rpc('jana_customer_procurement_shortage_decide',f['t'],decision_key,order['id'],shortage['id'],4,'reject_removal','Please continue purchasing the requested item')
 fails(rpc('jana_customer_procurement_shortage_decide',other_token,'wrong-owner-'+uuid.uuid4().hex,order['id'],shortage['id'],4,'reject_removal','Not the order owner'),'procurement_shortage_not_found')
@@ -170,7 +170,7 @@ fails(rpc('jana_ops_procurement_shortage_apply_adjustment',f['atok'],'stale-adju
 # A valid inner adjustment paired with the wrong URL job must roll back every
 # write made by the inner primitive, leaving the real job available to apply.
 fails(rpc('jana_ops_procurement_shortage_apply_adjustment',f['atok'],'wrong-job-adjust-'+uuid.uuid4().hex,job['id'],approval_request['id'],5,'Wrong route job must roll back'),'procurement_adjustment_not_found')
-assert val('SELECT state FROM procurement_jobs WHERE id='+literal(approval_job['id'])+';')=='shortage_approved'
+assert val('SELECT to_jsonb(state) FROM procurement_jobs WHERE id='+literal(approval_job['id'])+';')=='shortage_approved'
 assert val('SELECT count(*) FROM procurement_retail_adjustments WHERE request_id='+literal(approval_request['id'])+';')==0
 assert val('SELECT total_halalas FROM orders WHERE id='+literal(approval_order['id'])+';')==approval_before['total']
 adjusted=val(adjust_query)
