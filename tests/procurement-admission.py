@@ -10,8 +10,13 @@ run("INSERT INTO users(id,email,name,password_hash,role,verified_phone,active,cr
 # Use the existing launch gate only to create an isolated open-store fixture, then
 # remove all physical stock before exercising the new dormant path.
 s=get_store(f)
-w=val(rpc('jana_delivery_admin_write',f['atok'],'procurement-fixture-hub','warehouse.save',dict(id=None,revision=None,reason='Disposable compatibility setup',changes=dict(name='Fixture compatibility hub',city='Fixture city',address_line='Disposable database only',latitude=16.5,longitude=42.5,active=True))))
-val(rpc('jana_delivery_admin_write',f['atok'],'procurement-fixture-route','zone.save',dict(id=p+'z',revision=1,reason='Disposable compatibility route',changes=dict(warehouse_id=w['id']))))
+# The preceding compatibility tests may already have created the sole legacy hub.
+# Reuse it only to satisfy the old launch gate; this is not part of the new flow.
+w=val("SELECT to_jsonb(w) FROM warehouses w WHERE active ORDER BY id LIMIT 1;")
+if w is None:
+ w=val(rpc('jana_delivery_admin_write',f['atok'],'procurement-fixture-hub','warehouse.save',dict(id=None,revision=None,reason='Disposable compatibility setup',changes=dict(name='Fixture compatibility hub',city='Fixture city',address_line='Disposable database only',latitude=16.5,longitude=42.5,active=True))))
+if val('SELECT count(*) FROM delivery_zone_warehouses WHERE zone_id='+literal(p+'z')+';')==0:
+ val(rpc('jana_delivery_admin_write',f['atok'],'procurement-fixture-route','zone.save',dict(id=p+'z',revision=1,reason='Disposable compatibility route',changes=dict(warehouse_id=w['id']))))
 s=write_store(f,'draft.save',dict(revision=s['revision'],profile=PROFILE))
 s=write_store(f,'profile.publish',dict(revision=s['revision'],confirmed=True))
 s=write_store(f,'intake.set',dict(revision=s['revision'],accepting_orders=True,message='Fixture only',reason='Disposable test',reference='FIXTURE-ONLY',reviewed=REVIEWED))
@@ -46,8 +51,9 @@ assert again['id']==order['id'] and again['idempotent_replay'] is True and order
 job=val('SELECT to_jsonb(j) FROM procurement_jobs j WHERE order_id='+literal(order['id'])+';')
 assert job['state']=='unassigned' and job['assigned_to'] is None and len(job['requested_lines'])==1
 assert val('SELECT snapshot::jsonb FROM orders WHERE id='+literal(order['id'])+';')['total_halalas']==q['total_halalas']
+fails('UPDATE procurement_jobs SET requested_lines='+literal(json.dumps([dict(offering_id='tampered',qty=9)]))+'::jsonb WHERE id='+literal(job['id'])+';','procurement_identity_immutable')
 assert business()['balance']==before['balance'] and business()['lot']==before['lot'] and business()['movements']==before['movements']
-passed('confirmation creates exactly one immutable-price order and procurement job without inventory')
+passed('confirmation creates one immutable-request order and procurement job without inventory')
 assign_key='procurement-assign-'+uuid.uuid4().hex
 assigned=val(rpc('jana_procurement_job_assign',f['atok'],assign_key,order['id'],p+'a',1,'Fixture purchasing assignment'))
 assert assigned['state']=='assigned' and assigned['assigned_to']==p+'a' and assigned['revision']==2
@@ -57,7 +63,6 @@ fails(rpc('jana_procurement_job_assign',f['atok'],'stale-'+uuid.uuid4().hex,orde
 passed('admin assignment is idempotent revisioned and mirrored to legacy picker ownership')
 for token in [f['t'],f['ct']]:
  fails(rpc('jana_procurement_job_assign',token,'forbidden-'+uuid.uuid4().hex,order['id'],p+'a',2,'Unauthorized assignment'),'forbidden')
-legacy=val(quote(f,'legacy-after-zero',1)) if False else None
 fails(rpc('jana_supplier_pickup_order_confirm',other_token,q['id']),'quote_not_found')
 assert val("SELECT count(*) FROM pg_class WHERE oid='public.procurement_jobs'::regclass AND relrowsecurity AND NOT has_table_privilege('anon',oid,'SELECT') AND NOT has_table_privilege('authenticated',oid,'SELECT');")==1
 assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_supplier_pickup_quote_create','jana_supplier_pickup_quote_idempotent','jana_supplier_pickup_order_confirm','jana_procurement_job_assign') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE') OR has_function_privilege('service_role',oid,'EXECUTE'));")==0

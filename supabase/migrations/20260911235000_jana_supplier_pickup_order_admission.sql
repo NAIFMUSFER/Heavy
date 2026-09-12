@@ -18,6 +18,21 @@ ALTER TABLE public.procurement_jobs ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.procurement_jobs FROM PUBLIC,anon,authenticated;
 GRANT ALL ON public.procurement_jobs TO service_role;
 
+CREATE FUNCTION public.jana_procurement_job_identity_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path=public,pg_temp AS $$
+BEGIN
+ IF NEW.id IS DISTINCT FROM OLD.id OR NEW.order_id IS DISTINCT FROM OLD.order_id
+  OR NEW.requested_lines IS DISTINCT FROM OLD.requested_lines
+  OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+  RAISE EXCEPTION 'procurement_identity_immutable';
+ END IF;
+ RETURN NEW;
+END$$;
+CREATE TRIGGER jana_procurement_job_identity_immutable
+BEFORE UPDATE ON public.procurement_jobs FOR EACH ROW
+EXECUTE FUNCTION public.jana_procurement_job_identity_guard();
+REVOKE ALL ON FUNCTION public.jana_procurement_job_identity_guard() FROM PUBLIC,anon,authenticated,service_role;
+
 CREATE FUNCTION public.jana_supplier_pickup_quote_create(p_token text,p_slot_id text,p_address_id text,p_items jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,extensions,pg_temp AS $$
 DECLARE
