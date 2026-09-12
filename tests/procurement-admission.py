@@ -23,8 +23,8 @@ s=write_store(f,'draft.save',dict(revision=s['revision'],profile=PROFILE))
 s=write_store(f,'profile.publish',dict(revision=s['revision'],confirmed=True))
 s=write_store(f,'intake.set',dict(revision=s['revision'],accepting_orders=True,message='Fixture only',reason='Disposable test',reference='FIXTURE-ONLY',reviewed=REVIEWED))
 run("UPDATE stock_balances SET on_hand_base=0,reserved_base=0 WHERE stock_id="+literal(p+'st')+";UPDATE inventory_lots SET on_hand_base=0,reserved_base=0 WHERE stock_id="+literal(p+'st')+';')
-run("UPDATE offerings SET name="+literal('Procurement '+p)+" WHERE id="+literal(p+'off')+';')
-catalog=val("SELECT jana_catalog_page(0,100,"+literal(p)+",'');")['items']
+catalog_offset=val("SELECT count(*) FROM offerings o CROSS JOIN offerings target WHERE target.id="+literal(p+'off')+" AND o.active AND (o.created_at<target.created_at OR (o.created_at=target.created_at AND o.id<target.id));")
+catalog=val("SELECT jana_catalog_page("+str(catalog_offset)+",1,'','');")['items']
 listed=next(x for x in catalog if x['id']==p+'off')
 assert listed['fulfillment_model']=='supplier_pickup' and listed['orderable'] is True and listed['max_order_quantity']==20
 assert listed['inventory_required'] is False and listed['legacy_available_units']==0 and listed['availability_status']=='to_be_purchased'
