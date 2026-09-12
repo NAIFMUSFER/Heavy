@@ -159,6 +159,7 @@ The commercial intake remains closed during this transition. Do not bypass the c
 - Catalog responses preserve factual legacy `available_units` for compatibility, while separately declaring `orderable`, `max_order_quantity`, `inventory_required:false`, `availability_status:to_be_purchased` and `fulfillment_model:supplier_pickup`. Web and shared Expo carts use those explicit procurement fields instead of inventing stock.
 - Customer cards and basket builders state that items are collected from suppliers after confirmation. The displayed sale price is retained, shortages still require explicit consent, and no margin, purchasing fee or supplier-cost pricing policy is introduced.
 - Both gateways remain protected by the closed storefront switch. This phase does not open intake or replace the legacy warehouse readiness screen; replacement readiness and full disposable browser acceptance remain separate launch gates.
+- Release `104ca52a` publishes the phase on web/shared Expo and Edge with Supabase at 114 migrations, ACTIVE `jana-api v40` and `jana-critical v7`. Exact production CI includes the complete disposable supplier-pickup journey, while production procurement tables remain empty, intake remains closed and monitored business fingerprints are unchanged. Exact evidence is in [RELEASE-EVIDENCE.md](RELEASE-EVIDENCE.md).
 
 ## Next engineering gates — not complete
 
