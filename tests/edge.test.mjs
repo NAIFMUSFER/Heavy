@@ -44,6 +44,20 @@ test('procurement staff reads validate bounded cursors and use dedicated role-sc
  for(const query of ['limit=101','limit=1.5','before_at=1','before_id='+id,'state=unknown']){calls=[];const bad=await handlers['jana-api'](request('jana-api','/api/ops/procurement?'+query,{headers:bearer}));assert.equal(bad.status,422);assert.equal(calls.length,0)}
  calls=[];const anonymous=await handlers['jana-api'](request('jana-api','/api/ops/procurement'));assert.equal(anonymous.status,401);assert.equal(calls.length,0);
 });
+test('customer shortage decision binds the pending request to the order and exact revision',async()=>{
+ const orderId='order-fixture',requestId='shr-'+'1'.repeat(32),token=bearer.authorization.slice(7),headers={...bearer,'idempotency-key':'shortage-decision-fixture'};
+ calls=[];response={order_id:orderId,decision:'approve_removal',customer_total_changed:false};
+ const approved=await handlers['jana-api'](request('jana-api',`/api/orders/${orderId}/procurement-shortage-decision`,{method:'POST',headers,body:JSON.stringify({request_id:requestId,expected_revision:4,decision:'approve_removal',note:'  I approve the documented shortage  ',order_id:'ignored'})}));
+ assert.equal(approved.status,200);assert.equal(calls.length,1);assert.ok(calls[0].url.endsWith('/jana_customer_procurement_shortage_decide'));
+ assert.deepEqual(calls[0].body,{p_token:token,p_idem_key:'shortage-decision-fixture',p_order_id:orderId,p_request_id:requestId,p_expected_revision:4,p_decision:'approve_removal',p_note:'I approve the documented shortage'});
+ for(const body of [{request_id:'bad',expected_revision:4,decision:'approve_removal',note:'valid note'},{request_id:requestId,expected_revision:0,decision:'approve_removal',note:'valid note'},{request_id:requestId,expected_revision:4,decision:'other',note:'valid note'},{request_id:requestId,expected_revision:4,decision:'reject_removal',note:'x'}]){calls=[];const invalid=await handlers['jana-api'](request('jana-api',`/api/orders/${orderId}/procurement-shortage-decision`,{method:'POST',headers,body:JSON.stringify(body)}));assert.equal(invalid.status,422);assert.equal(calls.length,0)}
+});
+test('customer shortage decision requires a retry key and returns actionable stale-state errors',async()=>{
+ const path='/api/orders/order-fixture/procurement-shortage-decision',body={request_id:'shr-'+'1'.repeat(32),expected_revision:4,decision:'reject_removal',note:'Please continue collecting'};
+ calls=[];let r=await handlers['jana-api'](request('jana-api',path,{method:'POST',headers:bearer,body:JSON.stringify(body)}));assert.equal(r.status,422);assert.equal(calls.length,0);
+ for(const [message,status,code] of [['procurement_shortage_not_found',404,'SHORTAGE_NOT_FOUND'],['procurement_shortage_decided',409,'SHORTAGE_DECIDED'],['procurement_shortage_state_invalid',409,'SHORTAGE_STATE'],['procurement_order_changed',409,'ORDER_CHANGED'],['procurement_changed',409,'PROCUREMENT_CHANGED']]){calls=[];response={_error:message,status};r=await handlers['jana-api'](request('jana-api',path,{method:'POST',headers:{...bearer,'idempotency-key':'shortage-error-fixture'},body:JSON.stringify(body)}));assert.equal(r.status,status);assert.equal((await r.json()).error.code,code)}
+ response={ok:true};
+});
 test('courier foreground location preserves the path order and validates coordinates before its scoped RPC',async()=>{
  calls=[];response={order_id:'fixture-order',latitude:16.5,longitude:42.5};
  const r=await handlers['jana-api'](request('jana-api','/api/ops/orders/fixture-order/location',{method:'POST',headers:bearer,body:JSON.stringify({order_id:'ignored-body-order',latitude:'١٦٫٥',longitude:'٤٢٫٥',accuracy_m:15})}));
