@@ -24,6 +24,7 @@ The commercial intake remains closed during this transition. Do not bypass the c
 - Admin can assign an active purchasing employee through a revisioned, idempotent and audited database primitive. The legacy picker field is mirrored only for compatibility.
 - The table is private with RLS. All new entry functions are revoked from clients and `service_role`; no Edge route calls them. This phase is therefore deployed backend structure, not an enabled customer or staff journey.
 - Disposable tests cover concurrency, retry, cancellation, ownership, role isolation, immutable lines, unchanged inventory and deep health. Production contains zero procurement jobs and intake stays closed.
+- Release `62e152d0` publishes this dormant structure through the production source and Render gateway. Publication does not grant or route the four functions; Edge and native source remain unchanged. Exact CI, deployment and post-publication safety evidence is recorded in [RELEASE-EVIDENCE.md](RELEASE-EVIDENCE.md).
 
 ## Next engineering gates — not complete
 
