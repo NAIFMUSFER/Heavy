@@ -333,7 +333,7 @@ roster=val(rpc('jana_procurement_active_couriers',f['atok']))
 assert any(row==dict(id=p+'c',name='Audit fixture') for row in roster)
 assert all(set(row)=={'id','name'} for row in roster)
 fails(rpc('jana_procurement_active_couriers',f['ct']),'forbidden')
-courier_page=val(rpc('jana_procurement_jobs_page',f['ct'],50,None,None,'handover_pending'))
+courier_page=val('SELECT public.jana_procurement_jobs_page('+literal(f['ct'])+",50,NULL,NULL,'handover_pending')::text;")
 assert len(courier_page['items'])==1 and courier_page['items'][0]['id']==job['id']
 assert courier_page['courier_custody_only'] and not courier_page['financial_detail_included']
 courier_detail=val(rpc('jana_procurement_job_detail',f['ct'],job['id']))
