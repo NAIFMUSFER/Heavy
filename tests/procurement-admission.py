@@ -190,6 +190,48 @@ assert val("SELECT count(*) FROM order_events WHERE order_id="+literal(approval_
 assert val('SELECT jana_deep_health();')['ok']
 passed('approved reduction applies exactly once while original terms inventory supplier cost and cash stay unchanged')
 
+# Removing every line requires a second, explicit cancellation confirmation from
+# the owning customer. The historical price remains intact and the delivery slot
+# is released exactly once; no inventory, purchase or cash record is created.
+cancel_quote=val(supplier_quote('procurement-unavailable-quote-'+uuid.uuid4().hex,items))
+cancel_order=val(rpc('jana_supplier_pickup_order_confirm',f['t'],cancel_quote['id']))
+cancel_job=val(rpc('jana_procurement_job_assign',f['atok'],'procurement-unavailable-assign-'+uuid.uuid4().hex,cancel_order['id'],p+'a',1,'Disposable all unavailable assignment'))
+cancel_request=val(rpc('jana_procurement_shortage_propose',f['atok'],'procurement-unavailable-shortage-'+uuid.uuid4().hex,cancel_order['id'],2,'Fixture suppliers could not provide any requested item'))
+cancel_decision=val(rpc('jana_procurement_shortage_decide',f['t'],'procurement-unavailable-decision-'+uuid.uuid4().hex,cancel_request['id'],3,'approve_removal','I approve removing every unavailable item'))
+assert cancel_decision['job_state']=='shortage_approved' and cancel_decision['revision']==4
+assert cancel_request['proposed_reduction_halalas']==cancel_quote['subtotal_halalas']
+cancel_before=val('SELECT jsonb_build_object(\'order\',to_jsonb(o),\'job\',to_jsonb(j),\'booked\',s.booked) FROM orders o JOIN procurement_jobs j ON j.order_id=o.id JOIN delivery_slots s ON s.id=o.slot_id WHERE o.id='+literal(cancel_order['id'])+';')
+cancel_key='procurement-all-unavailable-cancel-'+uuid.uuid4().hex
+cancel_query=rpc('jana_procurement_all_unavailable_cancel',f['t'],cancel_key,cancel_request['id'],4,'I explicitly confirm cancelling this entirely unavailable order')
+fails(rpc('jana_procurement_all_unavailable_cancel',other_token,'wrong-customer-cancel-'+uuid.uuid4().hex,cancel_request['id'],4,'Another customer cannot cancel this order'),'procurement_shortage_not_found')
+fails(rpc('jana_procurement_all_unavailable_cancel',f['atok'],'admin-unavailable-cancel-'+uuid.uuid4().hex,cancel_request['id'],4,'Admin cannot impersonate customer confirmation'),'forbidden')
+fails(rpc('jana_procurement_all_unavailable_cancel',f['t'],'stale-unavailable-cancel-'+uuid.uuid4().hex,cancel_request['id'],3,'Stale customer cancellation'),'procurement_changed')
+cancelled=val(cancel_query)
+assert cancelled['job_state']=='cancelled' and cancelled['revision']==5
+assert cancelled['status']=='cancelled' and cancelled['payment_state']=='cancelled'
+assert cancelled['fulfillment_state']=='cancelled' and cancelled['delivery_state']=='cancelled'
+assert cancelled['customer_total_halalas']==cancel_before['order']['total_halalas'] and not cancelled['customer_total_changed']
+assert cancelled['current_snapshot_changed'] is False and cancelled['original_snapshot_changed'] is False
+assert cancelled['delivery_capacity_released'] and cancelled['slot_booked_before']==cancel_before['booked']
+assert cancelled['slot_booked_after']==cancel_before['booked']-1
+assert cancelled['inventory_changed'] is False and cancelled['supplier_cost_changed'] is False and cancelled['cash_changed'] is False
+assert val(cancel_query)==cancelled
+fails(rpc('jana_procurement_all_unavailable_cancel',f['t'],cancel_key,cancel_request['id'],4,'Conflicting cancellation confirmation'),'idempotency_conflict')
+cancel_after=val('SELECT jsonb_build_object(\'order\',to_jsonb(o),\'job\',to_jsonb(j),\'booked\',s.booked) FROM orders o JOIN procurement_jobs j ON j.order_id=o.id JOIN delivery_slots s ON s.id=o.slot_id WHERE o.id='+literal(cancel_order['id'])+';')
+assert cancel_after['order']['snapshot']==cancel_before['order']['snapshot']
+assert cancel_after['order']['original_snapshot']==cancel_before['order']['original_snapshot']
+assert cancel_after['order']['total_halalas']==cancel_before['order']['total_halalas']
+assert cancel_after['booked']==cancel_before['booked']-1 and cancel_after['job']['state']=='cancelled'
+assert val('SELECT count(*) FROM procurement_purchase_records WHERE order_id='+literal(cancel_order['id'])+';')==0
+fails(rpc('jana_cancel_order',f['t'],cancel_order['id']),'order_not_cancellable')
+fails('UPDATE procurement_unavailable_cancellations SET note=\'tampered\' WHERE id='+literal(cancelled['id'])+';','append_only')
+assert val("SELECT count(*) FROM pg_class WHERE relname='procurement_unavailable_cancellations' AND relrowsecurity AND NOT has_table_privilege('anon',oid,'SELECT') AND NOT has_table_privilege('authenticated',oid,'SELECT') AND NOT has_table_privilege('service_role',oid,'SELECT');")==1
+assert val("SELECT count(*) FROM pg_proc WHERE proname='jana_procurement_all_unavailable_cancel' AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE') OR has_function_privilege('service_role',oid,'EXECUTE'));")==0
+assert val("SELECT count(*) FROM audit_log WHERE entity_id="+literal(cancelled['id'])+" AND action='procurement_all_unavailable_cancelled';")==1
+assert val("SELECT count(*) FROM order_events WHERE order_id="+literal(cancel_order['id'])+" AND event='procurement_all_unavailable_cancelled';")==1
+assert val('SELECT jana_deep_health();')['ok']
+passed('explicit all-unavailable cancellation preserves historical terms and releases capacity exactly once')
+
 # Physical custody is a two-party checkpoint. The assigned purchasing employee
 # freezes the exact collected evidence for one courier; only that courier can
 # accept it and make the order ready for the existing delivery flow.
