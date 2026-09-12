@@ -26,10 +26,18 @@ The commercial intake remains closed during this transition. Do not bypass the c
 - Disposable tests cover concurrency, retry, cancellation, ownership, role isolation, immutable lines, unchanged inventory and deep health. Production contains zero procurement jobs and intake stays closed.
 - Release `62e152d0` publishes this dormant structure through the production source and Render gateway. Publication does not grant or route the four functions; Edge and native source remain unchanged. Exact CI, deployment and post-publication safety evidence is recorded in [RELEASE-EVIDENCE.md](RELEASE-EVIDENCE.md).
 
+## Implemented phase 3 backend: dormant purchase evidence
+
+- The assigned employee can atomically record one supplier/site visit with an immutable supplier/location snapshot, document reference, quality note, collected quantity and actual line cost. Multiple suppliers and visits may contribute to the same order.
+- Expected revisions and row locks serialize staff activity; durable idempotency returns the original result after response loss. Cumulative collected quantity cannot exceed the frozen customer request.
+- Partial collection remains `collecting`; exact completion becomes `ready`. Neither state creates courier custody, supplier payable, employee reimbursement or cash settlement.
+- The two tables have RLS and append-only triggers. Direct table access and the write function remain revoked from clients and `service_role`, so this structure is not reachable through Edge.
+- Customer order total and displayed retail price remain unchanged. Production contains zero purchase records/lines and intake remains closed.
+
 ## Next engineering gates — not complete
 
 1. **Complete order admission without warehouse stock.** The dormant quote/order core and slot-only reservation are implemented. Add the remaining collection/exception/handover primitives and only then grant the complete flow and replace the one-warehouse readiness prerequisite. Preserve existing-order snapshots, cancellation and retry behavior.
-2. **Complete assigned procurement work.** Basic immutable job creation and staff assignment are implemented. Add chosen supplier/site per pickup and keep each order's collected goods separate. One order may require several shops; one shop may supply several lines. Site changes must not rewrite a historical pickup snapshot. Quantities, quality checks, missing items, actual cost and document reference need atomic, idempotent writes.
+2. **Complete assigned procurement work.** Job creation, assignment and immutable multi-supplier purchase evidence are implemented. Add bounded staff reads and customer-visible progress only after exceptions are complete. Keep each order's collected goods separate and preserve historical pickup snapshots.
 3. **Exceptions with customer consent.** Keep customer-approved replacement/removal and fixed-price basket constraints. Supplier cost changes must not silently change the customer's agreed retail price. No cost-plus margin, purchasing fee or delivery pricing rule is invented.
 4. **Handover, delivery and finance.** Only confirmed collected quantities pass to courier custody. Separate supplier payable/purchase cost, employee purchasing advance/settlement and customer COD collection/refund. A receipt is not a payment; a supplier credit note is not a bank settlement. Keep cancellation after purchase and supplier returns explicit and auditable.
 5. **Web/native acceptance and launch.** Update catalog availability, carts, quote recovery, staff/customer labels and native models together. Test zero-warehouse journeys, multiple suppliers, concurrent staff actions, partial collection, refusal, cancellation and response loss in disposable environments. Only then replace commercial readiness and obtain actual owner operating acceptance. Signed stores and physical devices remain separate requirements.
