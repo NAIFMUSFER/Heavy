@@ -2,6 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';import {rea
 import {
  appendProcurementPage,canSeeProcurementFinance,isProcurementRole,procurementAdjustmentFacts,
  procurementAssignmentFacts,procurementPageUrl,procurementPurchaseFacts,procurementPurchasePayload,
+ procurementFundingFacts,procurementFundingPayload,procurementSettlementFacts,procurementSettlementPayload,
  procurementQuantity,procurementQuantityValue,procurementStateLabel
 } from '../mobile/procurement.mjs';
 
@@ -44,9 +45,19 @@ test('native purchase payload accepts Arabic quantities and freezes only actual 
  assert.throws(()=>procurementPurchasePayload({facts,site,documentReference:'INV-100',note:'زيارة فعلية',drafts:{'line-1':{quantity:'1',cost:'10.001',quality:'جيد'}}}),/مبلغ/);
  assert.throws(()=>procurementPurchasePayload({facts,site,documentReference:'INV-100',note:'زيارة فعلية',drafts:{'line-1':{quantity:'1',cost:'10',quality:'x'}}}),/التكلفة الفعلية/);
 });
+test('native finance actions require explicit funding and cap settlement at the outstanding balance',()=>{
+ const purchase={id:'pur-'+'2'.repeat(32),total_actual_cost_halalas:1250,supplier:{name:'مورد'}},data={job:{id},purchases:[purchase],funding:[],financial_detail_included:true};
+ const facts=procurementFundingFacts(data,'finance');assert.deepEqual(facts,{jobId:id,purchases:[purchase]});assert.equal(procurementFundingFacts(data,'picker'),null);
+ assert.deepEqual(procurementFundingPayload({facts,purchaseRecordId:purchase.id,fundingSource:'employee_paid',evidenceReference:' ADV-1 ',note:' دفع فعلي '}),{purchase_record_id:purchase.id,funding_source:'employee_paid',evidence_reference:'ADV-1',note:'دفع فعلي'});
+ assert.throws(()=>procurementFundingPayload({facts,purchaseRecordId:purchase.id,fundingSource:'',evidenceReference:'ADV-1',note:'دفع فعلي'}),/مصدر/);
+ assert.throws(()=>procurementFundingPayload({facts,purchaseRecordId:purchase.id,fundingSource:'automatic',evidenceReference:'ADV-1',note:'دفع فعلي'}),/مصدر/);
+ const entry={id:'pfd-'+'3'.repeat(32),purchase_record_id:purchase.id,funding_source:'employee_paid',outstanding_halalas:750},settlement=procurementSettlementFacts({...data,funding:[entry]},'admin');
+ assert.deepEqual(procurementSettlementPayload({facts:settlement,fundingId:entry.id,amount:'٧٫٥٠',paymentReference:' PAY-1 ',note:' سداد جزئي '}),{funding_id:entry.id,amount_halalas:750,payment_reference:'PAY-1',note:'سداد جزئي'});
+ assert.throws(()=>procurementSettlementPayload({facts:settlement,fundingId:entry.id,amount:'7.51',paymentReference:'PAY-2',note:'سداد زائد'}),/المبلغ/);
+});
 test('native staff workspace exposes scoped assignment, purchase and approved-adjustment writes without customer contact',()=>{
  const source=readFileSync(new URL('../mobile/ProcurementWorkspace.js',import.meta.url),'utf8');
- assert.match(source,/\/api\/ops\/procurement/);assert.match(source,/\/assignment/);assert.match(source,/\/purchases/);assert.match(source,/shortage-adjustment/);assert.match(source,/method\s*:\s*['"]POST/);assert.doesNotMatch(source,/method\s*:\s*['"](?:PATCH|PUT|DELETE)/);
+ assert.match(source,/\/api\/ops\/procurement/);assert.match(source,/\/assignment/);assert.match(source,/\/purchases/);assert.match(source,/\/funding/);assert.match(source,/\/settlements/);assert.match(source,/shortage-adjustment/);assert.match(source,/method\s*:\s*['"]POST/);assert.doesNotMatch(source,/method\s*:\s*['"](?:PATCH|PUT|DELETE)/);
  assert.doesNotMatch(source,/customer_(?:name|phone|email|address)|recipient_(?:name|phone)/);
  assert.match(source,/financial_detail_included===true/);assert.match(source,/بيانات اتصال العميل غير معروضة/);assert.match(source,/لن تُضاف رسوم ولن يتغير السعر الأصلي/);assert.match(source,/لن يتغير سعر العميل أو المخزون/);assert.match(source,/ليست هذه تسوية دفع/);
  const app=readFileSync(new URL('../mobile/App.js',import.meta.url),'utf8');

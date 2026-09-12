@@ -253,9 +253,9 @@ passed('explicit all-unavailable cancellation preserves historical terms and rel
 # physical custody leaves purchasing. Repayments are a separate evidence ledger
 # and never change the frozen customer price, inventory, or courier cash ledger.
 def funding(record,key,source,reference,token=None):
- return rpc('jana_procurement_funding_record',token or f['atok'],key,record['id'],source,reference,'Disposable funding evidence only')
-def settlement(funding_id,key,amount,reference,token=None):
- return rpc('jana_procurement_settlement_record',token or f['atok'],key,funding_id,amount,reference,'Disposable settlement evidence only')
+ return rpc('jana_ops_procurement_funding_record',token or f['atok'],key,record['job_id'],record['id'],source,reference,'Disposable funding evidence only')
+def settlement(job_id,funding_id,key,amount,reference,token=None):
+ return rpc('jana_ops_procurement_settlement_record',token or f['atok'],key,job_id,funding_id,amount,reference,'Disposable settlement evidence only')
 fails(rpc('jana_procurement_handover_prepare',f['atok'],'missing-funding-'+uuid.uuid4().hex,order['id'],p+'c',6,'Funding attribution is intentionally missing'),'procurement_funding_required')
 fund_employee_key='procurement-funding-employee-'+uuid.uuid4().hex
 fund_employee_query=funding(first,fund_employee_key,'employee_paid','FIXTURE-EMPLOYEE-FUNDED')
@@ -271,25 +271,26 @@ assert fund_supplier['supplier_id']==supplier and fund_supplier['outstanding_hal
 fund_company=val(funding(approval_purchase,'procurement-funding-company-'+uuid.uuid4().hex,'company_paid','FIXTURE-COMPANY-PAID'))
 assert fund_company['principal_halalas']==500 and fund_company['liability_type']=='none'
 assert fund_company['outstanding_halalas']==0 and fund_company['employee_id'] is None and fund_company['supplier_id'] is None
-fails(settlement(fund_company['id'],'company-settlement-'+uuid.uuid4().hex,1,'FIXTURE-COMPANY-DUPLICATE'),'procurement_settlement_not_payable')
+fails(settlement(fund_company['job_id'],fund_company['id'],'company-settlement-'+uuid.uuid4().hex,1,'FIXTURE-COMPANY-DUPLICATE'),'procurement_settlement_not_payable')
 fails(funding(second,'customer-funding-'+uuid.uuid4().hex,'supplier_credit','FIXTURE-CUSTOMER-DENIED',f['t']),'forbidden')
+fails(rpc('jana_ops_procurement_funding_record',f['atok'],'wrong-path-'+uuid.uuid4().hex,approval_purchase['job_id'],first['id'],'employee_paid','FIXTURE-WRONG-PATH','Disposable wrong path evidence'),'procurement_funding_not_found')
 passed('funding attribution separates company payment employee reimbursement and supplier payable from purchase cost')
 
 cash_before=val('SELECT count(*) FROM cash_entries;')
 employee_payment_key='procurement-employee-payment-'+uuid.uuid4().hex
-employee_payment_query=settlement(fund_employee['id'],employee_payment_key,200,'FIXTURE-EMPLOYEE-PAYMENT-1')
+employee_payment_query=settlement(fund_employee['job_id'],fund_employee['id'],employee_payment_key,200,'FIXTURE-EMPLOYEE-PAYMENT-1')
 employee_payment=val(employee_payment_query)
 assert employee_payment['beneficiary_type']=='employee' and employee_payment['beneficiary_id']==p+'a'
 assert employee_payment['settled_halalas']==200 and employee_payment['outstanding_halalas']==300 and not employee_payment['fully_settled']
 assert val(employee_payment_query)==employee_payment
-fails(settlement(fund_employee['id'],employee_payment_key,201,'FIXTURE-EMPLOYEE-PAYMENT-1'),'idempotency_conflict')
-fails(settlement(fund_employee['id'],'employee-overpay-'+uuid.uuid4().hex,301,'FIXTURE-EMPLOYEE-OVERPAY'),'procurement_settlement_exceeded')
+fails(settlement(fund_employee['job_id'],fund_employee['id'],employee_payment_key,201,'FIXTURE-EMPLOYEE-PAYMENT-1'),'idempotency_conflict')
+fails(settlement(fund_employee['job_id'],fund_employee['id'],'employee-overpay-'+uuid.uuid4().hex,301,'FIXTURE-EMPLOYEE-OVERPAY'),'procurement_settlement_exceeded')
 supplier_payment_key='procurement-supplier-payment-'+uuid.uuid4().hex
-supplier_payment_query=settlement(fund_supplier['id'],supplier_payment_key,550,'FIXTURE-SUPPLIER-PAYMENT-1')
+supplier_payment_query=settlement(fund_supplier['job_id'],fund_supplier['id'],supplier_payment_key,550,'FIXTURE-SUPPLIER-PAYMENT-1')
 supplier_payments=successful(race([supplier_payment_query]*8));assert len(supplier_payments)==8 and all(x==supplier_payments[0] for x in supplier_payments)
 assert supplier_payments[0]['fully_settled'] and supplier_payments[0]['outstanding_halalas']==0
 assert supplier_payments[0]['beneficiary_type']=='supplier' and supplier_payments[0]['beneficiary_id']==supplier
-fails(settlement(fund_supplier['id'],'supplier-overpay-'+uuid.uuid4().hex,1,'FIXTURE-SUPPLIER-OVERPAY'),'procurement_settlement_exceeded')
+fails(settlement(fund_supplier['job_id'],fund_supplier['id'],'supplier-overpay-'+uuid.uuid4().hex,1,'FIXTURE-SUPPLIER-OVERPAY'),'procurement_settlement_exceeded')
 assert val('SELECT count(*) FROM cash_entries;')==cash_before
 assert val('SELECT total_halalas FROM orders WHERE id='+literal(order['id'])+';')==customer_total
 assert business()['balance']==before['balance'] and business()['lot']==before['lot'] and business()['movements']==before['movements']
@@ -297,6 +298,7 @@ fails('UPDATE procurement_purchase_funding SET note=\'tampered\' WHERE id='+lite
 fails('DELETE FROM procurement_settlement_entries WHERE id='+literal(employee_payment['id'])+';','append_only')
 assert val("SELECT count(*) FROM pg_class WHERE relname IN ('procurement_purchase_funding','procurement_settlement_entries') AND relrowsecurity AND NOT has_table_privilege('anon',oid,'SELECT') AND NOT has_table_privilege('authenticated',oid,'SELECT') AND NOT has_table_privilege('service_role',oid,'SELECT');")==2
 assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_procurement_funding_record','jana_procurement_settlement_record') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE') OR has_function_privilege('service_role',oid,'EXECUTE'));")==0
+assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_ops_procurement_funding_record','jana_ops_procurement_settlement_record') AND has_function_privilege('service_role',oid,'EXECUTE') AND NOT has_function_privilege('anon',oid,'EXECUTE') AND NOT has_function_privilege('authenticated',oid,'EXECUTE');")==2
 assert val("SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND indexname IN ('jana_procurement_funding_actor','jana_procurement_settlement_actor','jana_procurement_settlement_purchase');")==3
 assert val("SELECT count(*) FROM audit_log WHERE entity_id IN ("+literal(fund_employee['id'])+','+literal(fund_supplier['id'])+','+literal(fund_company['id'])+") AND action='procurement_funding_recorded';")==3
 assert val("SELECT count(*) FROM audit_log WHERE entity_id IN ("+literal(employee_payment['id'])+','+literal(supplier_payments[0]['id'])+") AND action='procurement_settlement_recorded';")==2
@@ -391,9 +393,10 @@ fails(rpc('jana_procurement_job_detail',other_picker_token,job['id']),'forbidden
 fails(procurement_page(f['t'],10),'forbidden')
 assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_procurement_jobs_page','jana_procurement_job_detail') AND has_function_privilege('service_role',oid,'EXECUTE') AND NOT has_function_privilege('anon',oid,'EXECUTE') AND NOT has_function_privilege('authenticated',oid,'EXECUTE');")==2
 assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_procurement_funding_record','jana_procurement_settlement_record','jana_procurement_handover_prepare','jana_procurement_handover_accept') AND has_function_privilege('service_role',oid,'EXECUTE');")==0
+assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_ops_procurement_funding_record','jana_ops_procurement_settlement_record') AND has_function_privilege('service_role',oid,'EXECUTE');")==2
 assert val("SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND indexname='jana_procurement_jobs_created_page';")==1
 assert val('SELECT jana_deep_health();')['ok']
-passed('picker procurement reads are assignment-scoped and hide settlement references while writes stay dormant')
+passed('picker procurement reads hide settlement references while finance writes remain role scoped')
 
 # Customer order detail exposes only the customer's own collection quantities and
 # consent-safe shortage totals. Supplier, employee, document and actual-cost

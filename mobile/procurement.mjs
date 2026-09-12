@@ -30,6 +30,32 @@ export function procurementPurchaseFacts(data,user){
  return {jobId:job.id,revision:Number(job.revision),lines};
 }
 
+export function procurementFundingFacts(data,role){
+ const job=data?.job||{},funded=new Set((data?.funding||[]).map(entry=>entry.purchase_record_id));
+ const purchases=(data?.purchases||[]).filter(record=>!funded.has(record.id)&&/^pur-[0-9a-f]{32}$/.test(record.id||'')&&Number.isSafeInteger(Number(record.total_actual_cost_halalas))&&Number(record.total_actual_cost_halalas)>=0);
+ if(!canSeeProcurementFinance(role)||data?.financial_detail_included!==true||!/^prc-[0-9a-f]{32}$/.test(job.id||'')||!purchases.length)return null;
+ return {jobId:job.id,purchases};
+}
+
+export function procurementFundingPayload({facts,purchaseRecordId,fundingSource,evidenceReference,note}){
+ const purchase=facts?.purchases?.find(row=>row.id===purchaseRecordId),reference=String(evidenceReference||'').trim(),text=String(note||'').trim();
+ if(!purchase||!['company_paid','employee_paid','supplier_credit'].includes(fundingSource)||reference.length<3||reference.length>180||text.length<3||text.length>1000)throw Error('اختر عملية ومصدر تمويل صريحًا وأدخل مرجعًا وملاحظة');
+ if(Number(purchase.total_actual_cost_halalas)===0&&fundingSource!=='company_paid')throw Error('التكلفة الصفرية لا تنشئ مستحق موظف أو مورد');
+ return {purchase_record_id:purchase.id,funding_source:fundingSource,evidence_reference:reference,note:text};
+}
+
+export function procurementSettlementFacts(data,role){
+ const job=data?.job||{},funding=(data?.funding||[]).filter(entry=>['employee_paid','supplier_credit'].includes(entry.funding_source)&&/^pfd-[0-9a-f]{32}$/.test(entry.id||'')&&Number.isSafeInteger(Number(entry.outstanding_halalas))&&Number(entry.outstanding_halalas)>0);
+ if(!canSeeProcurementFinance(role)||data?.financial_detail_included!==true||!/^prc-[0-9a-f]{32}$/.test(job.id||'')||!funding.length)return null;
+ return {jobId:job.id,funding};
+}
+
+export function procurementSettlementPayload({facts,fundingId,amount,paymentReference,note}){
+ const entry=facts?.funding?.find(row=>row.id===fundingId),amount_halalas=moneyValue(amount),reference=String(paymentReference||'').trim(),text=String(note||'').trim();
+ if(!entry||amount_halalas<1||amount_halalas>Number(entry.outstanding_halalas)||reference.length<3||reference.length>180||text.length<3||text.length>1000)throw Error('راجع المستحق والمبلغ المدفوع والمرجع والملاحظة');
+ return {funding_id:entry.id,amount_halalas,payment_reference:reference,note:text};
+}
+
 export function procurementQuantityValue(value,max){
  const text=(typeof value==='string'||typeof value==='number'?latinDigits(value):'').replace(/٫/g,'.').trim();
  if(!/^\d+(\.\d{1,3})?$/.test(text))throw Error('أدخل كمية موجبة بحد أقصى ثلاث منازل عشرية');

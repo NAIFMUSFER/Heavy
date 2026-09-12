@@ -34,6 +34,20 @@ function procurementPurchasePayload(value:any){
  });
  return {expected_revision:value.expected_revision,supplier_id:supplierId,pickup_site_id:pickupSiteId,document_reference:documentReference,note,lines};
 }
+function procurementFundingPayload(value:any){
+ const keys=new Set(['purchase_record_id','funding_source','evidence_reference','note']);
+ if(!onlyKeys(value,keys)||Object.keys(value).length!==keys.size)throw new Error('procurement_funding_validation');
+ const purchaseRecordId=boundedText(value.purchase_record_id,1,36),source=boundedText(value.funding_source,1,24),reference=boundedText(value.evidence_reference,3,180),note=boundedText(value.note,3,1000);
+ if(!purchaseRecordId||!/^pur-[0-9a-f]{32}$/.test(purchaseRecordId)||!source||!['company_paid','employee_paid','supplier_credit'].includes(source)||!reference||!note)throw new Error('procurement_funding_validation');
+ return {purchase_record_id:purchaseRecordId,funding_source:source,evidence_reference:reference,note};
+}
+function procurementSettlementPayload(value:any){
+ const keys=new Set(['funding_id','amount_halalas','payment_reference','note']);
+ if(!onlyKeys(value,keys)||Object.keys(value).length!==keys.size)throw new Error('procurement_settlement_validation');
+ const fundingId=boundedText(value.funding_id,1,36),amount=value.amount_halalas,reference=boundedText(value.payment_reference,3,180),note=boundedText(value.note,3,1000);
+ if(!fundingId||!/^pfd-[0-9a-f]{32}$/.test(fundingId)||!Number.isSafeInteger(amount)||amount<1||amount>9000000000000||!reference||!note)throw new Error('procurement_settlement_validation');
+ return {funding_id:fundingId,amount_halalas:amount,payment_reference:reference,note};
+}
 async function currentUser(token:string){if(!token)throw Object.assign(new Error('auth_required'),{status:401});return rpc('jana_me',{p_token:token})}
 async function role(token:string,roles:string[]){const u=await currentUser(token);if(!roles.includes(u.role))throw Object.assign(new Error('forbidden'),{status:403});return u}
 function page(items:any[],u:URL){const offset=Math.max(0,Number(u.searchParams.get('offset')||0)||0),limit=Math.min(100,Math.max(1,Number(u.searchParams.get('limit')||50)||50));return {items:items.slice(offset,offset+limit),next_offset:offset+limit<items.length?offset+limit:null}}
@@ -59,6 +73,15 @@ function procurementErrPayload(e:any){
 	 procurement_site_invalid:[409,'PROCUREMENT_SITE','نقطة الاستلام متوقفة أو لا تتبع المورد المختار'],
 	 procurement_line_invalid:[422,'PROCUREMENT_LINE','أحد الأصناف لا يتبع طلب الشراء المجمد'],
 	 procurement_quantity_exceeded:[409,'PROCUREMENT_QUANTITY','الكمية المدخلة تتجاوز المتبقي المطلوب من العميل'],
+	 procurement_funding_validation:[422,'PROCUREMENT_FUNDING_VALIDATION','اختر مصدر التمويل صراحةً وأدخل مرجع الإثبات وملاحظة واضحة'],
+	 procurement_funding_not_found:[404,'PROCUREMENT_FUNDING_NOT_FOUND','سجل الشراء أو التمويل غير مرتبط بمهمة الشراء هذه'],
+	 procurement_funding_exists:[409,'PROCUREMENT_FUNDING_EXISTS','سبق تسجيل مصدر تمويل هذه العملية. حدّث المهمة'],
+	 procurement_funding_state_invalid:[409,'PROCUREMENT_FUNDING_STATE','حالة المهمة لا تسمح بتسجيل مصدر التمويل'],
+	 procurement_funding_zero_liability:[409,'PROCUREMENT_FUNDING_ZERO','لا يمكن إنشاء مستحق موظف أو مورد لتكلفة فعلية صفرية'],
+	 procurement_settlement_validation:[422,'PROCUREMENT_SETTLEMENT_VALIDATION','راجع مبلغ التسوية ومرجع الدفع والملاحظة'],
+	 procurement_settlement_not_found:[404,'PROCUREMENT_SETTLEMENT_NOT_FOUND','تعذر ربط التسوية بمهمة الشراء المطلوبة'],
+	 procurement_settlement_not_payable:[409,'PROCUREMENT_SETTLEMENT_NOT_PAYABLE','دفع الشركة لا ينشئ مستحقًا قابلًا للتسوية'],
+	 procurement_settlement_exceeded:[409,'PROCUREMENT_SETTLEMENT_EXCEEDED','مبلغ التسوية يتجاوز الرصيد المتبقي'],
 	  procurement_order_invalid:[409,'PROCUREMENT_ORDER','الطلب ليس نشطًا ضمن مسار الشراء المباشر'],
 	  procurement_job_not_found:[404,'PROCUREMENT_JOB_NOT_FOUND','مهمة الشراء غير موجودة'],
   procurement_shortage_decision_validation:[422,'SHORTAGE_DECISION_VALIDATION','أدخل ملاحظة واضحة ثم اختر الموافقة أو الرفض صراحةً'],
@@ -185,6 +208,14 @@ Deno.serve(guard(async(req:Request)=>{const requestId=crypto.randomUUID();try{
 	mm=p.match(/^\/api\/ops\/procurement\/(prc-[0-9a-f]{32})\/purchases$/);if(mm&&m==='POST'){
 	 requireCsrf(req);const payload=procurementPurchasePayload(await body(req));
 	 return json(await rpc('jana_ops_procurement_purchase_record',{p_token:token,p_idem_key:requiredIdempotency(req),p_job_id:mm[1],p_payload:payload}),201,{'x-request-id':requestId});
+	}
+	mm=p.match(/^\/api\/ops\/procurement\/(prc-[0-9a-f]{32})\/funding$/);if(mm&&m==='POST'){
+	 requireCsrf(req);const b=procurementFundingPayload(await body(req));
+	 return json(await rpc('jana_ops_procurement_funding_record',{p_token:token,p_idem_key:requiredIdempotency(req),p_job_id:mm[1],p_purchase_record_id:b.purchase_record_id,p_funding_source:b.funding_source,p_evidence_reference:b.evidence_reference,p_note:b.note}),201,{'x-request-id':requestId});
+	}
+	mm=p.match(/^\/api\/ops\/procurement\/(prc-[0-9a-f]{32})\/settlements$/);if(mm&&m==='POST'){
+	 requireCsrf(req);const b=procurementSettlementPayload(await body(req));
+	 return json(await rpc('jana_ops_procurement_settlement_record',{p_token:token,p_idem_key:requiredIdempotency(req),p_job_id:mm[1],p_funding_id:b.funding_id,p_amount_halalas:b.amount_halalas,p_payment_reference:b.payment_reference,p_note:b.note}),201,{'x-request-id':requestId});
 	}
  if(p==='/api/ops/reports'&&m==='GET'){await role(token,['admin','finance']);return json(await rpc('jana_admin_reports',{p_token:token}),200,{'x-request-id':requestId})}
  if(p==='/api/ops/staff'&&m==='POST'){requireCsrf(req);const b=await body(req);return json(await rpc('jana_staff_write',{p_token:token,p_idem_key:requiredIdempotency(req),p_operation:'staff.create',p_payload:{email:b.email,name:b.name,password:b.password,role:b.role}}),201,{'x-request-id':requestId})}
