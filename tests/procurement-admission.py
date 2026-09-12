@@ -136,9 +136,8 @@ assert val("SELECT count(*) FROM audit_log WHERE entity_id IN ("+literal(first['
 assert val('SELECT jana_deep_health();')['ok']
 passed('complete collection is immutable private audited evidence without settlement or handover')
 
-# Approval has a deliberately different terminal gate: it blocks further
-# collection and does not make the order courier-ready until the exact approved
-# retail adjustment exists.
+# Approval blocks collection until the exact approved retail adjustment is
+# applied. The adjustment makes procurement ready for handover, not delivery.
 approval_quote=val(supplier_quote('procurement-approval-quote-'+uuid.uuid4().hex,items))
 approval_order=val(rpc('jana_supplier_pickup_order_confirm',f['t'],approval_quote['id']))
 approval_job=val('SELECT to_jsonb(j) FROM procurement_jobs j WHERE order_id='+literal(approval_order['id'])+';')
@@ -159,4 +158,35 @@ assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_procurement_sho
 assert val("SELECT count(*) FROM audit_log WHERE entity_id IN ("+literal(approval_request['id'])+','+literal(approval['id'])+") AND action IN ('procurement_shortage_proposed','procurement_shortage_decided');")==2
 assert val('SELECT jana_deep_health();')['ok']
 passed('approved removal is immutable explicit consent and blocks collection pending exact financial adjustment')
+
+approval_before=val('SELECT jsonb_build_object(\'total\',total_halalas,\'snapshot\',snapshot::jsonb,\'original\',original_snapshot::jsonb) FROM orders WHERE id='+literal(approval_order['id'])+';')
+adjust_key='procurement-adjust-'+uuid.uuid4().hex
+adjust_query=rpc('jana_procurement_shortage_apply_adjustment',f['atok'],adjust_key,approval_request['id'],5,'Apply only the customer-approved missing quantity reduction')
+fails(rpc('jana_procurement_shortage_apply_adjustment',f['t'],'customer-adjust-'+uuid.uuid4().hex,approval_request['id'],5,'Customer cannot execute internal adjustment'),'forbidden')
+fails(rpc('jana_procurement_shortage_apply_adjustment',f['atok'],'stale-adjust-'+uuid.uuid4().hex,approval_request['id'],4,'Stale adjustment attempt'),'procurement_changed')
+adjusted=val(adjust_query)
+assert adjusted['job_state']=='ready' and adjusted['revision']==6 and adjusted['customer_total_changed']
+assert adjusted['customer_total_before_halalas']==approval_before['total']
+assert adjusted['approved_reduction_halalas']==approval_request['proposed_reduction_halalas']
+assert adjusted['customer_total_after_halalas']==approval_before['total']-approval_request['proposed_reduction_halalas']
+assert adjusted['original_snapshot_changed'] is False and adjusted['inventory_changed'] is False
+assert adjusted['supplier_cost_changed'] is False and adjusted['cash_changed'] is False and adjusted['requires_handover']
+assert val(adjust_query)==adjusted
+fails(rpc('jana_procurement_shortage_apply_adjustment',f['atok'],adjust_key,approval_request['id'],5,'Conflicting adjustment reason'),'idempotency_conflict')
+approval_after=val('SELECT jsonb_build_object(\'total\',total_halalas,\'snapshot\',snapshot::jsonb,\'original\',original_snapshot::jsonb) FROM orders WHERE id='+literal(approval_order['id'])+';')
+assert approval_after['total']==adjusted['customer_total_after_halalas']
+assert approval_after['snapshot']['total_halalas']==approval_after['total']
+assert approval_after['snapshot']['subtotal_halalas']==approval_before['snapshot']['subtotal_halalas']-approval_request['proposed_reduction_halalas']
+assert len(approval_after['snapshot']['lines'])==1 and approval_after['snapshot']['lines'][0]['qty']==1
+assert approval_after['snapshot']['lines'][0]['line_total_halalas']==approval_after['snapshot']['lines'][0]['unit_price_halalas']
+assert approval_after['snapshot']['procurement_state']=='ready_for_handover'
+assert approval_after['original']==approval_before['original']
+assert business()['balance']==before['balance'] and business()['lot']==before['lot'] and business()['movements']==before['movements']
+fails('UPDATE procurement_retail_adjustments SET reason=\'tampered\' WHERE id='+literal(adjusted['id'])+';','append_only')
+assert val("SELECT count(*) FROM pg_class WHERE relname='procurement_retail_adjustments' AND relrowsecurity AND NOT has_table_privilege('anon',oid,'SELECT') AND NOT has_table_privilege('authenticated',oid,'SELECT') AND NOT has_table_privilege('service_role',oid,'SELECT');")==1
+assert val("SELECT count(*) FROM pg_proc WHERE proname='jana_procurement_shortage_apply_adjustment' AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE') OR has_function_privilege('service_role',oid,'EXECUTE'));")==0
+assert val("SELECT count(*) FROM audit_log WHERE entity_id="+literal(adjusted['id'])+" AND action='procurement_shortage_adjusted';")==1
+assert val("SELECT count(*) FROM order_events WHERE order_id="+literal(approval_order['id'])+" AND event='procurement_shortage_adjusted';")==1
+assert val('SELECT jana_deep_health();')['ok']
+passed('approved reduction applies exactly once while original terms inventory supplier cost and cash stay unchanged')
 print(json.dumps(dict(passed=len(checks),checks=checks)))
