@@ -79,10 +79,12 @@ supplier=p+'supplier';run("INSERT INTO suppliers(id,name,phone,active) VALUES("+
 site=val(rpc('jana_supplier_pickup_site_write',f['atok'],'procurement-site-create',dict(id=None,revision=None,reason='Disposable retailer',changes=dict(supplier_id=supplier,name='Fixture local shop'))))
 site=val(rpc('jana_supplier_pickup_site_write',f['atok'],'procurement-site-active',dict(id=site['id'],revision=1,reason='Disposable reviewed address',changes=dict(city='Fixture city',address_line='Disposable shop only',latitude=16.5,longitude=42.5,active=True))))
 customer_total=val('SELECT total_halalas FROM orders WHERE id='+literal(order['id'])+';');line_id=job['requested_lines'][0]['line_id']
-def purchase(key,revision,qty,cost,reference='FIXTURE-RECEIPT-1',token=None,extra=None):
- payload=dict(order_id=order['id'],expected_revision=revision,supplier_id=supplier,pickup_site_id=site['id'],document_reference=reference,note='Disposable purchase evidence',lines=[dict(line_id=line_id,collected_qty=qty,actual_cost_halalas=cost,quality_note='Disposable quality accepted')])
+def purchase_for(target_order,target_line,key,revision,qty,cost,reference='FIXTURE-RECEIPT-1',token=None,extra=None):
+ payload=dict(order_id=target_order,expected_revision=revision,supplier_id=supplier,pickup_site_id=site['id'],document_reference=reference,note='Disposable purchase evidence',lines=[dict(line_id=target_line,collected_qty=qty,actual_cost_halalas=cost,quality_note='Disposable quality accepted')])
  if extra:payload.update(extra)
  return rpc('jana_procurement_purchase_record',token or f['atok'],key,payload)
+def purchase(key,revision,qty,cost,reference='FIXTURE-RECEIPT-1',token=None,extra=None):
+ return purchase_for(order['id'],line_id,key,revision,qty,cost,reference,token,extra)
 purchase_key='procurement-purchase-'+uuid.uuid4().hex
 first=val(purchase(purchase_key,2,1,500));assert first['state']=='collecting' and first['revision']==3 and not first['collection_complete']
 assert val(purchase(purchase_key,2,1,500))==first
@@ -90,12 +92,40 @@ fails(purchase(purchase_key,2,1,501),'idempotency_conflict')
 assert val('SELECT total_halalas FROM orders WHERE id='+literal(order['id'])+';')==customer_total
 assert business()['balance']==before['balance'] and business()['lot']==before['lot'] and business()['movements']==before['movements']
 passed('partial supplier purchase is durable and leaves customer price and inventory unchanged')
-fails(purchase('procurement-over-'+uuid.uuid4().hex,3,2,900,'FIXTURE-OVER'),'procurement_quantity_exceeded')
-fails(purchase('procurement-customer-'+uuid.uuid4().hex,3,1,500,'FIXTURE-CUSTOMER',f['t']),'forbidden')
-fails(purchase('procurement-stale-'+uuid.uuid4().hex,2,1,500,'FIXTURE-STALE'),'procurement_changed')
+
+# A shortage proposal freezes every currently missing quantity and its displayed
+# retail reduction. The customer's decision remains evidence only until the
+# separate financial-adjustment gate is implemented.
+shortage_key='procurement-shortage-'+uuid.uuid4().hex
+shortage_query=rpc('jana_procurement_shortage_propose',f['atok'],shortage_key,order['id'],3,'Fixture supplier could not provide the remainder')
+shortage=val(shortage_query)
+assert shortage['state']=='pending' and shortage['job_state']=='awaiting_customer' and shortage['revision']==4
+assert len(shortage['missing_lines'])==1 and shortage['missing_lines'][0]['missing_qty']==1
+assert shortage['customer_total_before_halalas']==customer_total and shortage['customer_total_changed'] is False
+assert shortage['customer_total_if_approved_halalas']==customer_total-shortage['proposed_reduction_halalas']
+assert val(shortage_query)==shortage
+fails(rpc('jana_procurement_shortage_propose',f['atok'],shortage_key,order['id'],3,'Conflicting shortage reason'),'idempotency_conflict')
+fails(purchase('procurement-while-waiting-'+uuid.uuid4().hex,4,1,500,'FIXTURE-WAITING'),'procurement_custody_required')
+passed('shortage proposal freezes all missing quantities and displayed-price reduction without applying it')
+
+decision_key='procurement-shortage-decision-'+uuid.uuid4().hex
+decision_query=rpc('jana_procurement_shortage_decide',f['t'],decision_key,shortage['id'],4,'reject_removal','Please continue purchasing the requested item')
+fails(rpc('jana_procurement_shortage_decide',other_token,'wrong-owner-'+uuid.uuid4().hex,shortage['id'],4,'reject_removal','Not the order owner'),'procurement_shortage_not_found')
+decision=val(decision_query)
+assert decision['decision']=='reject_removal' and decision['request_state']=='rejected'
+assert decision['job_state']=='collecting' and decision['revision']==5 and decision['customer_total_changed'] is False
+assert decision['approved_adjustment_applied'] is False and decision['requires_financial_adjustment'] is False
+assert val(decision_query)==decision
+fails(rpc('jana_procurement_shortage_decide',f['t'],decision_key,shortage['id'],4,'approve_removal','Conflicting decision'),'idempotency_conflict')
+assert val('SELECT total_halalas FROM orders WHERE id='+literal(order['id'])+';')==customer_total
+passed('only the order customer can explicitly decide the shortage and rejection safely resumes collection')
+
+fails(purchase('procurement-over-'+uuid.uuid4().hex,5,2,900,'FIXTURE-OVER'),'procurement_quantity_exceeded')
+fails(purchase('procurement-customer-'+uuid.uuid4().hex,5,1,500,'FIXTURE-CUSTOMER',f['t']),'forbidden')
+fails(purchase('procurement-stale-'+uuid.uuid4().hex,4,1,500,'FIXTURE-STALE'),'procurement_changed')
 passed('assignment custody revision and requested quantity bounds reject unsafe collection')
-second=val(purchase('procurement-finish-'+uuid.uuid4().hex,3,1,550,'FIXTURE-RECEIPT-2'))
-assert second['state']=='ready' and second['revision']==4 and second['collection_complete'] and second['customer_total_halalas']==customer_total
+second=val(purchase('procurement-finish-'+uuid.uuid4().hex,5,1,550,'FIXTURE-RECEIPT-2'))
+assert second['state']=='ready' and second['revision']==6 and second['collection_complete'] and second['customer_total_halalas']==customer_total
 assert val('SELECT sum(total_actual_cost_halalas) FROM procurement_purchase_records WHERE job_id='+literal(job['id'])+';')==1050
 assert val('SELECT sum(collected_qty) FROM procurement_purchase_lines WHERE job_id='+literal(job['id'])+' AND requested_line_id='+literal(line_id)+';')==2
 fails('UPDATE procurement_purchase_records SET note=\'tampered\' WHERE id='+literal(first['id'])+';','append_only')
@@ -105,4 +135,28 @@ assert val("SELECT count(*) FROM pg_proc WHERE proname='jana_procurement_purchas
 assert val("SELECT count(*) FROM audit_log WHERE entity_id IN ("+literal(first['id'])+','+literal(second['id'])+") AND action='procurement_purchase_recorded';")==2
 assert val('SELECT jana_deep_health();')['ok']
 passed('complete collection is immutable private audited evidence without settlement or handover')
+
+# Approval has a deliberately different terminal gate: it blocks further
+# collection and does not make the order courier-ready until the exact approved
+# retail adjustment exists.
+approval_quote=val(supplier_quote('procurement-approval-quote-'+uuid.uuid4().hex,items))
+approval_order=val(rpc('jana_supplier_pickup_order_confirm',f['t'],approval_quote['id']))
+approval_job=val('SELECT to_jsonb(j) FROM procurement_jobs j WHERE order_id='+literal(approval_order['id'])+';')
+approval_job=val(rpc('jana_procurement_job_assign',f['atok'],'procurement-approval-assign-'+uuid.uuid4().hex,approval_order['id'],p+'a',1,'Disposable approval assignment'))
+approval_line=val('SELECT requested_lines->0->>\'line_id\' FROM procurement_jobs WHERE id='+literal(approval_job['id'])+';')
+approval_purchase=val(purchase_for(approval_order['id'],approval_line,'procurement-approval-purchase-'+uuid.uuid4().hex,2,1,500,'FIXTURE-APPROVAL-RECEIPT'))
+assert approval_purchase['state']=='collecting' and approval_purchase['revision']==3
+approval_request=val(rpc('jana_procurement_shortage_propose',f['atok'],'procurement-approval-shortage-'+uuid.uuid4().hex,approval_order['id'],3,'Fixture final unit unavailable'))
+approval=val(rpc('jana_procurement_shortage_decide',f['t'],'procurement-approval-decision-'+uuid.uuid4().hex,approval_request['id'],4,'approve_removal','I approve removing the unavailable quantity'))
+assert approval['request_state']=='approved' and approval['job_state']=='shortage_approved' and approval['revision']==5
+assert approval['requires_financial_adjustment'] and not approval['approved_adjustment_applied'] and not approval['customer_total_changed']
+assert val('SELECT total_halalas FROM orders WHERE id='+literal(approval_order['id'])+';')==approval_order['total_halalas']
+fails(purchase_for(approval_order['id'],approval_line,'procurement-after-approval-'+uuid.uuid4().hex,5,1,500,'FIXTURE-AFTER-APPROVAL'),'procurement_custody_required')
+fails('UPDATE procurement_shortage_requests SET reason=\'tampered\' WHERE id='+literal(approval_request['id'])+';','shortage_request_immutable')
+fails('DELETE FROM procurement_shortage_decisions WHERE request_id='+literal(approval_request['id'])+';','append_only')
+assert val("SELECT count(*) FROM pg_class WHERE relname IN ('procurement_shortage_requests','procurement_shortage_decisions') AND relrowsecurity AND NOT has_table_privilege('anon',oid,'SELECT') AND NOT has_table_privilege('authenticated',oid,'SELECT') AND NOT has_table_privilege('service_role',oid,'SELECT');")==2
+assert val("SELECT count(*) FROM pg_proc WHERE proname IN ('jana_procurement_shortage_propose','jana_procurement_shortage_decide') AND (has_function_privilege('anon',oid,'EXECUTE') OR has_function_privilege('authenticated',oid,'EXECUTE') OR has_function_privilege('service_role',oid,'EXECUTE'));")==0
+assert val("SELECT count(*) FROM audit_log WHERE entity_id IN ("+literal(approval_request['id'])+','+literal(approval['id'])+") AND action IN ('procurement_shortage_proposed','procurement_shortage_decided');")==2
+assert val('SELECT jana_deep_health();')['ok']
+passed('approved removal is immutable explicit consent and blocks collection pending exact financial adjustment')
 print(json.dumps(dict(passed=len(checks),checks=checks)))
