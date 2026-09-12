@@ -10,6 +10,8 @@ run("INSERT INTO users(id,email,name,password_hash,role,verified_phone,active,cr
 # Use the existing launch gate only to create an isolated open-store fixture, then
 # remove all physical stock before exercising the new dormant path.
 s=get_store(f)
+if s['accepting_orders']:
+ s=intake(f,False)
 # The preceding compatibility tests may already have created the sole legacy hub.
 # Reuse it only to satisfy the old launch gate; this is not part of the new flow.
 w=val("SELECT to_jsonb(w) FROM warehouses w WHERE active ORDER BY id LIMIT 1;")
