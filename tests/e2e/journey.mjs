@@ -100,6 +100,8 @@ try{
  pass('warehouse can validate an Arabic Excel stock master before any definition balance lot or movement write');
  await inventory.locator('[data-action=new-supplier]').click();await inventory.locator('#supplier-form [name=name]').fill('مورد اختبار المتصفح');
  const supplier=await change(inventory,'/api/ops/suppliers',()=>inventory.locator('#supplier-form button').click());
+ await inventory.locator('#supplier-form').waitFor({state:'detached'});
+ await inventory.getByText('مورد اختبار المتصفح',{exact:false}).last().waitFor();
  const pickupBefore={stock:stock(),cash:Number(sql('SELECT count(*) FROM cash_entries;')),warehouses:Number(sql('SELECT count(*) FROM warehouses;'))};
  await inventory.locator('[data-page=pickup-sites]').click();await inventory.setViewportSize({width:390,height:844});await inventory.locator('#new-pickup-site').click();
  const pickupForm=inventory.locator('#pickup-site-form');await pickupForm.locator('[name=supplier_id]').selectOption(supplier.id);await pickupForm.locator('[name=name]').fill('محل اختبار معزول');await pickupForm.locator('[name=city]').fill('مدينة الاختبار');await pickupForm.locator('[name=address_line]').fill('عنوان اختبار معزول');await pickupForm.locator('[name=latitude]').fill('١٦٫٥');await pickupForm.locator('[name=longitude]').fill('٤٢٫٥');await pickupForm.locator('[name=active]').selectOption('true');await pickupForm.locator('[name=reason]').fill('مراجعة موقع في بيئة الاختبار');
